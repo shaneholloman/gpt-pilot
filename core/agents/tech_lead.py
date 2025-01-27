@@ -281,7 +281,22 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 "num_epics": len(self.current_state.epics),
             },
         )
+
+        await self.remove_mocked_data()
+
         return AgentResponse.done(self)
+
+    # TODO - Move to a separate agent for removing mocked data
+    async def remove_mocked_data(self):
+        files = self.current_state.files
+        for file in files:
+            file_content = file.content.content
+            if "pythagora_mocked_response" in file_content:
+                for line in file_content.split("\n"):
+                    if "pythagora_mocked_data" in line:
+                        file_content = file_content.replace(line, "")
+                file.content.content = file_content
+                await self.state_manager.save_file(file.path, file_content)
 
     def update_epics_and_tasks(self, edited_plan_string):
         edited_plan = json.loads(edited_plan_string)
