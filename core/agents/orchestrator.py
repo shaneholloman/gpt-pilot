@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from typing import List, Optional, Union
 
 from core.agents.architect import Architect
@@ -63,6 +64,7 @@ class Orchestrator(BaseAgent, GitMixin):
         if self.args.use_git and await self.check_git_installed():
             await self.init_git_if_needed()
 
+        await self.set_frontend_script()
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
         # and the inner which runs the agents for the current step until they're done. This would simplify
         # handle_done() and let us do other per-step processing (eg. describing files) in between agent runs.
@@ -128,6 +130,46 @@ class Orchestrator(BaseAgent, GitMixin):
         if not os.path.exists(node_modules_path):
             await self.send_message("Installing project dependencies...")
             await self.process_manager.run_command("npm install", show_output=False)
+
+    async def set_frontend_script(self):
+        file_path = os.path.join("client", "index.html")
+        absolute_path = os.path.join(self.state_manager.get_full_project_root(), file_path)
+        script_tag = '<script src="https://s3.us-east-1.amazonaws.com/assets.pythagora.ai/scripts/utils.js"></script>'
+
+        # Check if file exists
+        if not os.path.exists(absolute_path):
+            return
+
+        try:
+            # Read the HTML file
+            with open(absolute_path, "r", encoding="utf-8") as file:
+                content = file.read()
+
+            # Check if script already exists
+            if script_tag in content:
+                return
+
+            # Find the head tag and title tag
+            head_match = re.search(r"<head[^>]*>(.*?)</head>", content, re.DOTALL | re.IGNORECASE)
+
+            if head_match:
+                head_content = head_match.group(1)
+                title_match = re.search(r"(<title[^>]*>.*?</title>)", head_content, re.DOTALL | re.IGNORECASE)
+
+                if title_match:
+                    # Insert after title
+                    new_head = head_content.replace(title_match.group(1), f"{title_match.group(1)}\n    {script_tag}")
+                else:
+                    # Insert at the beginning of head
+                    new_head = f"\n    {script_tag}{head_content}"
+
+                # Replace old head content with new one
+                new_content = content.replace(head_content, new_head)
+
+                await self.state_manager.save_file(file_path, new_content)
+
+        except Exception as e:
+            log.error(f"An error occurred: {str(e)}")
 
     def handle_parallel_responses(self, agent: BaseAgent, responses: List[AgentResponse]) -> AgentResponse:
         """
