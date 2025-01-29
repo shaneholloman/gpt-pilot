@@ -1,8 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-const backendURL = '';
 const api = axios.create({
-  baseURL: backendURL,
   headers: {
     'Content-Type': 'application/json',
   },
