@@ -83,6 +83,7 @@ RUN python3 -m venv venv && \
 # Copy application files
 ADD main.py .
 ADD core core
+ADD pyproject.toml .
 ADD config-docker.json config.json
 
 # Set the virtual environment to be automatically activated
