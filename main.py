@@ -1,8 +1,16 @@
 #!/usr/bin/env python
-
-
 import os.path
 import sys
+
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://4101633bc5560bae67d6eab013ba9686@o4508731634221056.ingest.us.sentry.io/4508732401909760",
+    send_default_pii=True,
+    traces_sample_rate=1.0,
+)
+
+sentry_sdk.profiler.start_profiler()
 
 try:
     from core.cli.main import run_pythagora

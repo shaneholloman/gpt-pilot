@@ -5,9 +5,12 @@ import sys
 from argparse import Namespace
 from asyncio import run
 
+import sentry_sdk
+
 from core.agents.orchestrator import Orchestrator
 from core.cli.helpers import delete_project, init, list_projects, list_projects_json, load_project, show_config
 from core.config import LLMProvider, get_config
+from core.config.version import get_version
 from core.db.session import SessionManager
 from core.db.v0importer import LegacyDatabaseImporter
 from core.llm.anthropic_client import CustomAssertionError
@@ -277,6 +280,16 @@ async def async_main(
         return success
 
     telemetry.set("user_contact", args.email)
+    sentry_sdk.set_user({"email": args.email or "CLI only"})
+    sentry_sdk.set_context(
+        "pythagora-data",
+        {
+            "extension-version": args.extension_version or "CLI only",
+            "core-version": get_version(),
+            # TODO get environment from the extension
+            # "environment": args.environment,
+        },
+    )
     if args.extension_version:
         telemetry.set("is_extension", True)
         telemetry.set("extension_version", args.extension_version)
