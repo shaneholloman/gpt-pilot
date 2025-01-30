@@ -280,7 +280,13 @@ async def async_main(
         return success
 
     telemetry.set("user_contact", args.email)
-    sentry_sdk.set_user({"email": args.email or "CLI only"})
+    sentry_sdk.set_user(
+        {
+            # TODO add user id
+            # "id": args.user_id or "CLI only",
+            "email": args.email or "CLI only",
+        }
+    )
     sentry_sdk.set_context(
         "pythagora-data",
         {
