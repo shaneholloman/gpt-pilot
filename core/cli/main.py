@@ -39,13 +39,7 @@ async def cleanup(ui: UIBase):
 
 
 def sync_cleanup(ui: UIBase):
-    loop = None
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        asyncio.run(cleanup(ui))
-    else:
-        loop.create_task(cleanup(ui))
+    asyncio.run(cleanup(ui))
 
 
 async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
@@ -319,11 +313,23 @@ async def async_main(
 
     telemetry.start()
 
-    # Set up signal handlers
     def signal_handler(sig, frame):
-        if not telemetry_sent:
-            sync_cleanup(ui)
-        sys.exit(0)
+        try:
+            loop = asyncio.get_running_loop()
+
+            def close_all():
+                loop.stop()
+                sys.exit(0)
+
+            if not telemetry_sent:
+                cleanup_task = loop.create_task(cleanup(ui))
+                cleanup_task.add_done_callback(close_all)
+            else:
+                close_all()
+        except RuntimeError:
+            if not telemetry_sent:
+                sync_cleanup(ui)
+            sys.exit(0)
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, signal_handler)

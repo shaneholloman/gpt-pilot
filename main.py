@@ -2,6 +2,8 @@
 import os.path
 import sys
 
+from sentry_sdk.integrations.asyncio import AsyncioIntegration
+
 try:
     import sentry_sdk
 
@@ -9,6 +11,7 @@ try:
         dsn="https://4101633bc5560bae67d6eab013ba9686@o4508731634221056.ingest.us.sentry.io/4508732401909760",
         send_default_pii=True,
         traces_sample_rate=1.0,
+        integrations=[AsyncioIntegration()],
     )
 
     sentry_sdk.profiler.start_profiler()
