@@ -39,7 +39,13 @@ async def cleanup(ui: UIBase):
 
 
 def sync_cleanup(ui: UIBase):
-    asyncio.run(cleanup(ui))
+    loop = None
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(cleanup(ui))
+    else:
+        loop.create_task(cleanup(ui))
 
 
 async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
