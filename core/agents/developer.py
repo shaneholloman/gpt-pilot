@@ -40,7 +40,6 @@ class SaveFileOptions(BaseModel):
 class SaveFileStep(BaseModel):
     type: Literal[StepType.SAVE_FILE] = StepType.SAVE_FILE
     save_file: SaveFileOptions
-    related_api_endpoints: list[str] = Field(description="API endpoints that are implemented in this file", default=[])
 
 
 class CommandStep(BaseModel):
@@ -220,6 +219,14 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.ui.start_breakdown_stream()
         related_api_endpoints = current_task.get("related_api_endpoints", [])
         llm = self.get_llm(TASK_BREAKDOWN_AGENT_NAME, stream_output=True)
+        # TODO: Temp fix for old projects
+        if not (
+            related_api_endpoints
+            and len(related_api_endpoints) > 0
+            and all(isinstance(api, dict) and "endpoint" in api for api in related_api_endpoints)
+        ):
+            related_api_endpoints = []
+
         convo = AgentConvo(self).template(
             "breakdown",
             task=current_task,

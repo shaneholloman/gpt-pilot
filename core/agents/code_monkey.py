@@ -229,12 +229,20 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
         task = self.current_state.current_task
         current_task_index = self.current_state.tasks.index(task)
 
+        related_api_endpoints = task.get("related_api_endpoints", [])
+        # TODO: Temp fix for old projects
+        if not (
+            related_api_endpoints
+            and len(related_api_endpoints) > 0
+            and all(isinstance(api, dict) and "endpoint" in api for api in related_api_endpoints)
+        ):
+            related_api_endpoints = []
         convo = AgentConvo(self).template(
             "breakdown",
             task=task,
             iteration=None,
             current_task_index=current_task_index,
-            related_api_endpoints=task.get("related_api_endpoints", []),
+            related_api_endpoints=related_api_endpoints,
         )
         # TODO: We currently show last iteration to the code monkey; we might need to show the task
         # breakdown and all the iterations instead? To think about when refactoring prompts
