@@ -135,7 +135,7 @@ class Orchestrator(BaseAgent, GitMixin):
         node_modules_path = os.path.join(self.state_manager.get_full_project_root(), "node_modules")
         if not os.path.exists(node_modules_path):
             await self.send_message("Installing project dependencies...")
-            await self.process_manager.run_command("npm install", show_output=False)
+            await self.process_manager.run_command("npm install", show_output=False, timeout=600)
 
     async def set_frontend_script(self):
         file_path = os.path.join("client", "index.html")

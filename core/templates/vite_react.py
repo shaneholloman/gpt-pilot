@@ -133,4 +133,4 @@ class ViteReactProjectTemplate(BaseProjectTemplate):
     ]
 
     async def install_hook(self):
-        await self.process_manager.run_command("npm install", show_output=False)
+        await self.process_manager.run_command("npm install", show_output=False, timeout=600)
