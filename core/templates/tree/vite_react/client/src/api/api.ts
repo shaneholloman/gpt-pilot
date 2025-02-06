@@ -1,8 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-const backendURL = '';
 const api = axios.create({
-  baseURL: backendURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -39,10 +37,11 @@ api.interceptors.response.use(
 
       try {
         // Attempt to refresh the token
-        const { data } = await axios.post<{ accessToken: string }>(`${backendURL}/api/auth/refresh`, {
+        const { data } = await axios.post(`/api/auth/refresh`, {
           refreshToken: localStorage.getItem('refreshToken'),
         });
-        accessToken = data.accessToken;
+        localStorage.setItem('accessToken', data.data.accessToken);
+        accessToken = data.data.accessToken;
 
         // Retry the original request with the new token
         if (originalRequest.headers) {
