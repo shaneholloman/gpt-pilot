@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     inotify-tools \
     vim \
     nano \
+    lsof \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Add deadsnakes PPA for Python 3.12 and install Python
