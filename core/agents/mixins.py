@@ -1,3 +1,4 @@
+import asyncio
 import json
 from difflib import unified_diff
 from typing import List, Optional, Union
@@ -134,13 +135,44 @@ class IterationPromptMixin:
 
 class RelevantFilesMixin:
     """
-    Provides a method to get relevant files for the current task.
+    Asynchronously retrieves relevant files for the current task by separating front-end and back-end files, and processing them in parallel.
+
+    This method initiates two asynchronous tasks to fetch relevant files for the front-end (client) and back-end (server) respectively.
+    It then combines the results, filters out any non-existing files, and updates the current and next state with the relevant files.
     """
 
-    async def get_relevant_files(
+    async def get_relevant_files_parallel(
         self, user_feedback: Optional[str] = None, solution_description: Optional[str] = None
     ) -> AgentResponse:
-        log.debug("Getting relevant files for the current task")
+        tasks = [
+            self.get_relevant_files(
+                user_feedback=user_feedback, solution_description=solution_description, dir_type="client"
+            ),
+            self.get_relevant_files(
+                user_feedback=user_feedback, solution_description=solution_description, dir_type="server"
+            ),
+        ]
+
+        responses = await asyncio.gather(*tasks)
+
+        relevant_files = [item for sublist in responses for item in sublist]
+
+        existing_files = {file.path for file in self.current_state.files}
+        relevant_files = [path for path in relevant_files if path in existing_files]
+        self.current_state.relevant_files = relevant_files
+        self.next_state.relevant_files = relevant_files
+
+        return AgentResponse.done(self)
+
+    async def get_relevant_files(
+        self,
+        user_feedback: Optional[str] = None,
+        solution_description: Optional[str] = None,
+        dir_type: Optional[str] = None,
+    ) -> list[str]:
+        log.debug(
+            "Getting relevant files for the current task for: " + ("frontend" if dir_type == "client" else "backend")
+        )
         done = False
         relevant_files = set()
         llm = self.get_llm(GET_RELEVANT_FILES_AGENT_NAME)
@@ -151,6 +183,7 @@ class RelevantFilesMixin:
                 user_feedback=user_feedback,
                 solution_description=solution_description,
                 relevant_files=relevant_files,
+                dir_type=dir_type,
             )
             .require_schema(RelevantFiles)
         )
@@ -184,11 +217,7 @@ class RelevantFilesMixin:
             done = getattr(action, "done", False)
 
         existing_files = {file.path for file in self.current_state.files}
-        relevant_files = [path for path in relevant_files if path in existing_files]
-        self.current_state.relevant_files = relevant_files
-        self.next_state.relevant_files = relevant_files
-
-        return AgentResponse.done(self)
+        return [path for path in relevant_files if path in existing_files]
 
 
 class FileDiffMixin:
