@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 from typing import List, Optional, Union
+
 from core.agents.architect import Architect
 from core.agents.base import BaseAgent
 from core.agents.bug_hunter import BugHunter
@@ -64,7 +65,6 @@ class Orchestrator(BaseAgent, GitMixin):
             await self.init_git_if_needed()
 
         await self.set_frontend_script()
-
         await self.set_allowed_hosts()
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
@@ -182,12 +182,7 @@ class Orchestrator(BaseAgent, GitMixin):
     async def set_allowed_hosts(self):
         file_path = os.path.join("client", "vite.config.ts")
         absolute_path = os.path.join(self.state_manager.get_full_project_root(), file_path)
-        allowed_hosts = """
-        allowedHosts: [
-          'localhost',
-          '.deployments.pythagora.ai'
-        ],
-        """
+        allowed_hosts = """    allowedHosts: ["localhost", ".deployments.pythagora.ai"],"""
 
         if not os.path.exists(absolute_path):
             return
@@ -198,7 +193,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 content = file.read()
 
             # Find the server configuration
-            server_block_match = re.search(r'server:\s*{[^}]*}', content, re.DOTALL)
+            server_block_match = re.search(r"server:\s*{[^}]*}", content, re.DOTALL)
 
             if server_block_match:
                 server_block = server_block_match.group(0)
@@ -208,7 +203,7 @@ class Orchestrator(BaseAgent, GitMixin):
                     log.debug("allowedHosts array already exists with the required values.")
                 else:
                     # Add the allowedHosts array inside the server block
-                    updated_server_block = re.sub(r'(server:\s*{)', r'\1\n' + allowed_hosts, server_block)
+                    updated_server_block = re.sub(r"(server:\s*{)", r"\1\n" + allowed_hosts, server_block)
                     content = content.replace(server_block, updated_server_block)
 
                     # Write the updated content back to the file
