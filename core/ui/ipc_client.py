@@ -338,6 +338,9 @@ class IPCClientUI(UIBase):
 
         response = await self._receive()
         answer = response.content.strip()
+        if answer == "exitPythagoraCore":
+            raise KeyboardInterrupt()
+
         if not answer and default:
             answer = default
 
