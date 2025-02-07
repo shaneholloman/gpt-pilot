@@ -65,6 +65,8 @@ class Orchestrator(BaseAgent, GitMixin):
             await self.init_git_if_needed()
 
         await self.set_frontend_script()
+        await self.set_allowed_hosts()
+
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
         # and the inner which runs the agents for the current step until they're done. This would simplify
         # handle_done() and let us do other per-step processing (eg. describing files) in between agent runs.
@@ -176,6 +178,41 @@ class Orchestrator(BaseAgent, GitMixin):
 
         except Exception as e:
             log.error(f"An error occurred: {str(e)}")
+
+    async def set_allowed_hosts(self):
+        file_path = os.path.join("client", "vite.config.ts")
+        absolute_path = os.path.join(self.state_manager.get_full_project_root(), file_path)
+        allowed_hosts = """    allowedHosts: ["localhost", ".deployments.pythagora.ai"],"""
+
+        if not os.path.exists(absolute_path):
+            return
+
+        try:
+            # Read the TypeScript file
+            with open(absolute_path, "r", encoding="utf-8") as file:
+                content = file.read()
+
+            # Find the server configuration
+            server_block_match = re.search(r"server:\s*{[^}]*}", content, re.DOTALL)
+
+            if server_block_match:
+                server_block = server_block_match.group(0)
+
+                # Check if allowedHosts array exists with the required values
+                if all(word in content for word in ["allowedHosts", "localhost", ".deployments.pythagora.ai"]):
+                    log.debug("allowedHosts array already exists with the required values.")
+                else:
+                    # Add the allowedHosts array inside the server block
+                    updated_server_block = re.sub(r"(server:\s*{)", r"\1\n" + allowed_hosts, server_block)
+                    content = content.replace(server_block, updated_server_block)
+
+                    await self.state_manager.save_file(file_path, content)
+                    log.debug("allowedHosts array added to the server block.")
+            else:
+                log.debug("Server block not found")
+
+        except Exception as e:
+            log.debug(f"An error occurred: {e}")
 
     def handle_parallel_responses(self, agent: BaseAgent, responses: List[AgentResponse]) -> AgentResponse:
         """
