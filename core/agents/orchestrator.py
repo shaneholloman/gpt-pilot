@@ -206,14 +206,11 @@ class Orchestrator(BaseAgent, GitMixin):
                     updated_server_block = re.sub(r"(server:\s*{)", r"\1\n" + allowed_hosts, server_block)
                     content = content.replace(server_block, updated_server_block)
 
-                    # Write the updated content back to the file
-                    with open(absolute_path, "w", encoding="utf-8") as file:
-                        file.write(content)
+                    await self.state_manager.save_file(file_path, content)
                     log.debug("allowedHosts array added to the server block.")
             else:
                 log.debug("Server block not found")
 
-                await self.state_manager.save_file(file_path, content)
         except Exception as e:
             log.debug(f"An error occurred: {e}")
 
