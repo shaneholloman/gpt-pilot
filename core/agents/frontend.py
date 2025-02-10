@@ -204,7 +204,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 },
             )
 
-            if await self.init_git_if_needed():
+            if await self.is_git_initialized() or await self.init_git_if_needed():
                 await self.git_commit(commit_msg="Frontend finished")
 
             inputs = []
