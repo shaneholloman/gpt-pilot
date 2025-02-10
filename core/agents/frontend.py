@@ -1,3 +1,4 @@
+import secrets
 from uuid import uuid4
 
 from core.agents.base import BaseAgent
@@ -57,6 +58,8 @@ class Frontend(FileDiffMixin, BaseAgent):
         )
         options = {
             "auth": auth_needed.button == "yes",
+            "jwt_secret": secrets.token_hex(32),
+            "refresh_token_secret": secrets.token_hex(32),
         }
         self.next_state.knowledge_base["user_options"] = options
         self.state_manager.user_options = options
