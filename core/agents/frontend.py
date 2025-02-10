@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
+from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.config import FRONTEND_AGENT_NAME
@@ -14,7 +15,7 @@ from core.ui.base import ProjectStage
 log = get_logger(__name__)
 
 
-class Frontend(FileDiffMixin, BaseAgent):
+class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     agent_type = "frontend"
     display_name = "Frontend"
 
@@ -202,6 +203,9 @@ class Frontend(FileDiffMixin, BaseAgent):
                     "messages": self.current_state.epics[0]["messages"],
                 },
             )
+
+            if await self.init_git_if_needed():
+                await self.git_commit(commit_msg="Frontend finished")
 
             inputs = []
             for file in self.current_state.files:
