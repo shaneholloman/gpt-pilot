@@ -89,7 +89,7 @@ class GitMixin:
             self.state_manager.git_used = True
             return True
 
-    async def git_commit(self, commit_msg: Optional[str] = None) -> None:
+    async def git_commit(self, commit_message: Optional[str] = None) -> None:
         """
         Create a git commit with the specified message. Commit message is optional.
         Raises RuntimeError if the commit fails.
@@ -133,9 +133,7 @@ class GitMixin:
         if status_code != 0:
             raise RuntimeError(f"Failed to create initial commit: {stderr}")
 
-        if commit_msg:
-            commit_message = commit_msg
-        else:
+        if not commit_message:
             llm = self.get_llm()
             convo = AgentConvo(self).template(
                 "commit",
