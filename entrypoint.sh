@@ -24,4 +24,7 @@ su - devuser -c "cd /var/init_data/ && ./on-event-extension-install.sh &"
 
 echo "Starting ssh server..."
 
+git config --global user.email "devuser@pythagora.ai"
+git config --global user.name "pythagora"
+
 /usr/sbin/sshd -D
