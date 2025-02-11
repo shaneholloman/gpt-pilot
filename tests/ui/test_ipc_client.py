@@ -104,6 +104,7 @@ async def test_send_message():
             "full_screen": False,
             "extra_info": "test",
             "placeholder": None,
+            "accessToken": None,
         },
         {
             "type": "exit",
@@ -113,6 +114,7 @@ async def test_send_message():
             "full_screen": False,
             "extra_info": None,
             "placeholder": None,
+            "accessToken": None,
         },
     ]
 
@@ -142,6 +144,7 @@ async def test_stream():
             "full_screen": False,
             "extra_info": None,
             "placeholder": None,
+            "accessToken": None,
         },
         {
             "type": "stream",
@@ -151,6 +154,7 @@ async def test_stream():
             "full_screen": False,
             "extra_info": None,
             "placeholder": None,
+            "accessToken": None,
         },
         {
             "type": "exit",
@@ -160,6 +164,7 @@ async def test_stream():
             "full_screen": False,
             "extra_info": None,
             "placeholder": None,
+            "accessToken": None,
         },
     ]
 

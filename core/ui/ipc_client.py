@@ -55,6 +55,7 @@ class MessageType(str, Enum):
     TEST_INSTRUCTIONS = "testInstructions"
     KNOWLEDGE_BASE_UPDATE = "updatedKnowledgeBase"
     STOP_APP = "stopApp"
+    TOKEN_EXPIRED = "tokenExpired"
 
 
 class Message(BaseModel):
@@ -65,6 +66,9 @@ class Message(BaseModel):
     * `type`: Message type (always "response" for VSC server responses)
     * `category`: Message category (eg. "agent:product-owner"), optional
     * `content`: Message content (eg. "Hello, how are you?"), optional
+    * `extra_info`: Additional information (eg. "This is a hint"), optional
+    * `placeholder`: Placeholder for user input, optional
+    * `access_token`: Access token for user input, optional
     """
 
     type: MessageType
@@ -74,6 +78,7 @@ class Message(BaseModel):
     extra_info: Optional[str] = None
     content: Union[str, dict, None] = None
     placeholder: Optional[str] = None
+    accessToken: Optional[str] = None
 
     def to_bytes(self) -> bytes:
         """
@@ -228,6 +233,12 @@ class IPCClientUI(UIBase):
     async def send_key_expired(self, message: Optional[str] = None):
         await self._send(MessageType.KEY_EXPIRED)
 
+    async def send_token_expired(self):
+        await self._send(MessageType.TOKEN_EXPIRED)
+        response = await self._receive()
+        await self._send(MessageType.VERBOSE, content=response.accessToken)
+        return response.accessToken
+
     async def send_app_finished(
         self,
         app_id: Optional[str] = None,
@@ -337,6 +348,14 @@ class IPCClientUI(UIBase):
             )
 
         response = await self._receive()
+
+        access_token = response.accessToken
+        await self._send(
+            MessageType.VERBOSE,
+            content=access_token,
+            category=category,
+            project_state_id=project_state_id,
+        )
         answer = response.content.strip()
         if answer == "exitPythagoraCore":
             raise KeyboardInterrupt()
@@ -347,17 +366,17 @@ class IPCClientUI(UIBase):
         if buttons:
             # Answer matches one of the buttons (or maybe the default if it's a button name)
             if answer in buttons:
-                return UserInput(button=answer, text=None)
+                return UserInput(button=answer, text=None, access_token=access_token)
             # VSCode extension only deals with values so we need to check them as well
             value2key = {v: k for k, v in buttons.items()}
             if answer in value2key:
-                return UserInput(button=value2key[answer], text=None)
+                return UserInput(button=value2key[answer], text=None, access_token=access_token)
 
         if answer or allow_empty:
-            return UserInput(button=None, text=answer)
+            return UserInput(button=None, text=answer, access_token=access_token)
 
         # Empty answer which we don't allow, treat as user cancelled the input
-        return UserInput(cancelled=True)
+        return UserInput(cancelled=True, access_token=access_token)
 
     async def send_project_stage(self, data: dict):
         await self._send(MessageType.INFO, content=json.dumps(data))

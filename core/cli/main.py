@@ -88,7 +88,7 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
     return success
 
 
-async def llm_api_check(ui: UIBase) -> bool:
+async def llm_api_check(ui: UIBase, sm: StateManager) -> bool:
     """
     Check whether the configured LLMs are reachable in parallel.
 
@@ -110,7 +110,7 @@ async def llm_api_check(ui: UIBase) -> bool:
 
         checked_llms.add(llm_config.provider + llm_config.model)
         client_class = BaseLLMClient.for_provider(llm_config.provider)
-        llm_client = client_class(llm_config, stream_handler=handler, error_handler=handler)
+        llm_client = client_class(llm_config, stream_handler=handler, error_handler=handler, ui=ui, state_manager=sm)
         try:
             resp = await llm_client.api_check()
             if not resp:
@@ -283,6 +283,8 @@ async def async_main(
         telemetry.set("extension_version", args.extension_version)
 
     sm = StateManager(db, ui)
+    if args.access_token:
+        sm.update_access_token(args.access_token)
     ui_started = await ui.start()
     if not ui_started:
         return False

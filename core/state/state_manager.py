@@ -53,6 +53,7 @@ class StateManager:
         self.git_available = False
         self.git_used = False
         self.options = {}
+        self.access_token = None
 
     @asynccontextmanager
     async def db_blocker(self):
@@ -753,6 +754,18 @@ class StateManager:
                 lines.append(i)
 
         return lines
+
+    def update_access_token(self, access_token: str):
+        """
+        Store the access token in the state manager.
+        """
+        self.access_token = access_token
+
+    def get_access_token(self) -> Optional[str]:
+        """
+        Get the access token from the state manager.
+        """
+        return self.access_token or None
 
 
 __all__ = ["StateManager"]

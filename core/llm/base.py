@@ -11,6 +11,8 @@ from core.config import LLMConfig, LLMProvider
 from core.llm.convo import Convo
 from core.llm.request_log import LLMRequestLog, LLMRequestStatus
 from core.log import get_logger
+from core.state.state_manager import StateManager
+from core.ui.base import UIBase
 
 log = get_logger(__name__)
 
@@ -48,9 +50,11 @@ class BaseLLMClient:
     def __init__(
         self,
         config: LLMConfig,
+        state_manager: StateManager,
         *,
         stream_handler: Optional[Callable] = None,
         error_handler: Optional[Callable] = None,
+        ui: Optional[UIBase] = None,
     ):
         """
         Initialize the client with the given configuration.
@@ -61,6 +65,8 @@ class BaseLLMClient:
         self.config = config
         self.stream_handler = stream_handler
         self.error_handler = error_handler
+        self.ui = ui
+        self.state_manager = state_manager
         self._init_client()
 
     def _init_client(self):
@@ -186,6 +192,30 @@ class BaseLLMClient:
             response = None
 
             try:
+                access_token = self.state_manager.get_access_token()
+
+                if access_token:
+                    # Store the original client
+                    original_client = self.client
+
+                    # Copy client based on its type
+                    if isinstance(original_client, openai.AsyncOpenAI):
+                        self.client = openai.AsyncOpenAI(
+                            api_key=original_client.api_key,
+                            base_url=original_client.base_url,
+                            default_headers={"Authorization": f"Bearer {access_token}"},
+                        )
+                    elif isinstance(original_client, anthropic.AsyncAnthropic):
+                        # Create new Anthropic client with custom headers
+                        self.client = anthropic.AsyncAnthropic(
+                            api_key=original_client.api_key,
+                            base_url=original_client.base_url,
+                            default_headers={"Authorization": f"Bearer {access_token}"},
+                        )
+                    else:
+                        # Handle other client types or raise exception
+                        raise ValueError(f"Unsupported client type: {type(original_client)}")
+
                 response, prompt_tokens, completion_tokens = await self._make_request(
                     convo,
                     temperature=temperature,
@@ -244,6 +274,24 @@ class BaseLLMClient:
                 # so we can't be certain that's the problem in Anthropic case.
                 # Here we try to detect that and tell the user what happened.
                 log.info(f"API status error: {err}")
+                if getattr(err, "status_code", None) in (401, 403):
+                    if self.ui:
+                        access_token = await self.ui.send_token_expired()
+                        self.state_manager.update_access_token(access_token)
+                        continue
+
+                if getattr(err, "status_code", None) == 400 and getattr(err, "message", None) == "not_enough_tokens":
+                    if self.ui:
+                        user_response = await self.ui.ask_question(
+                            'Not enough tokens left, please top up your account and press "Continue".',
+                            buttons={"continue": "Continue", "exit": "Exit"},
+                            buttons_only=True,
+                        )
+                        if user_response.button == "continue":
+                            continue
+                        else:
+                            raise APIError("Not enough tokens left")
+
                 try:
                     if hasattr(err, "response"):
                         if err.response.headers.get("Content-Type", "").startswith("application/json"):
