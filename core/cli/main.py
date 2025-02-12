@@ -224,7 +224,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     """
 
     if not args.no_check:
-        if not await llm_api_check(ui):
+        if not await llm_api_check(ui, sm):
             await ui.send_message(
                 "Pythagora cannot start because the LLM API is not reachable.",
                 source=pythagora_source,
