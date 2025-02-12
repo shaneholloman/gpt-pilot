@@ -236,7 +236,6 @@ class IPCClientUI(UIBase):
     async def send_token_expired(self):
         await self._send(MessageType.TOKEN_EXPIRED)
         response = await self._receive()
-        await self._send(MessageType.VERBOSE, content=response.accessToken)
         return response.accessToken
 
     async def send_app_finished(
@@ -350,12 +349,7 @@ class IPCClientUI(UIBase):
         response = await self._receive()
 
         access_token = response.accessToken
-        await self._send(
-            MessageType.VERBOSE,
-            content=access_token,
-            category=category,
-            project_state_id=project_state_id,
-        )
+
         answer = response.content.strip()
         if answer == "exitPythagoraCore":
             raise KeyboardInterrupt()

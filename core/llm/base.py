@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import sys
 from enum import Enum
 from time import time
 from typing import Any, Callable, Optional, Tuple
@@ -12,7 +13,7 @@ from core.llm.convo import Convo
 from core.llm.request_log import LLMRequestLog, LLMRequestStatus
 from core.log import get_logger
 from core.state.state_manager import StateManager
-from core.ui.base import UIBase
+from core.ui.base import UIBase, pythagora_source
 
 log = get_logger(__name__)
 
@@ -276,21 +277,40 @@ class BaseLLMClient:
                 log.info(f"API status error: {err}")
                 if getattr(err, "status_code", None) in (401, 403):
                     if self.ui:
-                        access_token = await self.ui.send_token_expired()
-                        self.state_manager.update_access_token(access_token)
-                        continue
+                        try:
+                            await self.ui.send_message("Token expired")
+                            sys.exit(0)
+                            # TODO implement this to not crash in parallel
+                            # access_token = await self.ui.send_token_expired()
+                            # self.state_manager.update_access_token(access_token)
+                            # continue
+                        except Exception:
+                            raise APIError("Token expired")
 
                 if getattr(err, "status_code", None) == 400 and getattr(err, "message", None) == "not_enough_tokens":
                     if self.ui:
-                        user_response = await self.ui.ask_question(
-                            'Not enough tokens left, please top up your account and press "Continue".',
-                            buttons={"continue": "Continue", "exit": "Exit"},
-                            buttons_only=True,
-                            extra_info="not_enough_tokens",
-                        )
-                        if user_response.button == "continue":
-                            continue
-                        else:
+                        try:
+                            await self.ui.ask_question(
+                                "",
+                                buttons={},
+                                buttons_only=True,
+                                extra_info="not_enough_tokens",
+                                source=pythagora_source,
+                            )
+                            sys.exit(0)
+                            # TODO implement this to not crash in parallel
+                            # user_response = await self.ui.ask_question(
+                            #     'Not enough tokens left, please top up your account and press "Continue".',
+                            #     buttons={"continue": "Continue", "exit": "Exit"},
+                            #     buttons_only=True,
+                            #     extra_info="not_enough_tokens",
+                            #     source=pythagora_source,
+                            # )
+                            # if user_response.button == "continue":
+                            #     continue
+                            # else:
+                            #     raise APIError("Not enough tokens left")
+                        except Exception:
                             raise APIError("Not enough tokens left")
 
                 try:
