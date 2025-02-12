@@ -286,6 +286,7 @@ class BaseLLMClient:
                             'Not enough tokens left, please top up your account and press "Continue".',
                             buttons={"continue": "Continue", "exit": "Exit"},
                             buttons_only=True,
+                            extra_info="not_enough_tokens",
                         )
                         if user_response.button == "continue":
                             continue
