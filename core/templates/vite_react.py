@@ -12,7 +12,7 @@ class ViteReactProjectTemplate(BaseProjectTemplate):
         "client/index.html": "Main HTML entry point with root div for React mounting and main.tsx script.",
         "client/package.json": "Client configuration with dependencies, scripts, and metadata.",
         "client/postcss.config.js": "PostCSS configuration with tailwindcss and autoprefixer plugins.",
-        "client/src/api/api.ts": "This file configures an Axios instance for API requests, handling JSON requests, request authentication via access tokens, and automatic token refresh on authentication failures.",
+        "client/src/api/api.ts": "This file configures an Axios instance request authentication via access tokens, and automatic token refresh on authentication failures.",
         "client/src/api/auth.ts": "API utility functions for user authentication. Exports function login, register and logout.",
         "client/src/App.css": "Main application styles including root layout and animations.",
         "client/src/App.tsx": "Main React component with the routing structure - this file is very important as it shows which pages are opened on which routes.",
