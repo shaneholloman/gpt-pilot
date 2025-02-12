@@ -400,6 +400,8 @@ class StateManager:
         :param path: The file path.
         :param content: The file content.
         :param metadata: Optional metadata (eg. description) to save with the file.
+            If not provided, metadata will be reset (if file has changed more than 10 lines)
+            to force LLM to re-describe the file with CodeMonkey.
         :param from_template: Whether the file is part of a template.
         """
         try:
@@ -420,9 +422,13 @@ class StateManager:
         if metadata:
             file.meta = metadata
 
+        delta_lines = len(content.splitlines()) - len(original_content.splitlines())
+
         if not from_template:
-            delta_lines = len(content.splitlines()) - len(original_content.splitlines())
             telemetry.inc("created_lines", delta_lines)
+
+        if not metadata and delta_lines >= 10:
+            file.meta = {}
 
     async def init_file_system(self, load_existing: bool) -> VirtualFileSystem:
         """

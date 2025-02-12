@@ -1,3 +1,4 @@
+import asyncio
 import re
 from difflib import unified_diff
 from enum import Enum
@@ -10,6 +11,7 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse, ResponseType
 from core.config import CODE_MONKEY_AGENT_NAME, CODE_REVIEW_AGENT_NAME, DESCRIBE_FILES_AGENT_NAME
+from core.db.models import File
 from core.llm.parser import JSONParser, OptionalCodeBlockParser
 from core.log import get_logger
 
@@ -136,7 +138,7 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
         }
 
     async def describe_files(self) -> AgentResponse:
-        llm = self.get_llm(DESCRIBE_FILES_AGENT_NAME)
+        tasks = []
         to_describe = {
             file.path: file.content.content for file in self.current_state.files if not file.meta.get("description")
         }
@@ -154,24 +156,33 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
                 }
                 continue
 
-            log.debug(f"Describing file {file.path}")
-            convo = (
-                AgentConvo(self)
-                .template(
-                    "describe_file",
-                    path=file.path,
-                    content=content,
-                )
-                .require_schema(FileDescription)
-            )
-            llm_response: FileDescription = await llm(convo, parser=JSONParser(spec=FileDescription))
+            tasks.append(self.describe_file(file, content))
 
-            file.meta = {
-                **file.meta,
-                "description": llm_response.summary,
-                "references": llm_response.references,
-            }
+        await asyncio.gather(*tasks)
         return AgentResponse.done(self)
+
+    async def describe_file(self, file: File, content: str):
+        """
+        Describes a file by sending it to the LLM agent and then updating the file's metadata in the database.
+        """
+        llm = self.get_llm(DESCRIBE_FILES_AGENT_NAME)
+        log.debug(f"Describing file {file.path}")
+        convo = (
+            AgentConvo(self)
+            .template(
+                "describe_file",
+                path=file.path,
+                content=content,
+            )
+            .require_schema(FileDescription)
+        )
+        llm_response: FileDescription = await llm(convo, parser=JSONParser(spec=FileDescription))
+
+        file.meta = {
+            **file.meta,
+            "description": llm_response.summary,
+            "references": llm_response.references,
+        }
 
     # ------------------------------
     # CODE REVIEW
