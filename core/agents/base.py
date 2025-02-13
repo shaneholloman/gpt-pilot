@@ -117,6 +117,9 @@ class BaseAgent:
             extra_info=extra_info,
             placeholder=placeholder,
         )
+        # Store the access token in the state manager
+        if hasattr(response, "access_token") and response.access_token:
+            self.state_manager.update_access_token(response.access_token)
         await self.state_manager.log_user_input(question, response)
         return response
 
@@ -188,7 +191,13 @@ class BaseAgent:
         llm_config = config.llm_for_agent(name)
         client_class = BaseLLMClient.for_provider(llm_config.provider)
         stream_handler = self.stream_handler if stream_output else None
-        llm_client = client_class(llm_config, stream_handler=stream_handler, error_handler=self.error_handler)
+        llm_client = client_class(
+            llm_config,
+            stream_handler=stream_handler,
+            error_handler=self.error_handler,
+            ui=self.ui,
+            state_manager=self.state_manager,
+        )
 
         async def client(convo, **kwargs) -> Any:
             """

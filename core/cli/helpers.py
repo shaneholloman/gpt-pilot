@@ -97,6 +97,7 @@ def parse_arguments() -> Namespace:
         --extension-version: Version of the VSCode extension, if used
         --no-check: Disable initial LLM API check
         --use-git: Use Git for version control
+        --access-token: Access token
     :return: Parsed arguments object.
     """
     version = get_version()
@@ -138,6 +139,7 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--extension-version", help="Version of the VSCode extension", required=False)
     parser.add_argument("--no-check", help="Disable initial LLM API check", action="store_true")
     parser.add_argument("--use-git", help="Use Git for version control", action="store_true", required=False)
+    parser.add_argument("--access-token", help="Access token", required=False)
     return parser.parse_args()
 
 

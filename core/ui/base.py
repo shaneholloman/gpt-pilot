@@ -80,11 +80,13 @@ class UserInput(BaseModel):
     * `text`: User-provided text (if any).
     * `button`: Name (key) of the button the user selected (if any).
     * `cancelled`: Whether the user cancelled the input.
+    * `access_token`: Access token (if any).
     """
 
     text: Optional[str] = None
     button: Optional[str] = None
     cancelled: bool = False
+    access_token: Optional[str] = None
 
 
 class UIBase:
@@ -138,6 +140,12 @@ class UIBase:
     async def send_key_expired(self, message: Optional[str] = None):
         """
         Send the key expired message.
+        """
+        raise NotImplementedError()
+
+    async def send_token_expired(self):
+        """
+        Send the token expired message.
         """
         raise NotImplementedError()
 

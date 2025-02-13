@@ -46,6 +46,9 @@ class PlainConsoleUI(UIBase):
         if message:
             await self.send_message(message)
 
+    async def send_token_expired(self):
+        await self.send_message("Access token expired")
+
     async def send_app_finished(
         self,
         app_id: Optional[str] = None,
