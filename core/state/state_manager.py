@@ -78,7 +78,9 @@ class StateManager:
         async with self.session_manager as session:
             return await Project.get_all_projects(session)
 
-    async def create_project(self, name: str, folder_name: Optional[str] = None) -> Project:
+    async def create_project(
+        self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
+    ) -> Project:
         """
         Create a new project and set it as the current one.
 
@@ -86,7 +88,7 @@ class StateManager:
         :return: The Project object.
         """
         session = await self.session_manager.start()
-        project = Project(name=name, folder_name=folder_name)
+        project = Project(name=name, project_type=project_type, folder_name=folder_name)
         branch = Branch(project=project)
         state = ProjectState.create_initial_state(branch)
         session.add(project)

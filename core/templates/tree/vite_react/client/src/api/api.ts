@@ -1,5 +1,9 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
+{% if options.auth_type == "api_key" %}
+const API_KEY = import.meta.env.VITE_API_KEY;
+{% endif %}
+
 const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
@@ -10,16 +14,33 @@ const api = axios.create({
 });
 
 let accessToken: string | null = null;
+
 {% if options.auth %}
-// Axios request interceptor: Attach access token to headers
+// Axios request interceptor: Attach access token and API key to headers
 api.interceptors.request.use(
   (config: AxiosRequestConfig): AxiosRequestConfig => {
-    if (!accessToken) {
-      accessToken = localStorage.getItem('accessToken');
+    // Check if the request is not for login or register
+
+{% if options.auth_type == "api_key" %}
+  const isAuthEndpoint = config.url?.includes('/login') || config.url?.includes('/register');
+
+  if (!isAuthEndpoint) {
+  // Add API key for non-auth endpoints
+  if (config.headers && API_KEY) {
+    config.headers['api_key'] = API_KEY;  // or whatever header name your API expects
+  }
+
+{% endif %}
+
+      // Add authorization token if available
+      if (!accessToken) {
+        accessToken = localStorage.getItem('accessToken');
+      }
+      if (accessToken && config.headers) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
     }
-    if (accessToken && config.headers) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
-    }
+
     return config;
   },
   (error: AxiosError): Promise<AxiosError> => Promise.reject(error)
@@ -47,6 +68,14 @@ api.interceptors.response.use(
         // Retry the original request with the new token
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          // Ensure API key is still present in retry
+
+{% if options.auth_type == "api_key" %}
+          if (API_KEY) {
+            originalRequest.headers['api_key'] = API_KEY;
+          }
+{% endif %}
+
         }
         return api(originalRequest);
       } catch (err) {

@@ -129,7 +129,11 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
     stack = await ui.ask_question(
         "What do you want to use to build your app?",
         allow_empty=False,
-        buttons={"node": "Node.js", "other": "Other (coming soon)"},
+        buttons={
+            "node": "Node.js",
+            "swagger": "Frontend only with OpenAPI (Swagger) backend",
+            "other": "Other (coming soon)",
+        },
         buttons_only=True,
         source=pythagora_source,
         full_screen=True,
@@ -148,16 +152,11 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         )
         await ui.send_message("Thank you for submitting your request to support other languages.")
         return False
-    elif stack.button == "node":
-        await telemetry.trace_code_event(
-            "stack-choice",
-            {"language": "node"},
-        )
-    elif stack.button == "python":
-        await telemetry.trace_code_event(
-            "stack-choice",
-            {"language": "python"},
-        )
+
+    await telemetry.trace_code_event(
+        "stack-choice",
+        {"language": stack.button},
+    )
 
     while True:
         try:
@@ -182,7 +181,7 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         else:
             break
 
-    project_state = await sm.create_project(project_name)
+    project_state = await sm.create_project(name=project_name, project_type=stack.button)
     return project_state is not None
 
 

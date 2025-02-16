@@ -1,7 +1,3 @@
-import asyncio
-import secrets
-from uuid import uuid4
-
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.git import GitMixin
@@ -11,7 +7,6 @@ from core.config import FRONTEND_AGENT_NAME
 from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
-from core.templates.registry import PROJECT_TEMPLATES
 from core.ui.base import ProjectStage
 
 log = get_logger(__name__)
@@ -28,9 +23,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     display_name = "Frontend"
 
     async def run(self) -> AgentResponse:
-        if not self.current_state.epics:
-            finished = await self.init_frontend()
-        elif not self.current_state.epics[0]["messages"]:
+        if not self.current_state.epics[0]["messages"]:
             finished = await self.start_frontend()
         elif not self.next_state.epics[-1].get("fe_iteration_done"):
             finished = await self.continue_frontend()
@@ -39,63 +32,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             finished = await self.iterate_frontend()
 
         return await self.end_frontend_iteration(finished)
-
-    async def init_frontend(self) -> bool:
-        """
-        Builds frontend of the app.
-
-        :return: AgentResponse.done(self)
-        """
-        self.next_state.action = FE_INIT
-        await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
-
-        auth_needed = await self.ask_question(
-            "Do you need authentication in your app (login, register, etc.)?",
-            buttons={
-                "yes": "Yes",
-                "no": "No",
-            },
-            buttons_only=True,
-            default="no",
-        )
-
-        self.state_manager.template = {}
-        options = {
-            "auth": auth_needed.button == "yes",
-            "jwt_secret": secrets.token_hex(32),
-            "refresh_token_secret": secrets.token_hex(32),
-        }
-        self.state_manager.template["options"] = options
-
-        if not self.state_manager.async_tasks:
-            self.state_manager.async_tasks = []
-            self.state_manager.async_tasks.append(asyncio.create_task(self.apply_template(options)))
-
-        self.next_state.knowledge_base["user_options"] = options
-        self.state_manager.user_options = options
-
-        description = await self.ask_question(
-            "Please describe the app you want to build.",
-            allow_empty=False,
-            full_screen=True,
-        )
-        description = description.text.strip()
-        self.state_manager.template["description"] = description
-        self.next_state.specification.description = description
-
-        self.next_state.epics = [
-            {
-                "id": uuid4().hex,
-                "name": "Build frontend",
-                "source": "frontend",
-                "description": description,
-                "messages": [],
-                "summary": None,
-                "completed": False,
-            }
-        ]
-
-        return False
 
     async def start_frontend(self):
         """
@@ -297,29 +233,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 log.info(f"Unknown block description: {description}")
 
         return AgentResponse.done(self)
-
-    async def apply_template(self, options: dict = {}):
-        """
-        Applies a template to the frontend.
-        """
-        template_name = "vite_react"
-        template_class = PROJECT_TEMPLATES.get(template_name)
-        if not template_class:
-            log.error(f"Project template not found: {template_name}")
-            return
-
-        template = template_class(
-            options,
-            self.state_manager,
-            self.process_manager,
-        )
-        self.state_manager.template["template"] = template
-        log.info(f"Applying project template: {template.name}")
-        summary = await template.apply()
-
-        self.next_state.relevant_files = template.relevant_files
-        self.next_state.modified_files = {}
-        self.next_state.specification.template_summary = summary
 
     async def set_app_details(self):
         """

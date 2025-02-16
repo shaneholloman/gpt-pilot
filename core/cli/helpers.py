@@ -202,6 +202,7 @@ async def list_projects_json(db: SessionManager):
         last_updated = None
         p = {
             "name": project.name,
+            "project_type": project.project_type,
             "id": project.id.hex,
             "branches": [],
         }

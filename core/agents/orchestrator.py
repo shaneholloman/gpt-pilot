@@ -24,6 +24,7 @@ from core.agents.task_completer import TaskCompleter
 from core.agents.tech_lead import TechLead
 from core.agents.tech_writer import TechnicalWriter
 from core.agents.troubleshooter import Troubleshooter
+from core.agents.wizard import Wizard
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.log import get_logger
 from core.telemetry import telemetry
@@ -392,7 +393,9 @@ class Orchestrator(BaseAgent, GitMixin):
             if prev_response.type == ResponseType.UPDATE_SPECIFICATION:
                 return SpecWriter(self.state_manager, self.ui, prev_response=prev_response)
 
-        if not state.epics or (state.current_epic and state.current_epic.get("source") == "frontend"):
+        if not state.epics:
+            return Wizard(self.state_manager, self.ui, process_manager=self.process_manager)
+        elif state.current_epic and state.current_epic.get("source") == "frontend":
             # Build frontend
             return Frontend(self.state_manager, self.ui, process_manager=self.process_manager)
         elif not state.specification.description:
