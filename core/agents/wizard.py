@@ -98,7 +98,7 @@ class Wizard(BaseAgent):
             if len(auth_methods) > 1:
                 question = "Pythagora detected multiple authentication methods in your API docs. Do you need authentication in your app (login, register, etc.)?"
             elif len(auth_methods) == 1:
-                question = f'Pythagora detected {next(iter(self.create_custom_buttons(auth_methods['types'])))} authentication in your API docs. Do you want to use it?'
+                question = f'Pythagora detected {next(iter(self.create_custom_buttons(auth_methods["types"])))} authentication in your API docs. Do you want to use it?'
             else:
                 question = "Pythagora didn't detect any authentication methods in your API docs. Do you need authentication in your app (login, register, etc.)?"
 
