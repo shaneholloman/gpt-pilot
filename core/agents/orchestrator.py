@@ -209,7 +209,28 @@ class Orchestrator(BaseAgent, GitMixin):
                     await self.state_manager.save_file(file_path, content)
                     log.debug("allowedHosts array added to the server block.")
             else:
-                log.debug("Server block not found")
+                log.debug("Server block not found, adding it.")
+                server_block = """  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      }
+    },
+    allowedHosts: [
+      'localhost',
+      '.deployments.pythagora.ai'
+    ],
+  },\n"""
+                # Match the content inside defineConfig({...})
+                config_content = re.search(r"defineConfig\(\{(.*?)\}\)", content, re.DOTALL)
+                if config_content:
+                    # Get the content inside the brackets
+                    inner_content = config_content.group(1)
+                    # Add the server block before the closing bracket
+                    updated_content = content.replace(inner_content, inner_content + server_block)
+                    await self.state_manager.save_file(file_path, updated_content)
+                    log.debug("Proxy and allowedHosts configuration added.")
 
         except Exception as e:
             log.debug(f"An error occurred: {e}")
