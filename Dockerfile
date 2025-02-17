@@ -162,6 +162,13 @@ RUN mkdir -p ${PYTH_INSTALL_DIR}/pythagora-core/workspace
 
 RUN mkdir -p /home/$USERNAME/.vscode-server/cli/servers
 
+RUN mkdir -p ${PYTH_INSTALL_DIR}/pythagora-core/workspace/.vscode && printf '{\n  "gptPilot.isRemoteWs": true,\n  "gptPilot.useRemoteWs": false\n}' >  ${PYTH_INSTALL_DIR}/pythagora-core/workspace/.vscode/settings.json
+
+ADD vsc-dl-x64 vsc-dl-x64
+ADD vscode_tags.csv vscode_tags.csv
+
+RUN ./vsc-dl-x64 /home/$USERNAME vscode_tags.csv && rm vsc-dl-x64 && rm vscode_tags.csv
+
 USER root
 
 RUN chmod +x /var/init_data/on-event-extension-install.sh
