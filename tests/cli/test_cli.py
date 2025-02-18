@@ -179,7 +179,7 @@ async def test_list_projects_json(mock_StateManager, capsys):
 
     project = MagicMock(
         id=MagicMock(hex="abcd"),
-        # project_type=MagicMock(hex="abcd"),
+        project_type=MagicMock(hex="abcd"),
         branches=[branch],
     )
     project.name = "project1"
