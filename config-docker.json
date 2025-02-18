@@ -22,17 +22,17 @@
       "temperature": 0.5
     },
     "BugHunter.check_logs": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20241022",
       "temperature": 0.5
     },
     "CodeMonkey": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20241022",
       "temperature": 0.0
     },
     "CodeMonkey.code_review": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20240620",
       "temperature": 0.0
     },
@@ -42,7 +42,7 @@
       "temperature": 0.0
     },
     "Frontend": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20241022",
       "temperature": 0.0
     },
@@ -52,7 +52,7 @@
       "temperature": 0.5
     },
     "Developer.parse_task": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20241022",
       "temperature": 0.0
     },
@@ -62,27 +62,27 @@
       "temperature": 0.0
     },
     "Developer.breakdown_current_task": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20241022",
       "temperature": 0.5
     },
     "TechLead.plan_epic": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20240620",
       "temperature": 0.5
     },
     "TechLead.epic_breakdown": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20241022",
       "temperature": 0.5
     },
     "Troubleshooter.generate_bug_report": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20240620",
       "temperature": 0.5
     },
     "Troubleshooter.get_run_command": {
-      "provider": "anthropic",
+      "provider": "openai",
       "model": "claude-3-5-sonnet-20240620",
       "temperature": 0.0
     }
