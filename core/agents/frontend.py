@@ -1,9 +1,13 @@
+from urllib.parse import urljoin
+
+import httpx
+
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
-from core.config import FRONTEND_AGENT_NAME
+from core.config import FRONTEND_AGENT_NAME, SWAGGER_EMBEDDINGS_API
 from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
@@ -25,6 +29,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     async def run(self) -> AgentResponse:
         if not self.current_state.epics[0]["messages"]:
             finished = await self.start_frontend()
+        elif len(self.next_state.epics[-1].get("file_paths_to_remove_mock")) > 0:
+            finished = await self.remove_mock()
         elif not self.next_state.epics[-1].get("fe_iteration_done"):
             finished = await self.continue_frontend()
         else:
@@ -50,6 +56,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             if self.state_manager.template is not None
             else self.next_state.epics[0]["description"],
             user_feedback=None,
+            first_time_build = True
         )
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
         response_blocks = response.blocks
@@ -140,11 +147,36 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.send_message("Implementing the changes you suggested...")
 
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
+
+        convo = AgentConvo(self).template(
+            "is_relevant_for_docs_search",
+            user_feedback=answer.text,
+        )
+
+        response = await llm(convo)
+
+        relevant_api_documentation = None
+
+        if response == "yes":
+            try:
+                url = urljoin(SWAGGER_EMBEDDINGS_API, "search")
+                async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
+                    resp = await client.post(
+                        url,
+                        json={"text": answer.text, "project_id": str(self.state_manager.project.id), "user_id": "1"},
+                    )
+                    relevant_api_documentation = "\n".join(item["content"] for item in resp.json())
+            except Exception as e:
+                log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
+
         convo = AgentConvo(self).template(
             "build_frontend",
             description=self.current_state.epics[0]["description"],
             user_feedback=answer.text,
+            relevant_api_documentation=relevant_api_documentation,
+            first_time_build=False,
         )
+
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
 
         await self.process_response(response.blocks)
@@ -187,7 +219,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return AgentResponse.done(self)
 
-    async def process_response(self, response_blocks: list) -> AgentResponse:
+    async def process_response(self, response_blocks: list, removed_mock: bool = False) -> list[str]:
         """
         Processes the response blocks from the LLM.
 
@@ -216,6 +248,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 await self.ui.generate_diff(
                     file_path, old_content, new_content, n_new_lines, n_del_lines, source=self.ui_source
                 )
+                if not removed_mock:
+                    if "client/src/api" in file_path:
+                        if not self.next_state.epics[-1].get("file_paths_to_remove_mock"):
+                            self.next_state.epics[-1]["file_paths_to_remove_mock"] = []
+                        self.next_state.epics[-1]["file_paths_to_remove_mock"].append(file_path)
+
                 await self.state_manager.save_file(file_path, new_content)
 
             elif "command:" in last_line:
@@ -233,6 +271,47 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 log.info(f"Unknown block description: {description}")
 
         return AgentResponse.done(self)
+
+    async def remove_mock(self) -> bool:
+        """
+        Remove mock API from the backend and replace it with api endpoints defined in the external documentation
+        """
+        new_file_paths = self.current_state.epics[-1]["file_paths_to_remove_mock"]
+        llm = self.get_llm(FRONTEND_AGENT_NAME)
+
+        for file_path in new_file_paths:
+            old_content = self.current_state.get_file_content_by_path(file_path)
+
+            convo = AgentConvo(self).template("create_rag_query", file_content=old_content)
+            topics = await llm(convo)
+
+            if topics != "None":
+                try:
+                    url = urljoin(SWAGGER_EMBEDDINGS_API, "search")
+                    async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
+                        resp = await client.post(
+                            url, json={"text": topics, "project_id": str(self.state_manager.project.id), "user_id": "1"}
+                        )
+                        resp_json = resp.json()
+                        relevant_api_documentation = "\n".join(item["content"] for item in resp_json)
+
+                        convo = AgentConvo(self).template(
+                            "remove_mock",
+                            relevant_api_documentation=relevant_api_documentation,
+                            file_content=old_content,
+                            file_path=file_path,
+                            lines=len(old_content.splitlines()),
+                        )
+
+                        response = await llm(convo, parser=DescriptiveCodeBlockParser())
+                        response_blocks = response.blocks
+                        convo.assistant(response.original_response)
+                        await self.process_response(response_blocks, removed_mock=True)
+                        self.next_state.epics[-1]["file_paths_to_remove_mock"].remove(file_path)
+                except Exception as e:
+                    log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
+
+        return False
 
     async def set_app_details(self):
         """

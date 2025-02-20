@@ -1,0 +1,17 @@
+Now you need to remove mocked data from the file and replace it with real API requests.
+Replace only mocked data, do not change any other part of the file.
+
+{% if relevant_api_documentation is defined %}
+Here is external documentation that you will need to properly implement real API requests:
+~~~START_OF_DOCUMENTATION~~~
+{{ relevant_api_documentation }}
+~~~END_OF_DOCUMENTATION~~~
+
+IMPORTANT: Do not implement backend server logic for this, as this is already available in the external API!
+{% endif %}
+
+This is the file that you need to change:
+**`{{ file_path }}`** ({{ lines }} lines of code):
+```
+{{ file_content }}
+```

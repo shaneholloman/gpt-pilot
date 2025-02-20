@@ -83,7 +83,7 @@ class ViteReactProjectTemplate(BaseProjectTemplate):
         "client/tsconfig.app.json": "TypeScript configuration for application code.",
         "client/tsconfig.json": "Main TypeScript configuration with project references.",
         "client/tsconfig.node.json": "TypeScript configuration for Node.js environment.",
-        "client/vite.config.ts": "Vite build tool configuration with React plugin and aliases.",
+        "client/vite.config.ts": "Vite build tool configuration with  server proxy configuration.",
         "client/tailwind.config.js": "Tailwind CSS configuration with theme customizations, including enabling dark mode, specifying the content files that Tailwind should scan for class names, and extending the default theme with custom values for border radius, colors, keyframes, and animations. The configuration also includes a plugin for animations, specifically 'tailwindcss-animate', which allows for additional animation utilities to be used in the project.",
         "server/.env": "This file is a configuration file in the form of a .env file. It contains environment variables used by the application, such as the port to listen on, the MongoDB database URL, and the session secret string.",
         "server/server.js": "This `server.js` file sets up an Express server with MongoDB database connection, session management using connect-mongo, templating engine EJS, static file serving, authentication routes, error handling, and request logging. [References: dotenv, mongoose, express, express-session, connect-mongo, ./routes/authRoutes]",

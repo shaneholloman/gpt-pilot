@@ -1,12 +1,15 @@
 import json
 import secrets
 from json import JSONDecodeError
+from urllib.parse import urljoin
 from uuid import uuid4
 
+import httpx
 import yaml
 
 from core.agents.base import BaseAgent
 from core.agents.response import AgentResponse
+from core.config import SWAGGER_EMBEDDINGS_API
 from core.log import get_logger
 from core.templates.registry import PROJECT_TEMPLATES
 from core.ui.base import ProjectStage
@@ -18,31 +21,29 @@ class Wizard(BaseAgent):
     agent_type = "wizard"
     display_name = "Wizard"
 
-    # class LoginType(Enum):
-    #     API_KEY = 0
-    #     HTTP_AUTH = 1
-    #     OAUTH2 = 2
-    #     OPENID = 3
-
-    def get_auth_methods(self, docs: str) -> dict[str, any]:
+    def load_docs(self, docs: str) -> dict[str, any]:
         try:
-            content = json.loads(docs)
+            return json.loads(docs)
         except JSONDecodeError:
             try:
-                content = yaml.safe_load(docs)
+                return yaml.safe_load(docs)
             except Exception as e:
                 log.error(f"An error occurred: {str(e)}")
                 return {}
 
+    def get_auth_methods(self, docs: dict[str, any]) -> dict[str, any]:
         auth_methods = {}
-        if "components" in content and "securitySchemes" in content["components"]:
-            auth_methods["types"] = [details["type"] for details in content["components"]["securitySchemes"].values()]
+        if "components" in docs and "securitySchemes" in docs["components"]:
+            auth_methods["types"] = [details["type"] for details in docs["components"]["securitySchemes"].values()]
             auth_methods["api_version"] = 3
+            auth_methods["external_api_url"] = docs.get("servers", [{}])[0].get("url", "")
 
-        elif "securityDefinitions" in content:
-            auth_methods["types"] = [details["type"] for details in content["securityDefinitions"].values()]
+        elif "securityDefinitions" in docs:
+            auth_methods["types"] = [details["type"] for details in docs["securityDefinitions"].values()]
             auth_methods["api_version"] = 2
-
+            auth_methods["external_api_url"] = (
+                "https://" + docs.get("host", "api.example.com") + docs.get("basePath", "")
+            )
         return auth_methods
 
     def create_custom_buttons(self, auth_methods):
@@ -85,9 +86,31 @@ class Wizard(BaseAgent):
                         allow_empty=False,
                         verbose=True,
                     )
-                    auth_methods = self.get_auth_methods(docs.text.strip())
-                    self.next_state.knowledge_base["docs"] = json.loads(docs.text.strip())
+                    content = self.load_docs(docs.text.strip())
+                    auth_methods = self.get_auth_methods(content)
+
+                    self.next_state.knowledge_base["docs"] = content
+
                     self.next_state.knowledge_base["docs"]["api_version"] = auth_methods["api_version"]
+
+                    self.next_state.knowledge_base["docs"]["external_api_url"] = auth_methods["external_api_url"]
+
+                    try:
+                        url = urljoin(SWAGGER_EMBEDDINGS_API, "upload")
+                        async with httpx.AsyncClient(
+                            transport=httpx.AsyncHTTPTransport(retries=3), timeout=httpx.Timeout(30.0, connect=60.0)
+                        ) as client:
+                            await client.post(
+                                url,
+                                json={
+                                    "text": docs.text.strip(),
+                                    "project_id": str(self.state_manager.project.id),
+                                    "user_id": "1",
+                                },
+                            )
+
+                    except Exception as e:
+                        log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
 
                     break
                 except Exception as e:
@@ -128,9 +151,9 @@ class Wizard(BaseAgent):
                         allow_empty=False,
                         verbose=True,
                     )
-                    # self.next_state.knowledge_base["api_key"] = api_key.text.strip()
                     options["auth_type"] = "api_key"
                     options["api_key"] = api_key.text.strip()
+                    options["external_api_url"] = self.next_state.knowledge_base["docs"]["external_api_url"]
                 elif auth_type_question.button == "basic":
                     raise NotImplementedError()
                 elif auth_type_question.button == "bearer":
@@ -140,7 +163,6 @@ class Wizard(BaseAgent):
                 elif auth_type_question.button == "oauth2":
                     raise NotImplementedError()
 
-        # elif self.state_manager.project.project_type == "node":
         else:
             auth_needed = await self.ask_question(
                 "Do you need authentication in your app (login, register, etc.)?",
@@ -152,8 +174,7 @@ class Wizard(BaseAgent):
                 default="no",
             )
             options = {
-                "auth": auth_needed.button
-                == "yes",  # todo fix tests, search for "auth", also options.auth in templates
+                "auth": auth_needed.button == "yes",
                 "auth_type": "login",
                 "jwt_secret": secrets.token_hex(32),
                 "refresh_token_secret": secrets.token_hex(32),

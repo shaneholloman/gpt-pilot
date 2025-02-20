@@ -2,9 +2,21 @@ import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
 {% if options.auth_type == "api_key" %}
 const API_KEY = import.meta.env.VITE_API_KEY;
+const EXTERNAL_API_URL = import.meta.env.VITE_EXTERNAL_API_URL;
 {% endif %}
 
-const api = axios.create({
+// Create two axios instances
+const localApi = axios.create({
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  validateStatus: (status) => {
+    return status >= 200 && status < 300;
+  },
+});
+
+const externalApi = axios.create({
+  baseURL: EXTERNAL_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,81 +28,107 @@ const api = axios.create({
 let accessToken: string | null = null;
 
 {% if options.auth %}
-// Axios request interceptor: Attach access token and API key to headers
-api.interceptors.request.use(
-  (config: AxiosRequestConfig): AxiosRequestConfig => {
-    // Check if the request is not for login or register
+const isAuthEndpoint = (url: string): boolean => {
+  return url.includes("/api/auth");
+};
 
+const getApiInstance = (url: string) => {
+  return isAuthEndpoint(url) ? localApi : externalApi;
+};
+
+// Interceptor for both API instances
+const setupInterceptors = (apiInstance: typeof axios) => {
+  apiInstance.interceptors.request.use(
+    (config: AxiosRequestConfig): AxiosRequestConfig => {
 {% if options.auth_type == "api_key" %}
-  const isAuthEndpoint = config.url?.includes('/login') || config.url?.includes('/register');
-
-  if (!isAuthEndpoint) {
-  // Add API key for non-auth endpoints
-  if (config.headers && API_KEY) {
-    config.headers['api_key'] = API_KEY;  // or whatever header name your API expects
-  }
-
+      if (!isAuthEndpoint(config.url || '')) {
+          config.baseURL = EXTERNAL_API_URL;
+        if (config.headers && API_KEY) {
+          config.headers['api_key'] = API_KEY;
+        }
+      }
 {% endif %}
 
-      // Add authorization token if available
       if (!accessToken) {
         accessToken = localStorage.getItem('accessToken');
       }
       if (accessToken && config.headers) {
         config.headers.Authorization = `Bearer ${accessToken}`;
       }
-    }
 
-    return config;
-  },
-  (error: AxiosError): Promise<AxiosError> => Promise.reject(error)
-);
+      return config;
+    },
+    (error: AxiosError): Promise<AxiosError> => Promise.reject(error)
+  );
 
-// Axios response interceptor: Handle 401 errors
-api.interceptors.response.use(
-  (response) => response, // If the response is successful, return it
-  async (error: AxiosError): Promise<any> => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+  apiInstance.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError): Promise<any> => {
+      const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // If the error is due to an expired access token
-    if ([401, 403].includes(error.response?.status) && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark the request as retried
+      if ([401, 403].includes(error.response?.status) && !originalRequest._retry) {
+        originalRequest._retry = true;
 
-      try {
-        // Attempt to refresh the token
-        const { data } = await axios.post(`/api/auth/refresh`, {
-          refreshToken: localStorage.getItem('refreshToken'),
-        });
-        accessToken = data.data.accessToken;
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', data.data.refreshToken);
+        try {
+            if (isAuthEndpoint(originalRequest.url || '')) {
+                const { data } = await localApi.post(`/api/auth/refresh`, {
+                refreshToken: localStorage.getItem('refreshToken'),
+                });
+                accessToken = data.data.accessToken;
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', data.data.refreshToken);
+            }
 
-        // Retry the original request with the new token
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          // Ensure API key is still present in retry
-
-{% if options.auth_type == "api_key" %}
-          if (API_KEY) {
-            originalRequest.headers['api_key'] = API_KEY;
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            {% if options.auth_type == "api_key" %}
+            if (!isAuthEndpoint(originalRequest.url || '') && API_KEY) {
+              originalRequest.headers['api_key'] = API_KEY;
+            }
+            {% endif %}
           }
-{% endif %}
-
+          return getApiInstance(originalRequest.url || '')(originalRequest);
+        } catch (err) {
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('accessToken');
+          accessToken = null;
+          window.location.href = '/login';
+          return Promise.reject(err);
         }
-        return api(originalRequest);
-      } catch (err) {
-        // If refresh fails, clear tokens and redirect to login
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('accessToken');
-        accessToken = null;
-        window.location.href = '/login'; // Redirect to login page
-        return Promise.reject(err);
       }
-    }
 
-    return Promise.reject(error); // Pass other errors through
-  }
-);
+      return Promise.reject(error);
+    }
+  );
+};
+
+// Setup interceptors for both API instances
+setupInterceptors(localApi);
+setupInterceptors(externalApi);
 {% endif %}
+
+// Export a wrapper function that chooses the appropriate API instance
+const api = {
+  request: (config: AxiosRequestConfig) => {
+    const apiInstance = getApiInstance(config.url || '');
+    return apiInstance(config);
+  },
+  get: (url: string, config?: AxiosRequestConfig) => {
+    const apiInstance = getApiInstance(url);
+    return apiInstance.get(url, config);
+  },
+  post: (url: string, data?: any, config?: AxiosRequestConfig) => {
+    const apiInstance = getApiInstance(url);
+    return apiInstance.post(url, data, config);
+  },
+  put: (url: string, data?: any, config?: AxiosRequestConfig) => {
+    const apiInstance = getApiInstance(url);
+    return apiInstance.put(url, data, config);
+  },
+  delete: (url: string, config?: AxiosRequestConfig) => {
+    const apiInstance = getApiInstance(url);
+    return apiInstance.delete(url, config);
+  },
+};
 
 export default api;

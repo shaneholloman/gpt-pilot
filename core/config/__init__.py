@@ -50,6 +50,7 @@ FRONTEND_AGENT_NAME = "Frontend"
 
 # Endpoint for the external documentation
 EXTERNAL_DOCUMENTATION_API = "http://docs-pythagora-io-439719575.us-east-1.elb.amazonaws.com"
+SWAGGER_EMBEDDINGS_API = "http://localhost:8000"
 
 
 class _StrictModel(BaseModel):
