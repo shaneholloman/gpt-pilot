@@ -261,7 +261,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             # TODO: remove when Leon checks
             convo.remove_last_x_messages(2)
 
-            if len(convo.messages) > 10:
+            if len(convo.messages) > 8:
                 convo.trim(1, 2)
 
             # TODO: in the future improve with a separate conversation that parses the user info and goes into an appropriate if statement
@@ -340,6 +340,9 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 fix_attempted=hunting_cycle.get("fix_attempted"),
                 user_feedback=hunting_cycle.get("user_feedback"),
             )
+
+        if len(convo.messages) > 8:
+            convo.trim(1, 2)
 
         return convo
 
