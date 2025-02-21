@@ -400,6 +400,7 @@ class StateManager:
         :param path: The file path.
         :param content: The file content.
         :param metadata: Optional metadata (eg. description) to save with the file.
+            If not provided, metadata will be reset to force LLM to re-describe the file with CodeMonkey.
         :param from_template: Whether the file is part of a template.
         """
         try:
@@ -419,6 +420,8 @@ class StateManager:
         #     await self.ui.open_editor(self.file_system.get_full_path(path))
         if metadata:
             file.meta = metadata
+        else:
+            file.meta = {}
 
         if not from_template:
             delta_lines = len(content.splitlines()) - len(original_content.splitlines())
