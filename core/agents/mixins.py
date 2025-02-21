@@ -1,7 +1,7 @@
 import asyncio
 import json
 from difflib import unified_diff
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,30 +15,10 @@ from core.ui.base import ProjectStage
 log = get_logger(__name__)
 
 
-class ReadFilesAction(BaseModel):
-    read_files: Optional[List[str]] = Field(
-        description="List of files you want to read. All listed files must be in the project."
-    )
-
-
-class AddFilesAction(BaseModel):
-    add_files: Optional[List[str]] = Field(
-        description="List of files you want to add to the list of relevant files. All listed files must be in the project. You must read files before adding them."
-    )
-
-
-class RemoveFilesAction(BaseModel):
-    remove_files: Optional[List[str]] = Field(
-        description="List of files you want to remove from the list of relevant files. All listed files must be in the relevant files list."
-    )
-
-
-class DoneBooleanAction(BaseModel):
-    done: Optional[bool] = Field(description="Boolean flag to indicate that you are done creating breakdown.")
-
-
 class RelevantFiles(BaseModel):
-    action: Union[ReadFilesAction, AddFilesAction, RemoveFilesAction, DoneBooleanAction]
+    relevant_files: Optional[List[str]] = Field(
+        description="List of files you want to add to the list of relevant files."
+    )
 
 
 class Test(BaseModel):
@@ -173,7 +153,6 @@ class RelevantFilesMixin:
         log.debug(
             "Getting relevant files for the current task for: " + ("frontend" if dir_type == "client" else "backend")
         )
-        done = False
         relevant_files = set()
         llm = self.get_llm(GET_RELEVANT_FILES_AGENT_NAME)
         convo = (
@@ -187,37 +166,9 @@ class RelevantFilesMixin:
             )
             .require_schema(RelevantFiles)
         )
-
-        while not done and len(convo.messages) < 23:
-            llm_response: RelevantFiles = await llm(convo, parser=JSONParser(RelevantFiles), temperature=0)
-            action = llm_response.action
-            if action is None:
-                convo.remove_last_x_messages(2)
-                continue
-
-            # Check if there are files to add to the list
-            if getattr(action, "add_files", None):
-                # Add only the files from add_files that are not already in relevant_files
-                relevant_files.update(file for file in action.add_files if file not in relevant_files)
-
-            # Check if there are files to remove from the list
-            if getattr(action, "remove_files", None):
-                # Remove files from relevant_files that are in remove_files
-                relevant_files.difference_update(action.remove_files)
-
-            read_files = [
-                file for file in self.current_state.files if file.path in (getattr(action, "read_files", []) or [])
-            ]
-
-            convo.remove_last_x_messages(1)
-            convo.assistant(llm_response.original_response)
-            convo.template("filter_files_loop", read_files=read_files, relevant_files=relevant_files).require_schema(
-                RelevantFiles
-            )
-            done = getattr(action, "done", False)
-
+        llm_response: RelevantFiles = await llm(convo, parser=JSONParser(RelevantFiles), temperature=0)
         existing_files = {file.path for file in self.current_state.files}
-        return [path for path in relevant_files if path in existing_files]
+        return [path for path in llm_response.relevant_files if path in existing_files]
 
 
 class FileDiffMixin:
