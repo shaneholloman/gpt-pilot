@@ -420,13 +420,12 @@ class StateManager:
         #     await self.ui.open_editor(self.file_system.get_full_path(path))
         if metadata:
             file.meta = metadata
+        else:
+            file.meta = {}
 
         if not from_template:
             delta_lines = len(content.splitlines()) - len(original_content.splitlines())
             telemetry.inc("created_lines", delta_lines)
-
-        if not metadata:
-            file.meta = {}
 
     async def init_file_system(self, load_existing: bool) -> VirtualFileSystem:
         """
