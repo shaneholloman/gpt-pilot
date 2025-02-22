@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse
 from core.config import GET_RELEVANT_FILES_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME, TROUBLESHOOTER_BUG_REPORT
+from core.config.constants import CONVO_ITERATIONS_LIMIT
 from core.llm.parser import JSONParser
 from core.log import get_logger
 from core.ui.base import ProjectStage
@@ -82,8 +83,8 @@ class ChatWithBreakdownMixin:
             if chat.button == "yes":
                 break
 
-            if len(convo.messages) > 11:
-                convo.trim(3, 2)
+            if len(convo.messages) > CONVO_ITERATIONS_LIMIT:
+                convo.slice(3, CONVO_ITERATIONS_LIMIT)
 
             convo.user(chat.text)
             breakdown: str = await llm(convo)
