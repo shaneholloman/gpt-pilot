@@ -15,7 +15,7 @@ class ViteReactProjectTemplate(BaseProjectTemplate):
         "client/src/api/api.ts": "API utility function for fetching data from the server.",
         "client/src/api/auth.ts": "API utility functions for user authentication. Exports function login, register and logout.",
         "client/src/App.css": "Main application styles including root layout and animations.",
-        "client/src/App.tsx": "Main React component with layout structure and welcome message.",
+        "client/src/App.tsx": "Main React component with the routing structure - this file is very important as it shows which pages are opened on which routes.",
         "client/src/components/Footer.tsx": "Footer component with privacy and terms links.",
         "client/src/components/Header.tsx": "Header component with navigation menu.",
         "client/src/components/Layout.tsx": "Layout component with header, main content, and footer.",
