@@ -52,6 +52,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
     async def run(self) -> AgentResponse:
         # Building frontend is the first epic
         if len(self.current_state.epics) == 1:
+            await self.remove_mocked_data()
             self.create_initial_project_epic()
             return AgentResponse.done(self)
 
