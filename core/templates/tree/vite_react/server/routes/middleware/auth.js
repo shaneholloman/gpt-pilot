@@ -8,7 +8,7 @@ const requireUser = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await UserService.get(decoded.sub);
+    const user = await UserService.get(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
