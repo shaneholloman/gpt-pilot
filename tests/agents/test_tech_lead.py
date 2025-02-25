@@ -15,6 +15,8 @@ async def test_create_initial_epic(agentcontext):
 
     sm.current_state.specification.complexity = Complexity.SIMPLE
     sm.current_state.epics = [{"name": "Frontend", "completed": True}]
+    # Add commit here to persist initial state
+    await sm.commit()
 
     tl = TechLead(sm, ui)
     response = await tl.run()
