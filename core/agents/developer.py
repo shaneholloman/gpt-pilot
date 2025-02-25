@@ -146,21 +146,12 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             self.current_state.tasks,
         )
         llm = self.get_llm(PARSE_TASK_AGENT_NAME)
+
         # FIXME: In case of iteration, parse_task depends on the context (files, tasks, etc) set there.
-        # Ideally this prompt would be self-contained.
+        #  Ideally this prompt would be self-contained.
+
         convo = (
-            AgentConvo(self)
-            .template(
-                "iteration",
-                user_feedback=user_feedback,
-                user_feedback_qa=None,
-                next_solution_to_try=None,
-                docs=self.current_state.docs,
-                test_instructions=json.loads(current_task.get("test_instructions") or "[]"),
-            )
-            .assistant(description)
-            .template("parse_task")
-            .require_schema(TaskSteps)
+            AgentConvo(self).template("parse_task", implementation_instructions=description).require_schema(TaskSteps)
         )
         response: TaskSteps = await llm(convo, parser=JSONParser(TaskSteps), temperature=0)
 
@@ -247,7 +238,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         self.next_state.flag_tasks_as_modified()
 
         llm = self.get_llm(PARSE_TASK_AGENT_NAME)
-        convo.template("parse_task").require_schema(TaskSteps)
+
+        convo = AgentConvo(self).template("parse_task", implementation_instructions=response).require_schema(TaskSteps)
+
         response: TaskSteps = await llm(convo, parser=JSONParser(TaskSteps), temperature=0)
 
         # There might be state leftovers from previous tasks that we need to clean here
