@@ -8,6 +8,7 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, TestSteps
 from core.agents.response import AgentResponse
 from core.config import CHECK_LOGS_AGENT_NAME, magic_words
+from core.config.constants import CONVO_ITERATIONS_LIMIT
 from core.db.models.project_state import IterationStatus
 from core.llm.parser import JSONParser
 from core.log import get_logger
@@ -261,8 +262,8 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             # TODO: remove when Leon checks
             convo.remove_last_x_messages(2)
 
-            if len(convo.messages) > 10:
-                convo.trim(1, 2)
+            if len(convo.messages) > CONVO_ITERATIONS_LIMIT:
+                convo.slice(1, CONVO_ITERATIONS_LIMIT)
 
             # TODO: in the future improve with a separate conversation that parses the user info and goes into an appropriate if statement
             if next_step.button == "done":
@@ -340,6 +341,9 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 fix_attempted=hunting_cycle.get("fix_attempted"),
                 user_feedback=hunting_cycle.get("user_feedback"),
             )
+
+        if len(convo.messages) > CONVO_ITERATIONS_LIMIT:
+            convo.slice(1, CONVO_ITERATIONS_LIMIT)
 
         return convo
 

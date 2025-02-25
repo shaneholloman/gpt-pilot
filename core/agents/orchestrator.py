@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import re
 from typing import List, Optional, Union
@@ -66,6 +67,7 @@ class Orchestrator(BaseAgent, GitMixin):
 
         await self.set_frontend_script()
         await self.set_allowed_hosts()
+        await self.enable_debugger()
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
         # and the inner which runs the agents for the current step until they're done. This would simplify
@@ -178,6 +180,36 @@ class Orchestrator(BaseAgent, GitMixin):
 
         except Exception as e:
             log.error(f"An error occurred: {str(e)}")
+
+    async def enable_debugger(self):
+        absolute_path = os.path.join(self.state_manager.get_full_project_root(), "package.json")
+
+        if not os.path.exists(absolute_path):
+            return
+
+        try:
+            with open(absolute_path, "r") as file:
+                package_json = json.load(file)
+
+            if "debug" not in package_json["scripts"]:
+                package_json["scripts"]["debug"] = (
+                    'concurrently -n "client,server" "npm run client" "cross-env NODE_OPTIONS=--inspect-brk=9229 npm run server"'
+                )
+
+            if "devDependencies" not in package_json:
+                package_json["devDependencies"] = {}
+
+                if "cross-env" not in package_json["devDependencies"]:
+                    package_json["devDependencies"]["cross-env"] = "^7.0.3"
+            else:
+                return
+            await self.state_manager.save_file(absolute_path, json.dumps(package_json))
+            await self.process_manager.run_command("npm install", show_output=True, timeout=600)
+
+            log.debug("Debugger support added.")
+
+        except Exception as e:
+            log.debug(f"An error occurred: {e}")
 
     async def set_allowed_hosts(self):
         file_path = os.path.join("client", "vite.config.ts")
