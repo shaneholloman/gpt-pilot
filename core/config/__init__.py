@@ -327,12 +327,12 @@ class Config(_StrictModel):
             DEFAULT_AGENT_NAME: AgentLLMConfig(),
             CHECK_LOGS_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.5,
             ),
             CODE_MONKEY_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.0,
             ),
             CODE_REVIEW_AGENT_NAME: AgentLLMConfig(
@@ -367,7 +367,7 @@ class Config(_StrictModel):
             ),
             TASK_BREAKDOWN_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.5,
             ),
             TECH_LEAD_PLANNING: AgentLLMConfig(
@@ -382,12 +382,12 @@ class Config(_StrictModel):
             ),
             TROUBLESHOOTER_BUG_REPORT: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20240620",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.5,
             ),
             TROUBLESHOOTER_GET_RUN_COMMAND: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20240620",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.0,
             ),
         }
