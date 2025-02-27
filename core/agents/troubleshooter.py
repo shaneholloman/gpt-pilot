@@ -31,6 +31,10 @@ class RouteFilePaths(BaseModel):
     files: list[str] = Field(description="List of paths for files that contain routes")
 
 
+TS_TASK_REVIEWED = "Task #{} reviewed"
+TS_ALT_SOLUTION = "Alternative solution (attempt #{})"
+
+
 class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFilesMixin, BaseAgent):
     agent_type = "troubleshooter"
     display_name = "Troubleshooter"
@@ -142,7 +146,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
             await self.trace_loop("loop-end")
 
         current_task_index1 = self.current_state.tasks.index(self.current_state.current_task) + 1
-        self.next_state.action = f"Task #{current_task_index1} reviewed"
+        self.next_state.action = TS_TASK_REVIEWED.format(current_task_index1)
         self.next_state.set_current_task_status(TaskStatus.REVIEWED)
         return AgentResponse.done(self)
 
@@ -332,7 +336,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         next_state_iteration["attempts"] += 1
         next_state_iteration["status"] = IterationStatus.PROBLEM_SOLVER
         self.next_state.flag_iterations_as_modified()
-        self.next_state.action = f"Alternative solution (attempt #{next_state_iteration['attempts']})"
+        self.next_state.action = TS_ALT_SOLUTION.format(next_state_iteration["attempts"])
         return AgentResponse.done(self)
 
     async def generate_bug_report(

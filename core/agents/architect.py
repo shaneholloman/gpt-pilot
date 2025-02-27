@@ -34,8 +34,8 @@ class AppType(str, Enum):
     CLI = "cli-tool"
 
 
-# FIXME: all the reponse pydantic models should be strict (see config._StrictModel), also check if we
-# can disallow adding custom Python attributes to the model
+# FIXME: all the response pydantic models should be strict (see config._StrictModel), also check if we
+#  can disallow adding custom Python attributes to the model
 class SystemDependency(BaseModel):
     name: str = Field(
         None,

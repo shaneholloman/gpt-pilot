@@ -57,6 +57,9 @@ class FileDescription(BaseModel):
     )
 
 
+CM_UPDATE_FILES = "Updating files"
+
+
 class CodeMonkey(FileDiffMixin, BaseAgent):
     agent_type = "code-monkey"
     display_name = "Code Monkey"
@@ -94,7 +97,7 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
                 )
             else:
                 await self.ui.send_file_status(file_name, "reworking", source=self.ui_source)
-            self.next_state.action = "Updating files"
+            self.next_state.action = CM_UPDATE_FILES
             attempt = 1
             feedback = None
 
