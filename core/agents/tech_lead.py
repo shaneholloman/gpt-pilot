@@ -294,7 +294,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 for line in file_content.split("\n"):
                     if "pythagora_mocked_data" in line:
                         file_content = file_content.replace(line + "\n", "")
-                file.content.content = file_content
                 await self.state_manager.save_file(file.path, file_content)
 
     def update_epics_and_tasks(self, edited_plan_string):
