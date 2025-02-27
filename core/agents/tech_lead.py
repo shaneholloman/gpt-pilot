@@ -77,7 +77,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         if self.current_state.current_epic:
             self.next_state.action = "Create a development plan"
-            await self.remove_mocked_data()
             return await self.plan_epic(self.current_state.current_epic)
         else:
             return await self.ask_for_new_feature()
