@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("accessToken");
     setIsAuthenticated(false);
+    window.location.reload();
   };
 
   return (
