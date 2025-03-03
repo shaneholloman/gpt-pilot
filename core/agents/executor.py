@@ -32,6 +32,10 @@ class CommandResult(BaseModel):
     )
 
 
+EX_SKIP_COMMAND = 'Skip "{}"'
+EX_RUN_COMMAND = 'Run "{}"'
+
+
 class Executor(BaseAgent):
     agent_type = "executor"
     display_name = "Executor"
@@ -94,7 +98,7 @@ class Executor(BaseAgent):
             log.info(f"Skipping command execution of `{cmd}` (requested by user)")
             await self.send_message(f"Skipping command {cmd}")
             self.complete()
-            self.next_state.action = f'Skip "{cmd_name}"'
+            self.next_state.action = EX_SKIP_COMMAND.format(cmd_name)
             return AgentResponse.done(self)
 
         if confirm.button != "yes":
@@ -110,7 +114,7 @@ class Executor(BaseAgent):
         duration = (datetime.now(timezone.utc) - started_at).total_seconds()
 
         self.complete()
-        self.next_state.action = f'Run "{cmd_name}"'
+        self.next_state.action = EX_RUN_COMMAND.format(cmd_name)
 
         exec_log = ExecLog(
             started_at=started_at,

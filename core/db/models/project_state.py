@@ -46,6 +46,10 @@ class IterationStatus:
     DONE = "done"
 
 
+PS_EPIC_COMPLETE = "Epic {} completed"
+PS_TASK_COMPLETE = "Task {} completed"
+
+
 class ProjectState(Base):
     __tablename__ = "project_states"
     __table_args__ = (
@@ -297,6 +301,8 @@ class ProjectState(Base):
         self.unfinished_epics[0]["completed"] = True
         self.tasks = []
         flag_modified(self, "epics")
+        if len(self.unfinished_epics) > 0:
+            self.next_state.action = PS_EPIC_COMPLETE.format(self.unfinished_epics[0]["name"])
 
     def complete_iteration(self):
         if not self.unfinished_iterations:

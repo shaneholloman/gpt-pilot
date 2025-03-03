@@ -14,7 +14,9 @@ ANALYZE_THRESHOLD = 1500
 INITIAL_PROJECT_HOWTO_URL = (
     "https://github.com/Pythagora-io/gpt-pilot/wiki/How-to-write-a-good-initial-project-description"
 )
-SPEC_STEP_NAME = "Create specification"
+SPEC_CREATE_STEP_NAME = "Create specification"
+SPEC_CHANGE_STEP_NAME = "Change specification"
+SPEC_CHANGE_FEATURE_STEP_NAME = "Change specification due to new feature"
 
 log = get_logger(__name__)
 
@@ -33,6 +35,7 @@ class SpecWriter(BaseAgent):
             return await self.initialize_spec()
 
     async def initialize_spec(self) -> AgentResponse:
+        self.next_state.action = SPEC_CREATE_STEP_NAME
         # response = await self.ask_question(
         #     "Describe your app in as much detail as possible",
         #     allow_empty=False,
@@ -65,13 +68,14 @@ class SpecWriter(BaseAgent):
         telemetry.set("updated_prompt", reviewed_spec)
         telemetry.set("is_complex_app", complexity != Complexity.SIMPLE)
 
-        self.next_state.action = SPEC_STEP_NAME
         return AgentResponse.done(self)
 
     async def update_spec(self, iteration_mode) -> AgentResponse:
         if iteration_mode:
+            self.next_state.action = SPEC_CHANGE_FEATURE_STEP_NAME
             feature_description = self.current_state.current_iteration["user_feedback"]
         else:
+            self.next_state.action = SPEC_CHANGE_STEP_NAME
             feature_description = self.prev_response.data["description"]
 
         await self.send_message(

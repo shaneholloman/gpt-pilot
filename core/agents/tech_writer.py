@@ -7,6 +7,8 @@ from core.ui.base import success_source
 
 log = get_logger(__name__)
 
+TW_WRITE = "Write documentation"
+
 
 class TechnicalWriter(BaseAgent):
     agent_type = "tech-writer"
@@ -23,7 +25,7 @@ class TechnicalWriter(BaseAgent):
             await self.send_congratulations()
             await self.create_readme()
 
-        self.next_state.action = "Create README.md"
+        self.next_state.action = TW_WRITE
         self.next_state.set_current_task_status(TaskStatus.DOCUMENTED)
         return AgentResponse.done(self)
 

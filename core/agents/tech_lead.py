@@ -45,6 +45,11 @@ class EpicPlan(BaseModel):
     plan: list[Task] = Field(description="List of tasks that need to be done to implement the entire epic.")
 
 
+TL_CREATE_INITIAL_EPIC = "Create initial project epic"
+TL_CREATE_PLAN = "Create a development plan for epic: {}"
+TL_START_FEATURE = "Start of feature #{}"
+
+
 class TechLead(RelevantFilesMixin, BaseAgent):
     agent_type = "tech-lead"
     display_name = "Tech Lead"
@@ -76,12 +81,14 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         #         return AgentResponse.done(self)
 
         if self.current_state.current_epic:
+            await self.remove_mocked_data()
             self.next_state.action = "Create a development plan"
             return await self.plan_epic(self.current_state.current_epic)
         else:
             return await self.ask_for_new_feature()
 
     def create_initial_project_epic(self):
+        self.next_state.action = TL_CREATE_INITIAL_EPIC
         log.debug("Creating initial project Epic")
         self.next_state.epics = self.current_state.epics + [
             {
@@ -170,10 +177,11 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             }
         ]
         # Orchestrator will rerun us to break down the new feature epic
-        self.next_state.action = f"Start of feature #{len(self.current_state.epics)}"
+        self.next_state.action = TL_START_FEATURE.format(len(self.current_state.epics))
         return AgentResponse.update_specification(self, feature_description)
 
     async def plan_epic(self, epic) -> AgentResponse:
+        self.next_state.action = TL_CREATE_PLAN.format(epic["name"])
         log.debug(f"Planning tasks for the epic: {epic['name']}")
         await self.send_message("Creating the development plan ...")
 

@@ -44,6 +44,12 @@ class ImportantLogsForDebugging(BaseModel):
     logs: list[ImportantLog] = Field(description="Important logs that will help the human debug the current bug.")
 
 
+BH_STARTING_PAIR_PROGRAMMING = "Start pair programming for task #{}"
+BH_START_USER_TEST = "Start user testing for task #{}"
+BH_WAIT_BUG_REP_INSTRUCTIONS = "Awaiting bug reproduction instructions for task #{}"
+BH_START_BUG_HUNT = "Start bug hunt for task #{}"
+
+
 class BugHunter(ChatWithBreakdownMixin, BaseAgent):
     agent_type = "bug-hunter"
     display_name = "Bug Hunter"
@@ -87,6 +93,9 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         )
 
     async def check_logs(self, logs_message: str = None):
+        self.next_state.action = BH_START_BUG_HUNT.format(
+            self.current_state.tasks.index(self.current_state.current_task) + 1
+        )
         llm = self.get_llm(CHECK_LOGS_AGENT_NAME, stream_output=True)
         convo = self.generate_iteration_convo_so_far()
         await self.ui.start_breakdown_stream()
@@ -124,6 +133,15 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         return AgentResponse.done(self)
 
     async def ask_user_to_test(self, awaiting_bug_reproduction: bool = False, awaiting_user_test: bool = False):
+        if awaiting_user_test:
+            self.next_state.action = BH_START_USER_TEST.format(
+                self.current_state.tasks.index(self.current_state.current_task) + 1
+            )
+        elif awaiting_bug_reproduction:
+            self.next_state.action = BH_WAIT_BUG_REP_INSTRUCTIONS.format(
+                self.current_state.tasks.index(self.current_state.current_task) + 1
+            )
+
         await self.ui.stop_app()
         test_instructions = self.current_state.current_iteration["bug_reproduction_description"]
         await self.ui.send_message(
@@ -201,6 +219,9 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         return AgentResponse.done(self)
 
     async def start_pair_programming(self):
+        self.next_state.action = BH_STARTING_PAIR_PROGRAMMING.format(
+            self.current_state.tasks.index(self.current_state.current_task) + 1
+        )
         llm = self.get_llm(stream_output=True)
         convo = self.generate_iteration_convo_so_far(True)
         if len(convo.messages) > 1:
@@ -359,9 +380,3 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         ]
 
         self.next_state.current_iteration["status"] = new_status
-
-    async def continue_on(self, convo, button_value, user_response):
-        llm = self.get_llm(stream_output=True)
-        convo = convo.template("continue_on")
-        continue_on = await llm(convo, temperature=0.5)
-        return continue_on

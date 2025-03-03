@@ -15,6 +15,12 @@ from core.ui.base import ProjectStage
 
 log = get_logger(__name__)
 
+FE_INIT = "Frontend init"
+FE_START = "Frontend start"
+FE_CONTINUE = "Frontend continue"
+FE_ITERATION = "Frontend iteration"
+FE_ITERATION_DONE = "Frontend iteration done"
+
 
 class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     agent_type = "frontend"
@@ -39,6 +45,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: AgentResponse.done(self)
         """
+        self.next_state.action = FE_INIT
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
 
         description = await self.ask_question(
@@ -87,6 +94,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         Starts the frontend of the app.
         """
+        self.next_state.action = FE_START
         await self.send_message("Building the frontend... This may take a couple of minutes")
         description = self.current_state.epics[0]["description"]
 
@@ -114,6 +122,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         Continues building the frontend of the app after the initial user input.
         """
+        self.next_state.action = FE_CONTINUE
         await self.ui.send_project_stage({"stage": ProjectStage.CONTINUE_FRONTEND})
         await self.send_message("Continuing to build UI... This may take a couple of minutes")
 
@@ -143,7 +152,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: True if the frontend is fully built, False otherwise.
         """
-
+        self.next_state.action = FE_ITERATION
         # update the pages in the knowledge base
         await self.state_manager.update_implemented_pages_and_apis()
 
@@ -198,6 +207,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         if finished:
             # TODO Add question if user app is fully finished
+            self.next_state.action = FE_ITERATION_DONE
+
             self.next_state.complete_epic()
             await telemetry.trace_code_event(
                 "frontend-finished",

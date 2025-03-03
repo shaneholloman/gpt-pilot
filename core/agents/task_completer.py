@@ -6,6 +6,8 @@ from core.telemetry import telemetry
 
 log = get_logger(__name__)
 
+TC_TASK_DONE = "Task #{} complete"
+
 
 class TaskCompleter(BaseAgent, GitMixin):
     agent_type = "pythagora"
@@ -16,7 +18,7 @@ class TaskCompleter(BaseAgent, GitMixin):
             await self.git_commit()
 
         current_task_index1 = self.current_state.tasks.index(self.current_state.current_task) + 1
-        self.next_state.action = f"Task #{current_task_index1} complete"
+        self.next_state.action = TC_TASK_DONE.format(current_task_index1)
         self.next_state.complete_task()
         await self.state_manager.log_task_completed()
         tasks = self.current_state.tasks
