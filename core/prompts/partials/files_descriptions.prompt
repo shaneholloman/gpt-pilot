@@ -1,9 +1,14 @@
-These files are currently implemented on the frontend that contain all API requests to the backend with structure that you need to follow:
-{% for file in state.files %}
-{% if not state.has_frontend() or (state.has_frontend() and state.epics|length > 1 and 'client/src/components/ui' not in file.path ) or (state.has_frontend() and state.epics|length == 1 ) %}
+{% if dir_type is defined %}
+{% if dir_type == "client" %}
+{% for file in state.files %}{% if 'client/' in file.path %}
 * `{{ file.path }}{% if file.meta.get("description") %}: {{file.meta.description}}{% endif %}`
 {% endif %}{% endfor %}
-These files are currently implemented in the project on the backend:
+{% endif %}
+
+{% if dir_type == "server" %}
 {% for file in state.files %}{% if 'server/' in file.path %}
 * `{{ file.path }}{% if file.meta.get("description") %}: {{file.meta.description}}{% endif %}`
 {% endif %}{% endfor %}
+{% endif %}
+
+{% endif %}

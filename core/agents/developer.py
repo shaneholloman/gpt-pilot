@@ -134,7 +134,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             log.debug(f"Breaking down the iteration {description}")
 
         if self.current_state.files and self.current_state.relevant_files is None:
-            await self.get_relevant_files(user_feedback, description)
+            await self.get_relevant_files_parallel(user_feedback, description)
 
         await self.ui.send_task_progress(
             n_tasks,  # iterations and reviews can be created only one at a time, so we are always on last one
@@ -201,7 +201,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         log.debug(f"Current state files: {len(self.current_state.files)}, relevant {self.current_state.relevant_files}")
         # Check which files are relevant to the current task
-        await self.get_relevant_files()
+        await self.get_relevant_files_parallel()
 
         current_task_index = self.current_state.tasks.index(current_task)
 

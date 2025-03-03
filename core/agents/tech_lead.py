@@ -179,7 +179,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         await self.send_message("Creating the development plan ...")
 
         if epic.get("source") == "feature":
-            await self.get_relevant_files(user_feedback=epic.get("description"))
+            await self.get_relevant_files_parallel(user_feedback=epic.get("description"))
 
         llm = self.get_llm(TECH_LEAD_PLANNING)
         convo = (
