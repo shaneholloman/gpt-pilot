@@ -82,6 +82,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         if self.current_state.current_epic:
             await self.remove_mocked_data()
+            self.next_state.action = "Create a development plan"
             return await self.plan_epic(self.current_state.current_epic)
         else:
             return await self.ask_for_new_feature()
@@ -301,7 +302,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 for line in file_content.split("\n"):
                     if "pythagora_mocked_data" in line:
                         file_content = file_content.replace(line + "\n", "")
-                file.content.content = file_content
                 await self.state_manager.save_file(file.path, file_content)
 
     def update_epics_and_tasks(self, edited_plan_string):
