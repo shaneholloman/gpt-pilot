@@ -33,6 +33,13 @@ Make sure to implement all functionality (button clicks, form submissions, etc.)
 
 The body content should not overlap with the header navigation bar or footer navigation bar or the side navigation bar.
 
+{% if state.branch.project.project_type is defined and state.branch.project.project_type == "swagger" and api_model_definitions is defined %}
+You need to write only the frontend code for this app. The backend is already fully built and is documented with OpenAPI specification. You don't know the API endpoints yet so you need to mock all API requests but you must mock them based on the model definitions that are known. Here are the model definitions:
+~~START_OF_API_MODEL_DEFINITIONS~~
+{{ api_model_definitions }}
+~~END_OF_API_MODEL_DEFINITIONS~~
+{% endif %}
+
 {% if user_feedback %}
 User who was using the app "{{ state.branch.project.name }}" sent you this feedback:
 ```
