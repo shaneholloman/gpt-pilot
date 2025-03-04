@@ -3,12 +3,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, UniqueConstraint, delete, inspect
+from sqlalchemy import ForeignKey, UniqueConstraint, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import func
 
+from core.config.actions import PS_EPIC_COMPLETE
 from core.db.models import Base, FileContent
 from core.log import get_logger
 
@@ -44,10 +45,6 @@ class IterationStatus:
     NEW_FEATURE_REQUESTED = "new_feature_requested"
     START_PAIR_PROGRAMMING = "start_pair_programming"
     DONE = "done"
-
-
-PS_EPIC_COMPLETE = "Epic {} completed"
-PS_TASK_COMPLETE = "Task {} completed"
 
 
 class ProjectState(Base):
@@ -217,6 +214,19 @@ class ProjectState(Base):
             specification=Specification(),
             step_index=1,
         )
+
+    @staticmethod
+    async def get_project_states(
+        session: "AsyncSession",
+        project_id: UUID,
+    ) -> list["ProjectState"]:
+        from core.db.models import Branch, ProjectState
+
+        branch = await session.execute(select(Branch).where(Branch.project_id == project_id))
+        branch = branch.scalar_one_or_none()
+
+        project_states_result = await session.execute(select(ProjectState).where(ProjectState.branch_id == branch.id))
+        return project_states_result.scalars().all()
 
     async def create_next_state(self) -> "ProjectState":
         """

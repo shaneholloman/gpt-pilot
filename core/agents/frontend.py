@@ -8,6 +8,7 @@ from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.config import FRONTEND_AGENT_NAME
+from core.config.actions import FE_CONTINUE, FE_INIT, FE_ITERATION, FE_ITERATION_DONE, FE_START
 from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
@@ -15,12 +16,6 @@ from core.templates.registry import PROJECT_TEMPLATES
 from core.ui.base import ProjectStage
 
 log = get_logger(__name__)
-
-FE_INIT = "Frontend init"
-FE_START = "Frontend start"
-FE_CONTINUE = "Frontend continue"
-FE_ITERATION = "Frontend iteration"
-FE_ITERATION_DONE = "Frontend iteration done"
 
 
 class Frontend(FileDiffMixin, GitMixin, BaseAgent):

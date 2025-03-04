@@ -9,6 +9,7 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, IterationPromptMixin, RelevantFilesMixin, TestSteps
 from core.agents.response import AgentResponse
 from core.config import TROUBLESHOOTER_GET_RUN_COMMAND
+from core.config.actions import TS_ALT_SOLUTION, TS_TASK_REVIEWED
 from core.db.models.file import File
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.llm.parser import JSONParser, OptionalCodeBlockParser
@@ -29,10 +30,6 @@ class BugReportQuestions(BaseModel):
 
 class RouteFilePaths(BaseModel):
     files: list[str] = Field(description="List of paths for files that contain routes")
-
-
-TS_TASK_REVIEWED = "Task #{} reviewed"
-TS_ALT_SOLUTION = "Alternative solution (attempt #{})"
 
 
 class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFilesMixin, BaseAgent):

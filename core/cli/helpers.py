@@ -3,21 +3,35 @@ import os
 import os.path
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
+from difflib import unified_diff
 from typing import Optional
 from urllib.parse import urlparse
 from uuid import UUID
 
 from core.config import Config, LLMProvider, LocalIPCConfig, ProviderConfig, UIAdapter, get_config, loader
+from core.config.actions import (
+    BH_START_BUG_HUNT,
+    BH_START_USER_TEST,
+    BH_STARTING_PAIR_PROGRAMMING,
+    BH_WAIT_BUG_REP_INSTRUCTIONS,
+    CM_UPDATE_FILES,
+    DEV_TASK_BREAKDOWN,
+    DEV_TASK_STARTING,
+    DEV_TROUBLESHOOT,
+    TC_TASK_DONE,
+)
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
-from core.log import setup
+from core.log import get_logger, setup
 from core.state.state_manager import StateManager
 from core.ui.base import UIBase
 from core.ui.console import PlainConsoleUI
 from core.ui.ipc_client import IPCClientUI
 from core.ui.virtual import VirtualUI
+
+log = get_logger(__name__)
 
 
 def parse_llm_endpoint(value: str) -> Optional[tuple[LLMProvider, str]]:
@@ -45,6 +59,35 @@ def parse_llm_endpoint(value: str) -> Optional[tuple[LLMProvider, str]]:
         raise ArgumentTypeError(f"Invalid LLM endpoint URL: {parts[1]}")
 
     return provider, url.geturl()
+
+
+def get_line_changes(old_content: str, new_content: str) -> tuple[int, int]:
+    """
+    Get the number of added and deleted lines between two files.
+
+    This uses Python difflib to produce a unified diff, then counts
+    the number of added and deleted lines.
+
+    :param old_content: old file content
+    :param new_content: new file content
+    :return: a tuple (added_lines, deleted_lines)
+    """
+
+    from_lines = old_content.splitlines(keepends=True)
+    to_lines = new_content.splitlines(keepends=True)
+
+    diff_gen = unified_diff(from_lines, to_lines)
+
+    added_lines = 0
+    deleted_lines = 0
+
+    for line in diff_gen:
+        if line.startswith("+") and not line.startswith("+++"):  # Exclude the file headers
+            added_lines += 1
+        elif line.startswith("-") and not line.startswith("---"):  # Exclude the file headers
+            deleted_lines += 1
+
+    return added_lines, deleted_lines
 
 
 def parse_llm_key(value: str) -> Optional[tuple[LLMProvider, str]]:
@@ -226,6 +269,125 @@ async def list_projects_json(db: SessionManager):
         data.append(p)
 
     print(json.dumps(data, indent=2))
+
+
+async def load_convo(
+    sm: StateManager,
+    project_id: Optional[UUID] = None,
+    step_index: Optional[int] = None,
+) -> list:
+    """
+    List all projects in the database.
+    """
+    convo = []
+
+    project_states = await sm.get_project_states(project_id)
+    project_states = [state for state in project_states if 0 <= state.step_index <= step_index]
+
+    branches = await sm.get_branches_for_project_id(project_id)
+    branch_id = branches[0].id
+
+    task_counter = 1
+
+    for i, state in enumerate(project_states):
+        prev_state = project_states[i - 1] if i > 0 else None
+
+        convo_el = {}
+        ui = await sm.find_user_input(state, branch_id)
+
+        if ui is not None and ui.question is not None:
+            convo_el["question"] = ui.question
+            if ui.answer_text is not None:
+                convo_el["answer"] = str(ui.answer_text)
+            else:
+                convo_el["answer"] = str(ui.answer_button)
+
+        if state.action is not None:
+            if DEV_TASK_STARTING[:-2] in state.action:
+                task_counter = int(state.action.split("#")[-1])
+
+            elif state.action == DEV_TROUBLESHOOT.format(task_counter):
+                if state.iterations is not None:
+                    si = state.iterations[-1]
+                    if si is not None:
+                        if si["user_feedback"] is not None:
+                            convo_el["user_feedback"] = si["user_feedback"]
+                        if si["description"] is not None:
+                            convo_el["description"] = si["description"]
+
+            elif state.action == DEV_TASK_BREAKDOWN.format(task_counter):
+                task = state.tasks[task_counter - 1]
+                if "description" in task and task["description"] is not None:
+                    convo_el["description"] = task["description"]
+
+                if "instructions" in task and task["instructions"] is not None:
+                    convo_el["instructions"] = task["instructions"]
+
+            elif state.action == TC_TASK_DONE.format(task_counter):
+                if len(state.tasks) > 0:
+                    task = state.tasks[task_counter - 1]
+                    if "test_instructions" in task and task["test_instructions"] is not None:
+                        convo_el["test_instructions"] = task["test_instructions"]
+
+            elif state.action == CM_UPDATE_FILES:
+                files = {}
+                for steps in state.steps:
+                    if "save_file" in steps and "path" in steps["save_file"]:
+                        path = steps["save_file"]["path"]
+                        files["path"] = path
+
+                        current_file = await sm.get_file_for_project(state.id, path)
+                        prev_file = await sm.get_file_for_project(prev_state.id, path)
+
+                        if current_file and prev_file:
+                            files["diff"] = get_line_changes(
+                                old_content=prev_file.content.content, new_content=current_file.content.content
+                            )
+
+                convo_el["files"] = files
+
+            elif state.action == BH_START_BUG_HUNT.format(task_counter):
+                si = state.iterations[-1]
+                if si is not None:
+                    if "user_feedback" in si and si["user_feedback"] is not None:
+                        convo_el["user_feedback"] = si["user_feedback"]
+
+                    if "description" in si and si["description"] is not None:
+                        convo_el["description"] = si["description"]
+
+            elif state.action == BH_WAIT_BUG_REP_INSTRUCTIONS.format(task_counter):
+                if state.iterations is not None:
+                    for si in state.iterations:
+                        if "bug_reproduction_description" in si and si["bug_reproduction_description"] is not None:
+                            convo_el["bug_reproduction_description"] = si["bug_reproduction_description"]
+
+            elif state.action == BH_START_USER_TEST.format(task_counter):
+                si = state.iterations[-1]
+                if si is not None:
+                    if "bug_hunting_cycles" in si and si["bug_hunting_cycles"] is not None:
+                        cycle = si["bug_hunting_cycles"][-1]
+                        if cycle is not None:
+                            if "user_feedback" in cycle and cycle["user_feedback"] is not None:
+                                convo_el["user_feedback"] = cycle["user_feedback"]
+                            if (
+                                "human_readable_instructions" in cycle
+                                and cycle["human_readable_instructions"] is not None
+                            ):
+                                convo_el["human_readable_instructions"] = cycle["human_readable_instructions"]
+
+            elif state.action == BH_STARTING_PAIR_PROGRAMMING.format(task_counter):
+                si = state.iterations[-1]
+                if si is not None:
+                    if "user_feedback" in si and si["user_feedback"] is not None:
+                        convo_el["user_feedback"] = si["user_feedback"]
+                    if "initial_explanation" in si and si["initial_explanation"] is not None:
+                        convo_el["initial_explanation"] = si["initial_explanation"]
+
+        if len(convo_el.keys()) > 0:
+            convo_el["action"] = state.action
+            convo.append(convo_el)
+
+    return convo
 
 
 async def list_projects(db: SessionManager):

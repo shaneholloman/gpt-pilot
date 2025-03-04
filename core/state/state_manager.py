@@ -78,6 +78,26 @@ class StateManager:
         async with self.session_manager as session:
             return await Project.get_all_projects(session)
 
+    async def get_convo(self):
+        async with self.session_manager as session:
+            return await Project.get_convo(session)
+
+    async def get_project_states(self, project_id: UUID) -> list[ProjectState]:
+        async with self.session_manager as session:
+            return await ProjectState.get_project_states(session, project_id)
+
+    async def get_branches_for_project_id(self, project_id: UUID) -> list[Branch]:
+        async with self.session_manager as session:
+            return await Project.get_branches_for_project_id(session, project_id)
+
+    async def find_user_input(self, project_state, branch_id) -> Optional["UserInput"]:
+        async with self.session_manager as session:
+            return await UserInput.find_user_input(session, project_state, branch_id)
+
+    async def get_file_for_project(self, state_id: UUID, path: str):
+        async with self.session_manager as session:
+            return await Project.get_file_for_project(session, state_id, path)
+
     async def create_project(self, name: str, folder_name: Optional[str] = None) -> Project:
         """
         Create a new project and set it as the current one.

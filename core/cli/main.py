@@ -14,7 +14,15 @@ except ImportError:
     SENTRY_AVAILABLE = False
 
 from core.agents.orchestrator import Orchestrator
-from core.cli.helpers import delete_project, init, list_projects, list_projects_json, load_project, show_config
+from core.cli.helpers import (
+    delete_project,
+    init,
+    list_projects,
+    list_projects_json,
+    load_convo,
+    load_project,
+    show_config,
+)
 from core.db.session import SessionManager
 from core.db.v0importer import LegacyDatabaseImporter
 from core.llm.anthropic_client import CustomAssertionError
@@ -195,6 +203,10 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     :param args: Command-line arguments.
     :return: True if the application ran successfully, False otherwise.
     """
+
+    if args.project and args.step:
+        convo = await load_convo(sm, args.project, args.step)
+        log.debug(f"Convo exists: {len(convo) > 0}")
 
     if args.project or args.branch or args.step:
         telemetry.set("is_continuation", True)

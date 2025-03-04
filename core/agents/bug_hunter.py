@@ -9,6 +9,12 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, TestSteps
 from core.agents.response import AgentResponse
 from core.config import CHECK_LOGS_AGENT_NAME, magic_words
+from core.config.actions import (
+    BH_START_BUG_HUNT,
+    BH_START_USER_TEST,
+    BH_STARTING_PAIR_PROGRAMMING,
+    BH_WAIT_BUG_REP_INSTRUCTIONS,
+)
 from core.config.constants import CONVO_ITERATIONS_LIMIT
 from core.db.models.project_state import IterationStatus
 from core.llm.parser import JSONParser
@@ -43,12 +49,6 @@ class ImportantLog(BaseModel):
 
 class ImportantLogsForDebugging(BaseModel):
     logs: list[ImportantLog] = Field(description="Important logs that will help the human debug the current bug.")
-
-
-BH_STARTING_PAIR_PROGRAMMING = "Start pair programming for task #{}"
-BH_START_USER_TEST = "Start user testing for task #{}"
-BH_WAIT_BUG_REP_INSTRUCTIONS = "Awaiting bug reproduction instructions for task #{}"
-BH_START_BUG_HUNT = "Start bug hunt for task #{}"
 
 
 class BugHunter(ChatWithBreakdownMixin, BaseAgent):

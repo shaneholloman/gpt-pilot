@@ -1,12 +1,12 @@
 import asyncio
 import json
-from difflib import unified_diff
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse
+from core.cli.helpers import get_line_changes
 from core.config import GET_RELEVANT_FILES_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME, TROUBLESHOOTER_BUG_REPORT
 from core.config.constants import CONVO_ITERATIONS_LIMIT
 from core.llm.parser import JSONParser
@@ -191,18 +191,4 @@ class FileDiffMixin:
         :return: a tuple (added_lines, deleted_lines)
         """
 
-        from_lines = old_content.splitlines(keepends=True)
-        to_lines = new_content.splitlines(keepends=True)
-
-        diff_gen = unified_diff(from_lines, to_lines)
-
-        added_lines = 0
-        deleted_lines = 0
-
-        for line in diff_gen:
-            if line.startswith("+") and not line.startswith("+++"):  # Exclude the file headers
-                added_lines += 1
-            elif line.startswith("-") and not line.startswith("---"):  # Exclude the file headers
-                deleted_lines += 1
-
-        return added_lines, deleted_lines
+        return get_line_changes(old_content, new_content)

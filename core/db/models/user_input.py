@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, inspect
+from sqlalchemy import ForeignKey, and_, inspect, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -57,3 +58,24 @@ class UserInput(Base):
         )
         session.add(obj)
         return obj
+
+    @staticmethod
+    async def find_user_input(session: AsyncSession, project_state, branch_id) -> Optional["UserInput"]:
+        from core.db.models import UserInput
+
+        user_input = await session.execute(
+            select(UserInput).where(
+                and_(UserInput.branch_id == branch_id, UserInput.project_state_id == project_state.id)
+            )
+        )
+        user_input = user_input.scalars().all()
+
+        if user_input is None:
+            user_input = await session.execute(
+                select(UserInput).where(
+                    and_(UserInput.branch_id == branch_id, UserInput.project_state_id == project_state.prev_state_id)
+                )
+            )
+            user_input = user_input.scalars().all()
+
+        return user_input[0] if len(user_input) > 0 else None
