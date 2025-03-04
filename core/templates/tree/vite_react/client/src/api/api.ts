@@ -15,6 +15,7 @@ const localApi = axios.create({
   },
 });
 
+{% if options.auth_type == "api_key" %}
 const externalApi = axios.create({
   baseURL: EXTERNAL_API_URL,
   headers: {
@@ -24,6 +25,8 @@ const externalApi = axios.create({
     return status >= 200 && status < 300;
   },
 });
+{% endif %}
+
 
 let accessToken: string | null = null;
 
@@ -33,7 +36,11 @@ const isAuthEndpoint = (url: string): boolean => {
 };
 
 const getApiInstance = (url: string) => {
+    {% if options.auth %}
   return isAuthEndpoint(url) ? localApi : externalApi;
+    {% else %}
+    return localApi;
+    {% endif %}
 };
 
 // Interceptor for both API instances
