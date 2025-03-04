@@ -146,7 +146,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         await self.send_message("Implementing the changes you suggested...")
 
-        llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
+        llm = self.get_llm(FRONTEND_AGENT_NAME)
 
         convo = AgentConvo(self).template(
             "is_relevant_for_docs_search",
