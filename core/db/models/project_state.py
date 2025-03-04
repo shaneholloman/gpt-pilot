@@ -492,6 +492,10 @@ class ProjectState(Base):
         """
         return self.epics and any(epic.get("source") == "frontend" for epic in self.epics)
 
+    # function that checks whether old project or new project is currently in frontend stage
+    def working_on_frontend(self) -> bool:
+        return self.has_frontend() and len(self.epics) == 1
+
     def is_feature(self) -> bool:
         """
         Check if the current epic is a feature.
