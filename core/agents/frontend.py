@@ -297,11 +297,16 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         resp_json = resp.json()
                         relevant_api_documentation = "\n".join(item["content"] for item in resp_json)
 
+                        referencing_files = await self.state_manager.get_referencing_files(
+                            self.current_state, file_path
+                        )
+
                         convo = AgentConvo(self).template(
                             "remove_mock",
                             relevant_api_documentation=relevant_api_documentation,
                             file_content=old_content,
                             file_path=file_path,
+                            referencing_files=referencing_files,
                             lines=len(old_content.splitlines()),
                         )
 
