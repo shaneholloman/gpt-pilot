@@ -2,7 +2,7 @@
 {% if dir_type == "client" %}
 Now you need to focus only on the frontend files. These files are currently implemented on the frontend that contain all API requests to the backend with structure that you need to follow:
 {% for file in state.files %}
-{% if not state.has_frontend() or (state.has_frontend() and 'client/src/components/ui' not in file.path and 'server/' not in file.path) %}
+{% if not state.has_frontend() or (state.has_frontend() and 'server/' not in file.path) %}
 * `{{ file.path }}{% if file.meta.get("description") %}: {{file.meta.description}}{% endif %}`
 {% endif %}{% endfor %}
 {% endif %}
@@ -17,7 +17,7 @@ Now you need to focus only on the backend files. These files are currently imple
 {% else %}
 These files are currently implemented on the frontend that contain all API requests to the backend with structure that you need to follow:
 {% for file in state.files %}
-{% if not state.has_frontend() or (state.has_frontend() and 'client/src/components/ui' not in file.path and 'server/' not in file.path) %}
+{% if not state.has_frontend() or (state.has_frontend() and 'server/' not in file.path) %}
 * `{{ file.path }}{% if file.meta.get("description") %}: {{file.meta.description}}{% endif %}`
 {% endif %}{% endfor %}
 These files are currently implemented in the project on the backend:
