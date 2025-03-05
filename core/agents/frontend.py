@@ -29,7 +29,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     async def run(self) -> AgentResponse:
         if not self.current_state.epics[0]["messages"]:
             finished = await self.start_frontend()
-        elif len(self.next_state.epics[-1].get("file_paths_to_remove_mock")) > 0:
+        elif self.next_state.epics[-1].get("file_paths_to_remove_mock"):
             finished = await self.remove_mock()
         elif not self.next_state.epics[-1].get("fe_iteration_done"):
             finished = await self.continue_frontend()
