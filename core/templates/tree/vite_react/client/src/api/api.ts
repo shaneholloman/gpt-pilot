@@ -6,7 +6,6 @@ const API_KEY = import.meta.env.VITE_API_KEY;
 const EXTERNAL_API_URL = import.meta.env.VITE_EXTERNAL_API_URL;
 {% endif %}
 
-// Create two axios instances
 const localApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
@@ -17,7 +16,7 @@ const localApi = axios.create({
   transformResponse: [(data) => JSONbig.parse(data)]
 });
 
-{% if options.auth_type == "api_key" %}
+{% if options.auth_type != "login" %}
 const externalApi = axios.create({
   baseURL: EXTERNAL_API_URL,
   headers: {
@@ -38,14 +37,13 @@ const isAuthEndpoint = (url: string): boolean => {
 };
 
 const getApiInstance = (url: string) => {
-    {% if options.auth %}
+    {% if options.auth_type != "login" %}
   return isAuthEndpoint(url) ? localApi : externalApi;
     {% else %}
     return localApi;
     {% endif %}
 };
 
-// Interceptor for both API instances
 const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.request.use(
     (config: AxiosRequestConfig): AxiosRequestConfig => {
@@ -111,12 +109,14 @@ const setupInterceptors = (apiInstance: typeof axios) => {
   );
 };
 
-// Setup interceptors for both API instances
 setupInterceptors(localApi);
+
+{% if options.auth_type != "login" %}
 setupInterceptors(externalApi);
 {% endif %}
 
-// Export a wrapper function that chooses the appropriate API instance
+{% endif %}
+
 const api = {
   request: (config: AxiosRequestConfig) => {
     const apiInstance = getApiInstance(config.url || '');
