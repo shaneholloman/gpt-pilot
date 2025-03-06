@@ -378,19 +378,6 @@ class BaseLLMClient:
 
         return response, request_log
 
-    async def api_check(self) -> bool:
-        """
-        Perform an LLM API check.
-
-        :return: True if the check was successful, False otherwise.
-        """
-
-        convo = Convo()
-        msg = "This is a connection test. If you can see this, please respond only with 'START' and nothing else."
-        convo.user(msg)
-        resp, _log = await self(convo)
-        return bool(resp)
-
     @staticmethod
     def for_provider(provider: LLMProvider) -> type["BaseLLMClient"]:
         """
