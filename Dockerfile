@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gnupg \
     tzdata \
-    openssh-server \
     inotify-tools \
     vim \
     nano \
@@ -62,13 +61,6 @@ RUN case "$TARGETPLATFORM" in \
     esac \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure SSH
-RUN mkdir -p /run/sshd \
-    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config \
-    && sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config \
-    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config \
-    && sed -i 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
-
 ENV PYTH_INSTALL_DIR=/pythagora
 
 # Set up work directory
@@ -96,7 +88,7 @@ ENV PYTHAGORA_DATA_DIR=${PYTH_INSTALL_DIR}/pythagora-core/data/
 RUN mkdir -p data
 
 # Expose MongoDB and application ports
-EXPOSE 27017 8000
+EXPOSE 27017 8000 8080 5173 3000
 
 # Create a group named "devusergroup" with a specific GID (1000, optional)
 RUN groupadd -g 1000 devusergroup
@@ -115,22 +107,10 @@ RUN chmod +x /entrypoint.sh
 
 RUN chown -R $USERNAME:devusergroup /pythagora
 
-# Copy SSH public key from secret
-#RUN --mount=type=secret,id=ssh_public_key \
-#    mkdir -p /home/${USERNAME}/.ssh \
-#    && cat /run/secrets/ssh_public_key > /home/${USERNAME}/.ssh/authorized_keys \
-#    && chown -R ${USERNAME}:devusergroup /home/${USERNAME}/.ssh \
-#    && chmod 700 /home/${USERNAME}/.ssh \
-#    && chmod 600 /home/${USERNAME}/.ssh/authorized_keys
-
 USER $USERNAME
-
-RUN npx @puppeteer/browsers install chrome@stable
 
 # add this before vscode... better caching of layers
 ADD pythagora-vs-code.vsix /var/init_data/pythagora-vs-code.vsix
-
-RUN mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 
 # ARG commitHash
 # # VS Code server installation with platform-specific handling
@@ -161,8 +141,6 @@ ADD on-event-extension-install.sh /var/init_data/on-event-extension-install.sh
 RUN mkdir -p ${PYTH_INSTALL_DIR}/pythagora-core/workspace
 
 RUN mkdir -p /home/$USERNAME/.vscode-server/cli/servers
-
-RUN mkdir -p ${PYTH_INSTALL_DIR}/pythagora-core/workspace/.vscode && printf '{\n  "gptPilot.isRemoteWs": true,\n  "gptPilot.useRemoteWs": false\n}' >  ${PYTH_INSTALL_DIR}/pythagora-core/workspace/.vscode/settings.json
 
 ADD vsc-dl-x64 vsc-dl-x64
 ADD vscode_tags.csv vscode_tags.csv
