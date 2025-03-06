@@ -250,7 +250,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 await self.ui.generate_diff(
                     file_path, old_content, new_content, n_new_lines, n_del_lines, source=self.ui_source
                 )
-                if not removed_mock:
+                if not removed_mock and self.current_state.branch.project.project_type == "swagger":
                     if "client/src/api" in file_path:
                         if not self.next_state.epics[-1].get("file_paths_to_remove_mock"):
                             self.next_state.epics[-1]["file_paths_to_remove_mock"] = []
