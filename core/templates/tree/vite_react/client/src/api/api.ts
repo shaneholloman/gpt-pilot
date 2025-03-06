@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
+import JSONbig from 'json-bigint';
 
 {% if options.auth_type == "api_key" %}
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -13,6 +14,7 @@ const localApi = axios.create({
   validateStatus: (status) => {
     return status >= 200 && status < 300;
   },
+  transformResponse: [(data) => JSONbig.parse(data)]
 });
 
 {% if options.auth_type == "api_key" %}
