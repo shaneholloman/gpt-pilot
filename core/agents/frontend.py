@@ -267,6 +267,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         # Add "cd client" prefix if not already present
                         if not command.startswith("cd "):
                             command = f"cd client && {command}"
+                        if "run start" or "run dev" in command:
+                            continue
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
             else:
