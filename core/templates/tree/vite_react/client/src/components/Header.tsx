@@ -20,7 +20,7 @@ export function Header() {
   return (
     <header className="fixed top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm">
       <div className="flex h-16 items-center justify-between px-6">
-        <div className="text-xl font-bold">Home</div>
+        <div className="text-xl font-bold" onClick={navigate("/")}>Home</div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
           {% if options.auth %}
