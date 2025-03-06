@@ -182,7 +182,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         return AgentResponse.update_specification(self, feature_description)
 
     async def process_epic(self, sub_epic_number, sub_epic):
-        await self.send_message(f"Epic {sub_epic_number}: {sub_epic.description}")
         epic_convo = (
             AgentConvo(self)
             .template(
