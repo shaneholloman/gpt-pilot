@@ -124,6 +124,9 @@ class BaseProjectTemplate:
                 exc_info=True,
             )
 
+        return self.get_summary()
+
+    def get_summary(self):
         return self.info_renderer.render_template(
             join(self.path, "summary.tpl"),
             {

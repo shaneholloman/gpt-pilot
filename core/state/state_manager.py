@@ -54,6 +54,8 @@ class StateManager:
         self.git_used = False
         self.options = {}
         self.access_token = None
+        self.async_tasks = None
+        self.template = None
 
     @asynccontextmanager
     async def db_blocker(self):
