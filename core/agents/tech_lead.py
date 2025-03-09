@@ -144,8 +144,19 @@ class TechLead(RelevantFilesMixin, BaseAgent):
     async def ask_for_new_feature(self) -> AgentResponse:
         if len(self.current_state.epics) > 2:
             await self.ui.send_message("Your new feature is complete!", source=success_source)
+            await self.ui.send_project_stage(
+                {
+                    "stage": ProjectStage.FEATURE_FINISHED,
+                    "feature_number": len(self.current_state.epics),
+                }
+            )
         else:
             await self.ui.send_message("Your app is DONE! You can start using it right now!", source=success_source)
+            await self.ui.send_project_stage(
+                {
+                    "stage": ProjectStage.INITIAL_APP_FINISHED,
+                }
+            )
 
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
@@ -162,6 +173,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             await self.ui.send_message("Thank you for using Pythagora!", source=pythagora_source)
             return AgentResponse.exit(self)
 
+        await self.ui.send_project_stage(
+            {
+                "stage": ProjectStage.STARTING_NEW_FEATURE,
+                "feature_number": len(self.current_state.epics),
+            }
+        )
         feature_description = response.text
         self.next_state.epics = self.current_state.epics + [
             {

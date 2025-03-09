@@ -17,6 +17,9 @@ class ProjectStage(str, Enum):
     ADDITIONAL_FEEDBACK = "additional_feedback"
     DESCRIBE_CHANGE = "describe_change"
     DESCRIBE_ISSUE = "describe_issue"
+    STARTING_NEW_FEATURE = "starting_new_feature"
+    FEATURE_FINISHED = "feature_finished"
+    INITIAL_APP_FINISHED = "initial_app_finished"
 
 
 class UIClosedError(Exception):
