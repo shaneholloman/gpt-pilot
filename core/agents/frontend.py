@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 from uuid import uuid4
 
@@ -48,13 +49,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         self.next_state.action = FE_INIT
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
 
-        description = await self.ask_question(
-            "Please describe the app you want to build.",
-            allow_empty=False,
-            full_screen=True,
-        )
-        description = description.text.strip()
-
         auth_needed = await self.ask_question(
             "Do you need authentication in your app (login, register, etc.)?",
             buttons={
@@ -64,15 +58,29 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             buttons_only=True,
             default="no",
         )
+
+        self.state_manager.template = {}
         options = {
             "auth": auth_needed.button == "yes",
             "jwt_secret": secrets.token_hex(32),
             "refresh_token_secret": secrets.token_hex(32),
         }
+        self.state_manager.template["options"] = options
+
+        if not self.state_manager.async_tasks:
+            self.state_manager.async_tasks = []
+            self.state_manager.async_tasks.append(asyncio.create_task(self.apply_template(options)))
+
         self.next_state.knowledge_base["user_options"] = options
         self.state_manager.user_options = options
 
-        await self.send_message("Setting up the project...")
+        description = await self.ask_question(
+            "Please describe the app you want to build.",
+            allow_empty=False,
+            full_screen=True,
+        )
+        description = description.text.strip()
+        self.state_manager.template["description"] = description
 
         self.next_state.epics = [
             {
@@ -86,8 +94,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             }
         ]
 
-        await self.apply_template(options)
-
         return False
 
     async def start_frontend(self):
@@ -96,17 +102,23 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         self.next_state.action = FE_START
         await self.send_message("Building the frontend... This may take a couple of minutes")
-        description = self.current_state.epics[0]["description"]
 
         llm = self.get_llm(FRONTEND_AGENT_NAME)
         convo = AgentConvo(self).template(
             "build_frontend",
-            description=description,
+            summary=self.state_manager.template["template"].get_summary(),
+            description=self.state_manager.template["description"],
             user_feedback=None,
         )
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
         response_blocks = response.blocks
         convo.assistant(response.original_response)
+
+        # Await the template task if it's not done yet
+        if self.state_manager.async_tasks:
+            if not self.state_manager.async_tasks[-1].done():
+                await self.state_manager.async_tasks[-1].done()
+            self.state_manager.async_tasks = []
 
         await self.process_response(response_blocks)
 
@@ -293,7 +305,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             self.state_manager,
             self.process_manager,
         )
-
+        self.state_manager.template["template"] = template
         log.info(f"Applying project template: {template.name}")
         summary = await template.apply()
 
