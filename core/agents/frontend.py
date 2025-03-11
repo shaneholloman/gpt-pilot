@@ -81,6 +81,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         )
         description = description.text.strip()
         self.state_manager.template["description"] = description
+        self.next_state.specification.description = description
 
         self.next_state.epics = [
             {
@@ -106,8 +107,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         llm = self.get_llm(FRONTEND_AGENT_NAME)
         convo = AgentConvo(self).template(
             "build_frontend",
-            summary=self.state_manager.template["template"].get_summary(),
-            description=self.state_manager.template["description"],
+            summary=self.state_manager.template.get_summary()
+            if self.state_manager.template is not None
+            else self.current_state.specification.template_summary,
+            description=self.state_manager.template["description"]
+            if self.state_manager.template is not None
+            else self.next_state.epics[0]["description"],
             user_feedback=None,
         )
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
