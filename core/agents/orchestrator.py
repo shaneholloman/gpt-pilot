@@ -90,10 +90,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 should_update_knowledge_base = any(
                     "src/pages/" in single_agent.step.get("save_file", {}).get("path", "")
                     or "src/api/" in single_agent.step.get("save_file", {}).get("path", "")
-                    or (
-                        single_agent.step.get("related_api_endpoints") is not None
-                        and len(single_agent.step.get("related_api_endpoints")) > 0
-                    )
+                    or single_agent.current_state.current_task.get("related_api_endpoints")
                     for single_agent in agent
                 )
 
@@ -101,15 +98,16 @@ class Orchestrator(BaseAgent, GitMixin):
                     files_with_implemented_apis = [
                         {
                             "path": single_agent.step.get("save_file", {}).get("path", None),
-                            "related_api_endpoints": single_agent.step.get("related_api_endpoints"),
-                            "line": 0,  # TODO implement getting the line number here
+                            "content": single_agent.step.get("save_file", {}).get("content", None),
+                            "related_api_endpoints": single_agent.current_state.current_task.get(
+                                "related_api_endpoints"
+                            ),
+                            "line": 0,
                         }
                         for single_agent in agent
-                        if (
-                            single_agent.step.get("related_api_endpoints") is not None
-                            and len(single_agent.step.get("related_api_endpoints")) > 0
-                        )
+                        if single_agent.current_state.current_task.get("related_api_endpoints")
                     ]
+
                     await self.state_manager.update_apis(files_with_implemented_apis)
                     await self.state_manager.update_implemented_pages_and_apis()
 

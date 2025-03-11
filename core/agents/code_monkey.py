@@ -227,6 +227,7 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
         )
 
         await self.state_manager.save_file(file_path, new_content)
+        self.step["save_file"]["content"] = new_content
         self.next_state.complete_step("save_file")
 
         input_required = self.state_manager.get_input_required(new_content, file_path)
