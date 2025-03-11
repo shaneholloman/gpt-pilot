@@ -1,3 +1,4 @@
+import asyncio
 import json
 from enum import Enum
 
@@ -58,7 +59,10 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         current_iteration = self.current_state.current_iteration
 
         if "bug_reproduction_description" not in current_iteration:
-            await self.get_bug_reproduction_instructions()
+            if not self.state_manager.async_tasks:
+                self.state_manager.async_tasks = []
+                self.state_manager.async_tasks.append(asyncio.create_task(self.get_bug_reproduction_instructions()))
+
         if current_iteration["status"] == IterationStatus.HUNTING_FOR_BUG:
             # TODO determine how to find a bug (eg. check in db, ask user a question, etc.)
             return await self.check_logs()
@@ -130,6 +134,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             await self.ui.send_bug_hunter_status("adding_logs", num_bug_hunting_cycles)
 
         self.next_state.flag_iterations_as_modified()
+        await self.async_task_finish()
         return AgentResponse.done(self)
 
     async def ask_user_to_test(self, awaiting_bug_reproduction: bool = False, awaiting_user_test: bool = False):
@@ -143,6 +148,8 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             )
 
         await self.ui.stop_app()
+        await self.async_task_finish()
+
         test_instructions = self.current_state.current_iteration["bug_reproduction_description"]
         await self.ui.send_message(
             "Start the app and test it by following these instructions:\n\n", source=pythagora_source
@@ -159,7 +166,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             buttons_only=True,
             default="continue",
             extra_info="restart_app",
-            hint="Instructions for testing:\n\n" + self.current_state.current_iteration["bug_reproduction_description"],
+            hint="Instructions for testing:\n\n" + test_instructions,
         )
 
         if awaiting_user_test:
@@ -169,8 +176,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 buttons=buttons,
                 default="yes",
                 buttons_only=True,
-                hint="Instructions for testing:\n\n"
-                + self.current_state.current_iteration["bug_reproduction_description"],
+                hint="Instructions for testing:\n\n" + test_instructions,
             )
             self.next_state.current_iteration["bug_hunting_cycles"][-1]["fix_attempted"] = True
 
@@ -198,8 +204,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 buttons=buttons,
                 default="continue",
                 extra_info="collect_logs",
-                hint="Instructions for testing:\n\n"
-                + self.current_state.current_iteration["bug_reproduction_description"],
+                hint="Instructions for testing:\n\n" + test_instructions,
             )
 
             if user_feedback.button == "done":
@@ -249,6 +254,8 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 ]
             }
         )
+
+        await self.async_task_finish()
 
         while True:
             self.next_state.current_iteration["initial_explanation"] = initial_explanation
@@ -367,6 +374,13 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             convo.slice(1, CONVO_ITERATIONS_LIMIT)
 
         return convo
+
+    async def async_task_finish(self):
+        if self.state_manager.async_tasks:
+            if not self.state_manager.async_tasks[-1].done():
+                await self.send_message("Waiting for the bug reproduction instructions...")
+                await self.state_manager.async_tasks[-1].done()
+            self.state_manager.async_tasks = []
 
     def set_data_for_next_hunting_cycle(self, human_readable_instructions, new_status):
         self.next_state.current_iteration["description"] = human_readable_instructions

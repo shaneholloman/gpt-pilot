@@ -169,6 +169,8 @@ class RelevantFilesMixin:
         )
         llm_response: RelevantFiles = await llm(convo, parser=JSONParser(RelevantFiles), temperature=0)
         existing_files = {file.path for file in self.current_state.files}
+        if not llm_response.relevant_files:
+            return []
         return [path for path in llm_response.relevant_files if path in existing_files]
 
 
