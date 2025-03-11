@@ -107,7 +107,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         llm = self.get_llm(FRONTEND_AGENT_NAME)
         convo = AgentConvo(self).template(
             "build_frontend",
-            summary=self.state_manager.template.get_summary()
+            summary=self.state_manager.template["template"].get_summary()
             if self.state_manager.template is not None
             else self.current_state.specification.template_summary,
             description=self.state_manager.template["description"]
