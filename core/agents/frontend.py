@@ -117,7 +117,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # Await the template task if it's not done yet
         if self.state_manager.async_tasks:
             if not self.state_manager.async_tasks[-1].done():
-                await self.state_manager.async_tasks[-1].done()
+                await self.state_manager.async_tasks[-1]
             self.state_manager.async_tasks = []
 
         await self.process_response(response_blocks)

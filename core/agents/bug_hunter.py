@@ -379,7 +379,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         if self.state_manager.async_tasks:
             if not self.state_manager.async_tasks[-1].done():
                 await self.send_message("Waiting for the bug reproduction instructions...")
-                await self.state_manager.async_tasks[-1].done()
+                await self.state_manager.async_tasks[-1]
             self.state_manager.async_tasks = []
 
     def set_data_for_next_hunting_cycle(self, human_readable_instructions, new_status):
