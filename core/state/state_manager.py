@@ -79,8 +79,9 @@ class StateManager:
             return await Project.get_all_projects(session)
 
     async def get_referencing_files(self, project_state, file_content: str) -> list["File"]:
-        async with self.session_manager as session:
-            return await File.get_referencing_files(session, project_state, file_content)
+        if not self.current_session:
+            raise ValueError("No database session open.")
+        return await File.get_referencing_files(self.current_session, project_state, file_content)
 
     async def create_project(
         self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
