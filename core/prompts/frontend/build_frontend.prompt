@@ -5,7 +5,11 @@
 {{ description }}
 ```
 
+{% if summary is defined %}
+{{ summary }}
+{% elif state.specification.template_summary is defined %}
 {{ state.specification.template_summary }}
+{% endif %}
 
 {% include "partials/files_list.prompt" %}
 

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from uuid import uuid4
 
@@ -144,8 +145,19 @@ class TechLead(RelevantFilesMixin, BaseAgent):
     async def ask_for_new_feature(self) -> AgentResponse:
         if len(self.current_state.epics) > 2:
             await self.ui.send_message("Your new feature is complete!", source=success_source)
+            await self.ui.send_project_stage(
+                {
+                    "stage": ProjectStage.FEATURE_FINISHED,
+                    "feature_number": len(self.current_state.epics),
+                }
+            )
         else:
             await self.ui.send_message("Your app is DONE! You can start using it right now!", source=success_source)
+            await self.ui.send_project_stage(
+                {
+                    "stage": ProjectStage.INITIAL_APP_FINISHED,
+                }
+            )
 
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
@@ -162,6 +174,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             await self.ui.send_message("Thank you for using Pythagora!", source=pythagora_source)
             return AgentResponse.exit(self)
 
+        await self.ui.send_project_stage(
+            {
+                "stage": ProjectStage.STARTING_NEW_FEATURE,
+                "feature_number": len(self.current_state.epics),
+            }
+        )
         feature_description = response.text
         self.next_state.epics = self.current_state.epics + [
             {
@@ -179,6 +197,35 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         # Orchestrator will rerun us to break down the new feature epic
         self.next_state.action = TL_START_FEATURE.format(len(self.current_state.epics))
         return AgentResponse.update_specification(self, feature_description)
+
+    async def process_epic(self, sub_epic_number, sub_epic):
+        epic_convo = (
+            AgentConvo(self)
+            .template(
+                "epic_breakdown",
+                epic_number=sub_epic_number,
+                epic_description=sub_epic.description,
+                get_only_api_files=True,
+            )
+            .require_schema(EpicPlan)
+        )
+
+        llm = self.get_llm(TECH_LEAD_EPIC_BREAKDOWN)
+        epic_plan: EpicPlan = await llm(epic_convo, parser=JSONParser(EpicPlan))
+
+        tasks = [
+            {
+                "id": uuid4().hex,
+                "description": task.description,
+                "instructions": None,
+                "pre_breakdown_testing_instructions": task.testing_instructions,
+                "status": TaskStatus.TODO,
+                "sub_epic_id": sub_epic_number,
+                "related_api_endpoints": [rae.model_dump() for rae in (task.related_api_endpoints or [])],
+            }
+            for task in epic_plan.plan
+        ]
+        return tasks
 
     async def plan_epic(self, epic) -> AgentResponse:
         self.next_state.action = TL_CREATE_PLAN.format(epic["name"])
@@ -205,10 +252,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         response: DevelopmentPlan = await llm(convo, parser=JSONParser(DevelopmentPlan))
 
         convo.remove_last_x_messages(1)
-        formatted_epics = [f"Epic #{index}: {epic.description}" for index, epic in enumerate(response.plan, start=1)]
-        epics_string = "\n\n".join(formatted_epics)
-        convo = convo.assistant(epics_string)
-        llm = self.get_llm(TECH_LEAD_EPIC_BREAKDOWN)
 
         if epic.get("source") == "feature" or epic.get("complexity") == Complexity.SIMPLE:
             await self.send_message(f"Epic 1: {epic['name']}")
@@ -231,6 +274,8 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 for task in response.plan
             ]
         else:
+            await self.send_message("Creating tasks ...")
+
             self.next_state.current_epic["sub_epics"] = [
                 {
                     "id": sub_epic_number,
@@ -238,29 +283,16 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 }
                 for sub_epic_number, sub_epic in enumerate(response.plan, start=1)
             ]
+
+            # Create and gather all epic processing tasks
+            epic_tasks = []
             for sub_epic_number, sub_epic in enumerate(response.plan, start=1):
-                await self.send_message(f"Epic {sub_epic_number}: {sub_epic.description}")
-                convo = convo.template(
-                    "epic_breakdown",
-                    epic_number=sub_epic_number,
-                    epic_description=sub_epic.description,
-                    get_only_api_files=True,
-                ).require_schema(EpicPlan)
-                await self.send_message("Creating tasks for this epic ...")
-                epic_plan: EpicPlan = await llm(convo, parser=JSONParser(EpicPlan))
-                self.next_state.tasks = self.next_state.tasks + [
-                    {
-                        "id": uuid4().hex,
-                        "description": task.description,
-                        "instructions": None,
-                        "pre_breakdown_testing_instructions": task.testing_instructions,
-                        "status": TaskStatus.TODO,
-                        "sub_epic_id": sub_epic_number,
-                        "related_api_endpoints": [rae.model_dump() for rae in (task.related_api_endpoints or [])],
-                    }
-                    for task in epic_plan.plan
-                ]
-                convo.remove_last_x_messages(2)
+                epic_tasks.append(self.process_epic(sub_epic_number, sub_epic))
+
+            all_tasks_results = await asyncio.gather(*epic_tasks)
+
+            for tasks_result in all_tasks_results:
+                self.next_state.tasks.extend(tasks_result)
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],

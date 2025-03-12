@@ -56,7 +56,6 @@ def test_parse_arguments(mock_ArgumentParser):
         "--import-v0",
         "--email",
         "--extension-version",
-        "--no-check",
         "--use-git",
         "--access-token",
     }
@@ -294,10 +293,8 @@ def test_init(tmp_path):
         ([], True, True),
     ],
 )
-@patch("core.cli.main.llm_api_check")
 @patch("core.cli.main.Orchestrator")
-async def test_main(mock_Orchestrator, mock_llm_check, args, run_orchestrator, retval, tmp_path):
-    mock_llm_check.return_value = True
+async def test_main(mock_Orchestrator, args, run_orchestrator, retval, tmp_path):
     config_file = write_test_config(tmp_path)
 
     class MockArgumentParser(ArgumentParser):
@@ -322,10 +319,8 @@ async def test_main(mock_Orchestrator, mock_llm_check, args, run_orchestrator, r
 
 
 @pytest.mark.asyncio
-@patch("core.cli.main.llm_api_check")
 @patch("core.cli.main.Orchestrator")
-async def test_main_handles_crash(mock_Orchestrator, mock_llm_check, tmp_path):
-    mock_llm_check.return_value = True
+async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     config_file = write_test_config(tmp_path)
 
     class MockArgumentParser(ArgumentParser):

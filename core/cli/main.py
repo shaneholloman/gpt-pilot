@@ -15,11 +15,10 @@ except ImportError:
 
 from core.agents.orchestrator import Orchestrator
 from core.cli.helpers import delete_project, init, list_projects, list_projects_json, load_project, show_config
-from core.config import LLMProvider, get_config
 from core.db.session import SessionManager
 from core.db.v0importer import LegacyDatabaseImporter
 from core.llm.anthropic_client import CustomAssertionError
-from core.llm.base import APIError, BaseLLMClient
+from core.llm.base import APIError
 from core.log import get_logger
 from core.state.state_manager import StateManager
 from core.telemetry import telemetry
@@ -118,62 +117,6 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
     return success
 
 
-async def llm_api_check(ui: UIBase, sm: StateManager) -> bool:
-    """
-    Check whether the configured LLMs are reachable in parallel.
-
-    :param ui: UI we'll use to report any issues
-    :return: True if all the LLMs are reachable.
-    """
-
-    config = get_config()
-
-    async def handler(*args, **kwargs):
-        pass
-
-    checked_llms: set[LLMProvider] = set()
-    tasks = []
-
-    async def check_llm(llm_config):
-        if llm_config.provider + llm_config.model in checked_llms:
-            return True
-
-        checked_llms.add(llm_config.provider + llm_config.model)
-        client_class = BaseLLMClient.for_provider(llm_config.provider)
-        llm_client = client_class(llm_config, stream_handler=handler, error_handler=handler, ui=ui, state_manager=sm)
-        try:
-            resp = await llm_client.api_check()
-            if not resp:
-                await ui.send_message(
-                    f"API check for {llm_config.provider.value} {llm_config.model} failed.",
-                    source=pythagora_source,
-                )
-                log.warning(f"API check for {llm_config.provider.value} {llm_config.model} failed.")
-                return False
-            else:
-                log.info(f"API check for {llm_config.provider.value} {llm_config.model} succeeded.")
-                return True
-        except APIError as err:
-            await ui.send_message(
-                f"API check for {llm_config.provider.value} {llm_config.model} failed with: {err}",
-                source=pythagora_source,
-            )
-            log.warning(f"API check for {llm_config.provider.value} failed with: {err}")
-            return False
-
-    for llm_config in config.all_llms():
-        tasks.append(check_llm(llm_config))
-
-    results = await asyncio.gather(*tasks)
-
-    success = all(results)
-
-    if not success:
-        telemetry.set("end_result", "failure:api-error")
-
-    return success
-
-
 async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
     """
     Start a new project.
@@ -252,14 +195,6 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     :param args: Command-line arguments.
     :return: True if the application ran successfully, False otherwise.
     """
-
-    if not args.no_check:
-        if not await llm_api_check(ui, sm):
-            await ui.send_message(
-                "Pythagora cannot start because the LLM API is not reachable.",
-                source=pythagora_source,
-            )
-            return False
 
     if args.project or args.branch or args.step:
         telemetry.set("is_continuation", True)
