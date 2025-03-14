@@ -1,5 +1,6 @@
 import asyncio
 import os.path
+import re
 import traceback
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
@@ -691,18 +692,8 @@ class StateManager:
                     endpoint = lines[i + 1].split("Endpoint:")[1] if len(lines[i + 1].split("Endpoint:")) > 1 else ""
                     request = lines[i + 2].split("Request:")[1] if len(lines[i + 2].split("Request:")) > 1 else ""
                     response = lines[i + 3].split("Response:")[1] if len(lines[i + 3].split("Response:")) > 1 else ""
-                    backend = (
-                        next(
-                            (
-                                api
-                                for api in self.current_state.knowledge_base.get("apis", [])
-                                if api["endpoint"] == endpoint.strip()
-                            ),
-                            {},
-                        )
-                        .get("locations", {})
-                        .get("backend", None)
-                    )
+                    backend = await self.find_backend_implementation(endpoint)
+
                     apis.append(
                         {
                             "description": description.strip(),
@@ -721,6 +712,33 @@ class StateManager:
                     )
         return apis
 
+    async def find_backend_implementation(self, endpoint_line: str) -> dict:
+        if not endpoint_line:
+            return None
+
+        method = endpoint_line.split("/")[0].strip().lower().strip()
+        endpoint = endpoint_line.strip().split("/")[-1].strip()
+
+        if ":" in endpoint:
+            pattern = re.compile(rf"{method}.*?[\'\"]/?{re.escape(endpoint)}[\'\"]", re.IGNORECASE)
+        else:
+            pattern = re.compile(rf"\b{method}\b.*?\b{endpoint}\b", re.IGNORECASE)
+
+        file = next(
+            (file for file in self.next_state.files if "server/" in file.path and pattern.search(file.content.content)),
+            None,
+        )
+
+        if not file:
+            return None
+
+        match = pattern.search(file.content.content)
+        line_number = file.content.content[: match.start()].count("\n") + 1 if match else 0
+        return {
+            "path": file.path,
+            "line": line_number,
+        }
+
     async def update_apis(self, files_with_implemented_apis: list[dict] = []):
         """
         Update the list of APIs.
@@ -729,7 +747,7 @@ class StateManager:
         apis = await self.get_apis()
         for file in files_with_implemented_apis:
             for endpoint in file["related_api_endpoints"]:
-                api = next((api for api in apis if (endpoint in api["endpoint"])), None)
+                api = next((api for api in apis if endpoint["endpoint"] in api["endpoint"]), None)
                 if api is not None:
                     api["status"] = "implemented"
                     api["locations"]["backend"] = {
