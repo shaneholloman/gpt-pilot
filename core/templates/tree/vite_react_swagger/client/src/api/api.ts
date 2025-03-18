@@ -31,7 +31,6 @@ const externalApi = axios.create({
 
 let accessToken: string | null = null;
 
-{% if options.auth %}
 const isAuthEndpoint = (url: string): boolean => {
   return url.includes("/api/auth");
 };
@@ -109,12 +108,12 @@ const setupInterceptors = (apiInstance: typeof axios) => {
   );
 };
 
-setupInterceptors(localApi);
+
 
 {% if options.auth_type != "login" %}
 setupInterceptors(externalApi);
-{% endif %}
-
+{% else %}
+setupInterceptors(localApi);
 {% endif %}
 
 const api = {

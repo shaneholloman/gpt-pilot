@@ -34,7 +34,7 @@ class Wizard(BaseAgent):
                 log.error(f"An error occurred: {str(e)}")
                 return {}
 
-    def get_auth_methods(self, docs: dict[str, any]) -> dict[str, any]:
+    def get_auth_data(self, docs: dict[str, any]) -> dict[str, any]:
         auth_methods = {}
         if "components" in docs and "securitySchemes" in docs["components"]:
             auth_methods["types"] = [details["type"] for details in docs["components"]["securitySchemes"].values()]
@@ -50,9 +50,7 @@ class Wizard(BaseAgent):
         return auth_methods
 
     async def run(self) -> AgentResponse:
-        while True:
-            if await self.init_frontend():
-                break
+        await self.init_frontend()
         return AgentResponse.done(self)
 
     async def init_frontend(self) -> bool:
@@ -66,85 +64,85 @@ class Wizard(BaseAgent):
 
         self.state_manager.template = {}
         options = {}
+        auth_data = {}
 
         if self.state_manager.project.project_type == "swagger":
-            if not self.next_state.knowledge_base.get("docs", None):
-                while True:
-                    try:
-                        docs = await self.ask_question(
-                            "Paste the OpenAPI/Swagger JSON or YAML docs here",
-                            allow_empty=False,
-                            verbose=True,
-                        )
-                        content = self.load_docs(docs.text.strip())
-                        auth_methods = self.get_auth_methods(content)
+            while True:
+                try:
+                    docs = await self.ask_question(
+                        "Paste the OpenAPI/Swagger JSON or YAML docs here",
+                        allow_empty=False,
+                        verbose=True,
+                    )
+                    content = self.load_docs(docs.text.strip())
 
-                        self.next_state.knowledge_base["docs"] = content
-                        self.next_state.knowledge_base["docs"]["api_version"] = auth_methods["api_version"]
-                        self.next_state.knowledge_base["docs"]["external_api_url"] = auth_methods["external_api_url"]
-
-                        try:
-                            url = urljoin(SWAGGER_EMBEDDINGS_API, "upload")
-                            async with httpx.AsyncClient(
-                                transport=httpx.AsyncHTTPTransport(retries=3), timeout=httpx.Timeout(30.0, connect=60.0)
-                            ) as client:
-                                await client.post(
-                                    url,
-                                    json={
-                                        "text": docs.text.strip(),
-                                        "project_id": str(self.state_manager.project.id),
-                                        "user_id": "1",
-                                    },
-                                )
-
-                        except Exception as e:
-                            log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
-
-                        break
-                    except Exception as e:
-                        log.debug(f"An error occurred: {str(e)}")
+                    if "paths" not in content:
                         await self.send_message("Please provide a valid input.")
                         continue
 
-            options["auth"] = True
+                    auth_data = self.get_auth_data(content)
 
-            auth_type_question = await self.ask_question(
-                "Which authentication method do you want to use?",
-                buttons={
-                    "apiKey": "API Key",
-                    "basic": "HTTP Basic (coming soon)",
-                    "bearer": "HTTP Bearer (coming soon)",
-                    "openIdConnect": "OpenID Connect (coming soon)",
-                    "oauth2": "OAuth2 (coming soon)",
-                },
-                buttons_only=True,
-                default="apiKey",
-            )
+                    try:
+                        url = urljoin(SWAGGER_EMBEDDINGS_API, "upload")
+                        async with httpx.AsyncClient(
+                            transport=httpx.AsyncHTTPTransport(retries=3), timeout=httpx.Timeout(30.0, connect=60.0)
+                        ) as client:
+                            response = await client.post(
+                                url,
+                                json={
+                                    "text": docs.text.strip(),
+                                    "project_id": str(self.state_manager.project.id),
+                                },
+                                headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
+                            )
+                            print(response)
+                    except Exception as e:
+                        log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
 
-            if auth_type_question.button == "apiKey":
-                api_key = await self.ask_question(
-                    "Enter your API key here",
-                    allow_empty=False,
-                    verbose=True,
-                )
-                options["auth_type"] = "api_key"
-                options["api_key"] = api_key.text.strip()
-                options["external_api_url"] = self.next_state.knowledge_base["docs"]["external_api_url"]
-            else:
+                    break
+                except Exception as e:
+                    log.debug(f"An error occurred: {str(e)}")
+                    await self.send_message("Please provide a valid input.")
+                    continue
+
+            while True:
                 auth_type_question = await self.ask_question(
-                    "We are still working on getting this auth method implemented correctly. Can we contact you to get more info on how you would like it to work?",
-                    allow_empty=False,
-                    buttons={"yes": "Yes", "no": "No"},
-                    default="yes",
+                    "Which authentication method do you want to use?",
+                    buttons={
+                        "api_key": "API Key",
+                        "bearer": "HTTP Bearer (coming soon)",
+                        "open_id_connect": "OpenID Connect (coming soon)",
+                        "oauth2": "OAuth2 (coming soon)",
+                    },
                     buttons_only=True,
+                    default="api_key",
                 )
-                if auth_type_question.button == "yes":
-                    await telemetry.trace_code_event(
-                        "auth-method",
-                        {"type": auth_type_question.button},
+
+                if auth_type_question.button == "api_key":
+                    api_key = await self.ask_question(
+                        "Enter your API key here",
+                        allow_empty=False,
+                        verbose=True,
                     )
-                    await self.send_message("Thank you for submitting your request. We will be in touch. :)")
-                return False
+                    options["auth_type"] = "api_key"
+                    options["api_key"] = api_key.text.strip()
+                    options["external_api_url"] = auth_data["external_api_url"]
+                    options["auth"] = False
+                    break
+                else:
+                    auth_type_question_trace = await self.ask_question(
+                        "We are still working on getting this auth method implemented correctly. Can we contact you to get more info on how you would like it to work?",
+                        allow_empty=False,
+                        buttons={"yes": "Yes", "no": "No"},
+                        default="yes",
+                        buttons_only=True,
+                    )
+                    if auth_type_question_trace.button == "yes":
+                        await telemetry.trace_code_event(
+                            "swagger-auth-method",
+                            {"type": auth_type_question.button},
+                        )
+                        await self.send_message("Thank you for submitting your request. We will be in touch.")
         else:
             auth_needed = await self.ask_question(
                 "Do you need authentication in your app (login, register, etc.)?",

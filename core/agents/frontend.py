@@ -50,7 +50,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         convo = AgentConvo(self).template(
             "build_frontend",
             summary=self.state_manager.template["template"].get_summary()
-            if self.state_manager.template.get("template", None) is not None
+            if self.state_manager.template is not None
             else self.current_state.specification.template_summary,
             description=self.state_manager.template["description"]
             if self.state_manager.template is not None
@@ -93,6 +93,10 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         convo.user(
             "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response doesn't end by mentioning continuing, respond only with `DONE` and with nothing else."
         )
+
+        if len(convo.messages) > 5:
+            convo.slice(2, 5)
+
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
         response_blocks = response.blocks
         convo.assistant(response.original_response)
@@ -113,6 +117,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: True if the frontend is fully built, False otherwise.
         """
+        frontend_only = self.current_state.branch.project.project_type == "swagger"
         self.next_state.action = FE_ITERATION
         # update the pages in the knowledge base
         await self.state_manager.update_implemented_pages_and_apis()
@@ -120,10 +125,10 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND})
 
         answer = await self.ask_question(
-            "Do you want to change anything or report a bug? Keep in mind that currently ONLY frontend is implemented.",
-            buttons={
-                "yes": "I'm done building the UI",
-            },
+            "Do you want to change anything or report a bug?"
+            if frontend_only
+            else "Do you want to change anything or report a bug? Keep in mind that currently ONLY frontend is implemented.",
+            buttons={"yes": "I'm done building the UI"} if not frontend_only else None,
             default="yes",
             extra_info="restart_app/collect_logs",
             placeholder='For example, "I don\'t see anything when I open http://localhost:5173/" or "Nothing happens when I click on the NEW PROJECT button"',
@@ -164,7 +169,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
                     resp = await client.post(
                         url,
-                        json={"text": answer.text, "project_id": str(self.state_manager.project.id), "user_id": "1"},
+                        json={"text": answer.text, "project_id": str(self.state_manager.project.id)},
+                        headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                     )
                     relevant_api_documentation = "\n".join(item["content"] for item in resp.json())
             except Exception as e:
@@ -294,7 +300,9 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                     url = urljoin(SWAGGER_EMBEDDINGS_API, "search")
                     async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
                         resp = await client.post(
-                            url, json={"text": topics, "project_id": str(self.state_manager.project.id), "user_id": "1"}
+                            url,
+                            json={"text": topics, "project_id": str(self.state_manager.project.id)},
+                            headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                         )
                         resp_json = resp.json()
                         relevant_api_documentation = "\n".join(item["content"] for item in resp_json)
