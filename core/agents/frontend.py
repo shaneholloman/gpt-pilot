@@ -165,7 +165,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         if response == "yes":
             try:
-                url = urljoin(SWAGGER_EMBEDDINGS_API, "search")
+                url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
                 async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
                     resp = await client.post(
                         url,
@@ -297,7 +297,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
             if topics != "None":
                 try:
-                    url = urljoin(SWAGGER_EMBEDDINGS_API, "search")
+                    url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
                     async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
                         resp = await client.post(
                             url,

@@ -83,11 +83,11 @@ class Wizard(BaseAgent):
                     auth_data = self.get_auth_data(content)
 
                     try:
-                        url = urljoin(SWAGGER_EMBEDDINGS_API, "upload")
+                        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/upload")
                         async with httpx.AsyncClient(
                             transport=httpx.AsyncHTTPTransport(retries=3), timeout=httpx.Timeout(30.0, connect=60.0)
                         ) as client:
-                            response = await client.post(
+                            await client.post(
                                 url,
                                 json={
                                     "text": docs.text.strip(),
@@ -95,7 +95,6 @@ class Wizard(BaseAgent):
                                 },
                                 headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                             )
-                            print(response)
                     except Exception as e:
                         log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
 
