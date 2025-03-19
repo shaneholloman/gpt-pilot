@@ -5,6 +5,9 @@ FROM ubuntu:22.04
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
+# Set defaults for TARGETPLATFORM to ensure it's available in scripts
+ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
+
 # Copy VSIX file first
 COPY pythagora-vs-code.vsix /var/init_data/pythagora-vs-code.vsix
 
