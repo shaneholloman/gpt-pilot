@@ -270,6 +270,9 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 # Extract file path from the last line - get everything after "file:"
                 file_path = last_line[last_line.index("file:") + 5 :].strip()
                 file_path = file_path.strip("\"'`")
+                # Skip empty file paths
+                if file_path.strip() == "":
+                    continue
                 new_content = content
                 old_content = self.current_state.get_file_content_by_path(file_path)
                 n_new_lines, n_del_lines = self.get_line_changes(old_content, new_content)
