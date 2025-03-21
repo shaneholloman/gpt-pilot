@@ -174,6 +174,10 @@ class Wizard(BaseAgent):
         description = description.text.strip()
         self.state_manager.template["description"] = description
 
+        await self.ui.send_project_description(
+            {"project_description": description, "project_type": self.current_state.branch.project.project_type}
+        )
+
         self.next_state.epics = [
             {
                 "id": uuid4().hex,

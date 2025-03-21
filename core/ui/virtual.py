@@ -200,7 +200,7 @@ class VirtualUI(UIBase):
     async def loading_finished(self):
         pass
 
-    async def send_project_description(self, description: str):
+    async def send_project_description(self, state: dict):
         pass
 
     async def send_features_list(self, features: list[str]):

@@ -522,7 +522,12 @@ class Orchestrator(BaseAgent, GitMixin):
                 await self.ui.send_features_list([e["description"] for e in self.current_state.epics[2:-1]])
 
         if self.current_state.specification.description:
-            await self.ui.send_project_description(self.current_state.specification.description)
+            await self.ui.send_project_description(
+                {
+                    "project_description": self.current_state.specification.description,
+                    "project_type": self.current_state.branch.project.project_type,
+                }
+            )
 
     async def update_stats(self):
         if self.current_state.steps and self.current_state.current_step:
