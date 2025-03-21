@@ -172,6 +172,11 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         json={"text": answer.text, "project_id": str(self.state_manager.project.id)},
                         headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                     )
+
+                    if resp.status_code in [401, 403]:
+                        access_token = await self.ui.send_token_expired()
+                        self.state_manager.update_access_token(access_token)
+
                     relevant_api_documentation = "\n".join(item["content"] for item in resp.json())
             except Exception as e:
                 log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
@@ -304,6 +309,11 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                             json={"text": topics, "project_id": str(self.state_manager.project.id)},
                             headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                         )
+
+                        if resp.status_code in [401, 403]:
+                            access_token = await self.ui.send_token_expired()
+                            self.state_manager.update_access_token(access_token)
+
                         resp_json = resp.json()
                         relevant_api_documentation = "\n".join(item["content"] for item in resp_json)
 
