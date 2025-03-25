@@ -78,6 +78,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
 
     async def get_bug_reproduction_instructions(self):
         await self.send_message("Finding a way to reproduce the bug ...")
+        await self.ui.start_important_stream()
         llm = self.get_llm()
         convo = (
             AgentConvo(self)
