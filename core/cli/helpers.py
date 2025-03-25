@@ -3,6 +3,7 @@ import os
 import os.path
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
+from collections import defaultdict
 from typing import Optional
 from urllib.parse import urlparse
 from uuid import UUID
@@ -196,36 +197,32 @@ async def list_projects_json(db: SessionManager):
     """
     sm = StateManager(db)
     projects = await sm.list_projects()
+    projects_dict = defaultdict(lambda: {"branches": [], "updated_at": None})
+    for row in projects:
+        project_id, project_name, branch_id, branch_name, state_id, step_index, action, created_at = row
 
-    data = []
-    for project in projects:
-        last_updated = None
-        p = {
-            "name": project.name,
-            "id": project.id.hex,
-            "branches": [],
-        }
-        for branch in project.branches:
-            b = {
-                "name": branch.name,
-                "id": branch.id.hex,
-                "steps": [],
-            }
-            for state in branch.states:
-                if not last_updated or state.created_at > last_updated:
-                    last_updated = state.created_at
-                s = {
-                    "name": state.action or f"Step #{state.step_index}",
-                    "step": state.step_index,
-                }
-                b["steps"].append(s)
-            if b["steps"]:
-                b["steps"][-1]["name"] = "Latest step"
-            p["branches"].append(b)
-        p["updated_at"] = last_updated.isoformat() if last_updated else None
-        data.append(p)
+        project = projects_dict[project_id]
+        project["id"] = project_id.hex
+        project["name"] = project_name
 
-    print(json.dumps(data, indent=2))
+        branch = next((b for b in project["branches"] if b["id"] == branch_id.hex), None)
+        if not branch:
+            branch = {"id": branch_id.hex, "name": branch_name, "steps": []}
+            project["branches"].append(branch)
+
+        if created_at and (project["updated_at"] is None or created_at > project["updated_at"]):
+            project["updated_at"] = created_at
+
+        branch["steps"].append({"name": action, "step": step_index})
+
+    for project in projects_dict.values():
+        for branch in project["branches"]:
+            if branch["steps"]:
+                branch["steps"][-1]["name"] = "Latest step"
+
+        project["updated_at"] = project["updated_at"].isoformat() if project["updated_at"] else None
+
+    print(json.dumps(list(projects_dict.values()), indent=2, default=str))
 
 
 async def list_projects(db: SessionManager):

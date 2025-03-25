@@ -31,7 +31,8 @@ async def test_create_project(mock_get_config, testmanager):
     assert sm.current_state == initial_state
 
     projects = await sm.list_projects()
-    assert projects == [project]
+    assert projects[0][0] == project.id
+    assert projects[0][1] == project.name
 
 
 @pytest.mark.asyncio
@@ -54,7 +55,8 @@ async def test_delete_project(mock_get_config, testmanager):
     project = await sm.create_project("test")
 
     projects = await sm.list_projects()
-    assert projects == [project]
+    assert projects[0][0] == project.id
+    assert projects[0][1] == project.name
 
     await sm.delete_project(project.id)
     projects = await sm.list_projects()

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import inspect, select
+from sqlalchemy import Row, inspect, select
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from core.config import FileSystemType, get_config
@@ -69,11 +69,11 @@ class StateManager:
         finally:
             self.blockDb = False  # Unset the block
 
-    async def list_projects(self) -> list[Project]:
+    async def list_projects(self) -> list[Row]:
         """
         List projects with branches
 
-        :return: List of projects with all their branches.
+        :return: List of projects with all their branches and project states
         """
         async with self.session_manager as session:
             return await Project.get_all_projects(session)

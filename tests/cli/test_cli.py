@@ -167,22 +167,25 @@ def test_show_default_config(capsys):
 async def test_list_projects_json(mock_StateManager, capsys):
     sm = mock_StateManager.return_value
 
-    branch = MagicMock(
-        id=MagicMock(hex="1234"),
-        states=[
-            MagicMock(step_index=1, action="foo", created_at=datetime(2021, 1, 1)),
-            MagicMock(step_index=2, action=None, created_at=datetime(2021, 1, 2)),
-            MagicMock(step_index=3, action="baz", created_at=datetime(2021, 1, 3)),
-        ],
-    )
-    branch.name = "branch1"
+    # Mock the return value to match the expected format
+    # Format: project_id, project_name, branch_id, branch_name, state_id, step_index, action, created_at
+    project_id = MagicMock(hex="abcd")
+    branch_id = MagicMock(hex="1234")
+    state_id1 = MagicMock(hex="state1")
+    state_id2 = MagicMock(hex="state2")
+    state_id3 = MagicMock(hex="state3")
 
-    project = MagicMock(
-        id=MagicMock(hex="abcd"),
-        branches=[branch],
-    )
-    project.name = "project1"
-    sm.list_projects = AsyncMock(return_value=[project])
+    created_at1 = datetime(2021, 1, 1)
+    created_at2 = datetime(2021, 1, 2)
+    created_at3 = datetime(2021, 1, 3)
+
+    projects_data = [
+        (project_id, "project1", branch_id, "branch1", state_id1, 1, "foo", created_at1),
+        (project_id, "project1", branch_id, "branch1", state_id2, 2, None, created_at2),
+        (project_id, "project1", branch_id, "branch1", state_id3, 3, "baz", created_at3),
+    ]
+
+    sm.list_projects = AsyncMock(return_value=projects_data)
     await list_projects_json(None)
 
     mock_StateManager.assert_called_once_with(None)
@@ -201,7 +204,7 @@ async def test_list_projects_json(mock_StateManager, capsys):
                     "id": "1234",
                     "steps": [
                         {"step": 1, "name": "foo"},
-                        {"step": 2, "name": "Step #2"},
+                        {"step": 2, "name": None},
                         {"step": 3, "name": "Latest step"},
                     ],
                 },
