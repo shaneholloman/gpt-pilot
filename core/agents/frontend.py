@@ -291,6 +291,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         # Add "cd client" prefix if not already present
                         if not command.startswith("cd "):
                             command = f"cd client && {command}"
+
+                        # if command is cd client && some_command client/ -> won't work, we need to remove client/ after &&
+                        prefix, cmd_part = command.split("&&", 1)
+                        cmd_part = cmd_part.strip().replace("client/", "")
+                        command = f"{prefix} && {cmd_part}"
+
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
             else:
