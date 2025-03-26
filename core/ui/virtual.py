@@ -30,6 +30,14 @@ class VirtualUI(UIBase):
         else:
             print(chunk, end="", flush=True)
 
+    async def send_user_input_history(
+        self,
+        message: str,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        raise NotImplementedError()
+
     async def send_message(
         self,
         message: str,

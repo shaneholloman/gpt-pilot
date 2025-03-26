@@ -56,6 +56,7 @@ class MessageType(str, Enum):
     KNOWLEDGE_BASE_UPDATE = "updatedKnowledgeBase"
     STOP_APP = "stopApp"
     TOKEN_EXPIRED = "tokenExpired"
+    USER_INPUT_HISTORY = "userInputHistory"
 
 
 class Message(BaseModel):
@@ -206,6 +207,19 @@ class IPCClientUI(UIBase):
         await self._send(
             MessageType.STREAM,
             content=chunk,
+            category=source.type_name if source else None,
+            project_state_id=project_state_id,
+        )
+
+    async def send_user_input_history(
+        self,
+        message: str,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        await self._send(
+            MessageType.USER_INPUT_HISTORY,
+            content=message,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
         )

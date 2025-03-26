@@ -249,13 +249,8 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
                     # Process answer if present
                     if "answer" in input_item:
-                        if input_item["question"] == TL_EDIT_DEV_PLAN:
-                            await ui.send_message(
-                                "Starting task with the description:\n\n" + input_item["answer"],
-                                project_state_id=msg["id"],
-                            )
-                        else:
-                            await ui.send_message(
+                        if input_item["question"] != TL_EDIT_DEV_PLAN:
+                            await ui.send_user_input_history(
                                 input_item["answer"], source=alternate_source(), project_state_id=msg["id"]
                             )
 

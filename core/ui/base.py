@@ -122,6 +122,21 @@ class UIBase:
         """
         raise NotImplementedError()
 
+    async def send_user_input_history(
+        self,
+        message: str,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        """
+        Send a user input history (what the user said to Pythagora) message to the UI.
+
+        :param message: Message content.
+        :param source: Source of the message (if any).
+        :param project_state_id: Current project state id.
+        """
+        raise NotImplementedError()
+
     async def send_message(
         self,
         message: str,
