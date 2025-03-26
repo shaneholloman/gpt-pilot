@@ -13,7 +13,7 @@ from core.config import PARSE_TASK_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME
 from core.config.actions import (
     DEV_TASK_BREAKDOWN,
     DEV_TASK_REVIEW_FEEDBACK,
-    DEV_TASK_STARTING,
+    DEV_TASK_START,
     DEV_TROUBLESHOOT,
     DEV_WAIT_TEST,
 )
@@ -257,7 +257,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         # There might be state leftovers from previous tasks that we need to clean here
         self.next_state.modified_files = {}
         self.set_next_steps(response, source)
-        self.next_state.action = f"Task #{current_task_index + 1} start"
+        self.next_state.action = DEV_TASK_START.format({current_task_index + 1})
         await telemetry.trace_code_event(
             "task-start",
             {
@@ -325,7 +325,6 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "task_index": task_index,
             }
         )
-        self.next_state.action = DEV_TASK_STARTING.format(task_index)
         await self.send_message(f"Starting task #{task_index} with the description:\n\n" + description)
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)

@@ -90,9 +90,9 @@ class StateManager:
         async with self.session_manager as session:
             return await Project.get_branches_for_project_id(session, project_id)
 
-    async def find_user_input(self, project_state, branch_id) -> Optional["UserInput"]:
+    async def find_user_input(self, project_state, branch_id) -> Optional[list["UserInput"]]:
         async with self.session_manager as session:
-            return await UserInput.find_user_input(session, project_state, branch_id)
+            return await UserInput.find_user_inputs(session, project_state, branch_id)
 
     async def get_file_for_project(self, state_id: UUID, path: str):
         async with self.session_manager as session:

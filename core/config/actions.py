@@ -7,7 +7,7 @@ CM_UPDATE_FILES = "Updating files"
 
 
 DEV_WAIT_TEST = "Awaiting user test"
-DEV_TASK_STARTING = "Starting task #{}"
+DEV_TASK_START = "Task #{} start"
 DEV_TASK_BREAKDOWN = "Task #{} breakdown"
 DEV_TROUBLESHOOT = "Troubleshooting #{}"
 DEV_TASK_REVIEW_FEEDBACK = "Task review feedback"
@@ -39,3 +39,7 @@ TS_TASK_REVIEWED = "Task #{} reviewed"
 TS_ALT_SOLUTION = "Alternative solution (attempt #{})"
 
 PS_EPIC_COMPLETE = "Epic {} completed"
+
+# other constants
+TL_EDIT_DEV_PLAN = "Open and edit your development plan in the Progress tab"
+MIX_BREAKDOWN_CHAT_PROMPT = "Are you happy with the breakdown? Now is a good time to ask questions or suggest changes."

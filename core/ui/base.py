@@ -368,7 +368,9 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
+    async def send_test_instructions(
+        self, test_instructions: str, project_state_id: Optional[str] = None, source: Optional[UISource] = None
+    ):
         """
         Send test instructions.
 
@@ -474,6 +476,12 @@ class UIBase:
 
 
 pythagora_source = UISource("Pythagora", "pythagora")
+
+developer_source = AgentSource("Developer", "developer")
+bug_hunter_source = AgentSource("Bug Hunter", "bug-hunter")
+
+history_source1 = UISource("Developer", "developer")
+history_source2 = UISource("Bug Hunter", "bug-hunter")
 success_source = UISource("Congratulations", "success")
 
 

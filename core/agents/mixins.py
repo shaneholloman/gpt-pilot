@@ -8,6 +8,7 @@ from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse
 from core.cli.helpers import get_line_changes
 from core.config import GET_RELEVANT_FILES_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME, TROUBLESHOOTER_BUG_REPORT
+from core.config.actions import MIX_BREAKDOWN_CHAT_PROMPT
 from core.config.constants import CONVO_ITERATIONS_LIMIT
 from core.llm.parser import JSONParser
 from core.log import get_logger
@@ -56,7 +57,7 @@ class ChatWithBreakdownMixin:
             )
 
             chat = await self.ask_question(
-                "Are you happy with the breakdown? Now is a good time to ask questions or suggest changes.",
+                MIX_BREAKDOWN_CHAT_PROMPT,
                 buttons={"yes": "Yes, looks good!"},
                 default="yes",
                 verbose=False,

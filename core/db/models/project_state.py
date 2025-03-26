@@ -226,6 +226,7 @@ class ProjectState(Base):
         branch = branch.scalar_one_or_none()
 
         project_states_result = await session.execute(select(ProjectState).where(ProjectState.branch_id == branch.id))
+        # project_states_result = await session.execute(select(ProjectState).where(and_(ProjectState.branch_id == branch.id), ProjectState.action.isnot(None)))
         return project_states_result.scalars().all()
 
     async def create_next_state(self) -> "ProjectState":

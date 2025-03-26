@@ -60,7 +60,7 @@ class UserInput(Base):
         return obj
 
     @staticmethod
-    async def find_user_input(session: AsyncSession, project_state, branch_id) -> Optional["UserInput"]:
+    async def find_user_inputs(session: AsyncSession, project_state, branch_id) -> Optional[list["UserInput"]]:
         from core.db.models import UserInput
 
         user_input = await session.execute(
@@ -78,4 +78,4 @@ class UserInput(Base):
             )
             user_input = user_input.scalars().all()
 
-        return user_input[0] if len(user_input) > 0 else None
+        return user_input if len(user_input) > 0 else []

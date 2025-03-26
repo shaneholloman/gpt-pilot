@@ -16,8 +16,8 @@ from core.config.actions import (
     BH_WAIT_BUG_REP_INSTRUCTIONS,
     CM_UPDATE_FILES,
     DEV_TASK_BREAKDOWN,
-    DEV_TASK_STARTING,
     DEV_TROUBLESHOOT,
+    MIX_BREAKDOWN_CHAT_PROMPT,
     TC_TASK_DONE,
 )
 from core.config.env_importer import import_from_dotenv
@@ -271,6 +271,49 @@ async def list_projects_json(db: SessionManager):
     print(json.dumps(data, indent=2))
 
 
+def find_first_todo_task(tasks):
+    """
+    Find the first task with status 'todo' from a list of tasks.
+
+    :param tasks: List of task objects
+    :return: First task with status 'todo', or None if not found
+    """
+    for task in tasks:
+        if task.get("status") == "todo":
+            return task
+    return None
+
+
+def trim_logs(logs: str) -> str:
+    """
+    Trim logs by removing everything after specific marker phrases.
+
+    This function cuts off the string at the first occurrence of
+    "Here are the backend logs" or "Here are the frontend logs".
+
+    :param logs: Log text to trim
+    :return: Trimmed log text with the marker phrase removed
+    """
+    if not logs:
+        return ""
+
+    # Define marker phrases
+    markers = ["Here are the backend logs", "Here are the frontend logs"]
+
+    # Find the first occurrence of any marker
+    index = float("inf")
+    for marker in markers:
+        pos = logs.find(marker)
+        if pos != -1 and pos < index:
+            index = pos
+
+    # If a marker was found, trim the string
+    if index != float("inf"):
+        return logs[:index]
+
+    return logs
+
+
 async def load_convo(
     sm: StateManager,
     project_id: Optional[UUID] = None,
@@ -293,18 +336,19 @@ async def load_convo(
         prev_state = project_states[i - 1] if i > 0 else None
 
         convo_el = {}
-        ui = await sm.find_user_input(state, branch_id)
+        convo_el["id"] = str(state.id)
+        user_inputs = await sm.find_user_input(state, branch_id)
 
-        if ui is not None and ui.question is not None:
-            convo_el["question"] = ui.question
-            if ui.answer_text is not None:
-                convo_el["answer"] = str(ui.answer_text)
-            else:
-                convo_el["answer"] = str(ui.answer_button)
+        if user_inputs:
+            convo_el["user_inputs"] = []
+            for ui in user_inputs:
+                if ui.question:
+                    answer = trim_logs(ui.answer_text) if ui.answer_text is not None else ui.answer_button
+                    convo_el["user_inputs"].append({"question": ui.question, "answer": answer})
 
         if state.action is not None:
-            if DEV_TASK_STARTING[:-2] in state.action:
-                task_counter = int(state.action.split("#")[-1])
+            if "Task" in state.action and "start" in state.action:
+                task_counter = int(state.action.split("#")[1].split()[0])
 
             elif state.action == DEV_TROUBLESHOOT.format(task_counter):
                 if state.iterations is not None:
@@ -324,25 +368,32 @@ async def load_convo(
                     convo_el["instructions"] = task["instructions"]
 
             elif state.action == TC_TASK_DONE.format(task_counter):
-                if len(state.tasks) > 0:
+                if state.tasks:
+                    # find the next task description and print it in question
+                    next_task = find_first_todo_task(state.tasks)
+                    # next_task_alt = find_first_todo_task(prev_state.tasks)
+                    if next_task:
+                        convo_el["task_description"] = next_task["description"]
                     task = state.tasks[task_counter - 1]
                     if "test_instructions" in task and task["test_instructions"] is not None:
                         convo_el["test_instructions"] = task["test_instructions"]
 
             elif state.action == CM_UPDATE_FILES:
-                files = {}
+                files = []
                 for steps in state.steps:
+                    file = {}
                     if "save_file" in steps and "path" in steps["save_file"]:
                         path = steps["save_file"]["path"]
-                        files["path"] = path
+                        file["path"] = path
 
                         current_file = await sm.get_file_for_project(state.id, path)
                         prev_file = await sm.get_file_for_project(prev_state.id, path)
 
                         if current_file and prev_file:
-                            files["diff"] = get_line_changes(
+                            file["diff"] = get_line_changes(
                                 old_content=prev_file.content.content, new_content=current_file.content.content
                             )
+                        files.append(file)
 
                 convo_el["files"] = files
 
@@ -383,7 +434,43 @@ async def load_convo(
                     if "initial_explanation" in si and si["initial_explanation"] is not None:
                         convo_el["initial_explanation"] = si["initial_explanation"]
 
-        if len(convo_el.keys()) > 0:
+        if convo_el.get("user_inputs", None) is not None or convo_el.get("files", None) is not None:
+            for j, ui in enumerate(user_inputs):
+                if ui.question and ui.question == MIX_BREAKDOWN_CHAT_PROMPT:
+                    if len(state.tasks) == 1:
+                        if state.tasks[0]["instructions"] is not None:
+                            # convo_el["user_inputs"].insert(j, {'question': state.tasks[task_counter - 1]["instructions"]})
+                            convo_el["breakdown"] = state.tasks[task_counter - 1]["instructions"]
+                            break
+                    elif (
+                        state.tasks[task_counter - 1] is not None
+                        and state.tasks[task_counter - 1]["instructions"] is not None
+                    ):
+                        # convo_el["user_inputs"].insert(j, {'question': state.tasks[task_counter - 1]["instructions"]})
+                        convo_el["breakdown"] = state.tasks[task_counter - 1]["instructions"]
+                        break
+                    elif state.iterations:
+                        if (
+                            state.iterations[-1].get("bug_hunting_cycles", None) is not None
+                            and state.iterations[-1]["bug_hunting_cycles"]
+                            and state.iterations[-1]["bug_hunting_cycles"][-1].get("human_readable_instructions", None)
+                            is not None
+                        ):
+                            # convo_el["user_inputs"].insert(j, {'question': state.iterations[-1]["bug_hunting_cycles"][-1]["human_readable_instructions"]})
+                            convo_el["breakdown"] = state.iterations[-1]["bug_hunting_cycles"][-1][
+                                "human_readable_instructions"
+                            ]
+                        break
+                    else:
+                        # try to get the next state's instructions from the task
+                        next_state = project_states[i + 1]
+                        if next_state.tasks is not None:
+                            next_task = find_first_todo_task(next_state.tasks)
+                            if next_task:
+                                # convo_el["user_inputs"].insert(j, {'question': next_task["description"]})
+                                convo_el["task_description"] = next_task["description"]
+                                break
+
             convo_el["action"] = state.action
             convo.append(convo_el)
 

@@ -497,7 +497,12 @@ class IPCClientUI(UIBase):
             content=stats,
         )
 
-    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
+    async def send_test_instructions(
+        self,
+        test_instructions: str,
+        project_state_id: Optional[str] = None,
+        source: Optional[UISource] = None,
+    ):
         try:
             log.debug("Sending test instructions")
             parsed_instructions = json.loads(test_instructions)
@@ -511,6 +516,7 @@ class IPCClientUI(UIBase):
                 "test_instructions": parsed_instructions,
             },
             project_state_id=project_state_id,
+            category=source.type_name if source else None,
         )
 
     async def knowledge_base_update(self, knowledge_base: dict):
