@@ -253,6 +253,10 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                             await ui.send_user_input_history(
                                 input_item["answer"], source=alternate_source(), project_state_id=msg["id"]
                             )
+                        else:
+                            await ui.send_message(
+                                input_item["question"], source=alternate_source(), project_state_id=msg["id"]
+                            )
 
             if "test_instructions" in msg:
                 await ui.send_test_instructions(
@@ -263,6 +267,14 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                 source = alternate_source()
                 for f in msg["files"]:
                     await ui.send_file_status(f["path"], "done", source=source)
+                    await ui.generate_diff(
+                        file_path=f["path"],
+                        file_old=f.get("old_content", ""),
+                        file_new=f.get("new_content", ""),
+                        n_new_lines=f["diff"][0],
+                        n_del_lines=f["diff"][1],
+                        source=source,
+                    )
 
             # Process any other fields in the message
             for key, value in msg.items():

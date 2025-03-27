@@ -371,7 +371,6 @@ async def load_convo(
                 if state.tasks:
                     # find the next task description and print it in question
                     next_task = find_first_todo_task(state.tasks)
-                    # next_task_alt = find_first_todo_task(prev_state.tasks)
                     if next_task:
                         convo_el["task_description"] = next_task["description"]
                     task = state.tasks[task_counter - 1]
@@ -389,10 +388,12 @@ async def load_convo(
                         current_file = await sm.get_file_for_project(state.id, path)
                         prev_file = await sm.get_file_for_project(prev_state.id, path)
 
-                        if current_file and prev_file:
-                            file["diff"] = get_line_changes(
-                                old_content=prev_file.content.content, new_content=current_file.content.content
-                            )
+                        file["diff"] = get_line_changes(
+                            old_content=prev_file.content.content if prev_file else "",
+                            new_content=current_file.content.content,
+                        )
+                        file["old_content"] = prev_file.content.content if prev_file else ""
+                        file["new_content"] = current_file.content.content
                         files.append(file)
 
                 convo_el["files"] = files
@@ -439,14 +440,12 @@ async def load_convo(
                 if ui.question and ui.question == MIX_BREAKDOWN_CHAT_PROMPT:
                     if len(state.tasks) == 1:
                         if state.tasks[0]["instructions"] is not None:
-                            # convo_el["user_inputs"].insert(j, {'question': state.tasks[task_counter - 1]["instructions"]})
                             convo_el["breakdown"] = state.tasks[task_counter - 1]["instructions"]
                             break
                     elif (
                         state.tasks[task_counter - 1] is not None
                         and state.tasks[task_counter - 1]["instructions"] is not None
                     ):
-                        # convo_el["user_inputs"].insert(j, {'question': state.tasks[task_counter - 1]["instructions"]})
                         convo_el["breakdown"] = state.tasks[task_counter - 1]["instructions"]
                         break
                     elif state.iterations:
@@ -456,7 +455,6 @@ async def load_convo(
                             and state.iterations[-1]["bug_hunting_cycles"][-1].get("human_readable_instructions", None)
                             is not None
                         ):
-                            # convo_el["user_inputs"].insert(j, {'question': state.iterations[-1]["bug_hunting_cycles"][-1]["human_readable_instructions"]})
                             convo_el["breakdown"] = state.iterations[-1]["bug_hunting_cycles"][-1][
                                 "human_readable_instructions"
                             ]
@@ -467,7 +465,6 @@ async def load_convo(
                         if next_state.tasks is not None:
                             next_task = find_first_todo_task(next_state.tasks)
                             if next_task:
-                                # convo_el["user_inputs"].insert(j, {'question': next_task["description"]})
                                 convo_el["task_description"] = next_task["description"]
                                 break
 
