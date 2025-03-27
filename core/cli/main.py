@@ -226,8 +226,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     """
 
     if args.project and args.step:
-        convo = await load_convo(sm, args.project, args.step)
-        # jsonnnnn = json.dumps(convo, indent=4)
+        convo = (await load_convo(sm, args.project, args.step))[-50:]
 
         for msg in convo:
             if "breakdown" in msg:
