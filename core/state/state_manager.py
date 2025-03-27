@@ -71,9 +71,7 @@ class StateManager:
 
     async def list_projects(self) -> list[Row]:
         """
-        List projects with branches
-
-        :return: List of projects with all their branches and project states
+        :return: List of projects
         """
         async with self.session_manager as session:
             return await Project.get_all_projects(session)
