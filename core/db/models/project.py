@@ -68,24 +68,7 @@ class Project(Base):
 
     @staticmethod
     async def get_all_projects(session: "AsyncSession") -> list[Row]:
-        from core.db.models import Branch, ProjectState
-
-        query = (
-            select(
-                Project.id,
-                Project.name,
-                Branch.id,
-                Branch.name,
-                ProjectState.id,
-                ProjectState.step_index,
-                ProjectState.action,
-                ProjectState.created_at,
-            )
-            .join(Branch, Project.branches)
-            .join(ProjectState, Branch.id == ProjectState.branch_id)
-            .where(ProjectState.action.isnot(None))
-            .order_by(Project.id, Branch.id, ProjectState.step_index.asc())
-        )
+        query = select(Project.id, Project.name, Project.created_at, Project.folder_name).order_by(Project.name)
 
         result = await session.execute(query)
         return result.fetchall()

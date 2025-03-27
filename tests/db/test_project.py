@@ -85,29 +85,24 @@ async def test_get_all_projects(testdb, capsys):
     testdb.add(state2)
     await testdb.commit()  # Ensure changes are committed
 
-    # Simulate the behavior of StateManager.list_projects
+    # Set folder names for the test
+    folder_name1 = "folder1"
+    folder_name2 = "folder2"
+
     sm = StateManager(testdb)
     sm.list_projects = AsyncMock(
         return_value=[
             (
-                MagicMock(hex=state1.branch.project.id.hex),  # project_id
-                state1.branch.project.name,  # project_name
-                MagicMock(hex=state1.branch.id.hex),  # branch_id
-                state1.branch.name,  # branch_name
-                MagicMock(hex=state1.id.hex),  # state_id
-                1,  # step_index
-                "foo",  # action
-                datetime(2021, 1, 1),  # created_at
+                MagicMock(hex=state1.branch.project.id.hex),
+                state1.branch.project.name,
+                datetime(2021, 1, 1),
+                folder_name1,
             ),
             (
                 MagicMock(hex=state2.branch.project.id.hex),
                 state2.branch.project.name,
-                MagicMock(hex=state2.branch.id.hex),
-                state2.branch.name,
-                MagicMock(hex=state2.id.hex),
-                1,
-                "bar",
                 datetime(2021, 1, 2),
+                folder_name2,
             ),
         ]
     )
@@ -122,18 +117,14 @@ async def test_get_all_projects(testdb, capsys):
         {
             "id": state1.branch.project.id.hex,
             "name": "Test Project 1",
+            "folder_name": folder_name1,
             "updated_at": "2021-01-01T00:00:00",
-            "branches": [
-                {"id": state1.branch.id.hex, "name": state1.branch.name, "steps": [{"name": "Latest step", "step": 1}]}
-            ],
         },
         {
             "id": state2.branch.project.id.hex,
             "name": "Test Project 2",
+            "folder_name": folder_name2,
             "updated_at": "2021-01-02T00:00:00",
-            "branches": [
-                {"id": state2.branch.id.hex, "name": state2.branch.name, "steps": [{"name": "Latest step", "step": 1}]}
-            ],
         },
     ]
 
