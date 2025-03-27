@@ -394,7 +394,11 @@ async def load_convo(
                         )
                         file["old_content"] = prev_file.content.content if prev_file else ""
                         file["new_content"] = current_file.content.content
-                        files.append(file)
+
+                        # hack that works fine because state.steps.completed is false until file is updated, but
+                        # if we don't do this, we would have to compare to previous state which is complicated
+                        if file["diff"] != (0, 0):
+                            files.append(file)
 
                 convo_el["files"] = files
 
