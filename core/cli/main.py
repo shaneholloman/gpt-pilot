@@ -5,8 +5,6 @@ import sys
 from argparse import Namespace
 from asyncio import run
 
-from core.config.actions import TL_EDIT_DEV_PLAN
-
 try:
     import sentry_sdk
     from sentry_sdk.integrations.asyncio import AsyncioIntegration
@@ -23,6 +21,7 @@ from core.cli.helpers import (
     list_projects_json,
     load_convo,
     load_project,
+    print_convo,
     show_config,
 )
 from core.db.session import SessionManager
@@ -37,15 +36,10 @@ from core.ui.base import (
     UIBase,
     UIClosedError,
     UserInput,
-    bug_hunter_source,
-    developer_source,
-    history_source1,
-    history_source2,
     pythagora_source,
 )
 
 log = get_logger(__name__)
-
 
 telemetry_sent = False
 source_alt = True
@@ -207,14 +201,6 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
     return project_state is not None
 
 
-def alternate_source():
-    """Toggle between pythagora_source and history_source1."""
-    global source_alt
-    source = history_source1 if source_alt else history_source2
-    source_alt = not source_alt
-    return source
-
-
 async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     """
     Run a Pythagora session.
@@ -225,85 +211,15 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     :return: True if the application ran successfully, False otherwise.
     """
 
-    if args.project and args.step:
-        convo = (await load_convo(sm, args.project, args.step))[-50:]
-
-        for msg in convo:
-            if "breakdown" in msg:
-                await ui.send_message(msg["breakdown"], source=developer_source, project_state_id=msg["id"])
-
-            if "instructions" in msg:
-                await ui.send_message(msg["instructions"], source=bug_hunter_source, project_state_id=msg["id"])
-
-            if "task_description" in msg:
-                await ui.send_message(msg["task_description"], source=developer_source, project_state_id=msg["id"])
-
-            if "user_inputs" in msg and msg["user_inputs"]:
-                for input_item in msg["user_inputs"]:
-                    if "question" in input_item:
-                        await ui.send_message(
-                            input_item["question"], source=alternate_source(), project_state_id=msg["id"]
-                        )
-
-                    if "answer" in input_item:
-                        if input_item["question"] != TL_EDIT_DEV_PLAN:
-                            await ui.send_user_input_history(
-                                input_item["answer"], source=alternate_source(), project_state_id=msg["id"]
-                            )
-                        else:
-                            await ui.send_message(
-                                input_item["question"], source=alternate_source(), project_state_id=msg["id"]
-                            )
-
-            if "test_instructions" in msg:
-                await ui.send_test_instructions(
-                    msg["test_instructions"], project_state_id=msg["id"], source=alternate_source()
-                )
-
-            if "files" in msg:
-                source = alternate_source()
-                for f in msg["files"]:
-                    await ui.send_file_status(f["path"], "done", source=source)
-                    await ui.generate_diff(
-                        file_path=f["path"],
-                        file_old=f.get("old_content", ""),
-                        file_new=f.get("new_content", ""),
-                        n_new_lines=f["diff"][0],
-                        n_del_lines=f["diff"][1],
-                        source=source,
-                    )
-
-            # Process any other fields in the message
-            for key, value in msg.items():
-                if (
-                    key
-                    not in [
-                        "user_inputs",
-                        "action",
-                        "id",
-                        "test_instructions",
-                        "files",
-                        "task_description",
-                        "breakdown",
-                    ]
-                    and value
-                ):
-                    if isinstance(value, str):
-                        await ui.send_message(f"{key}: {value}", source=alternate_source(), project_state_id=msg["id"])
-                    elif isinstance(value, dict):
-                        for k, v in value.items():
-                            if v and isinstance(v, str):
-                                await ui.send_message(
-                                    f"{k}: {v}", source=alternate_source(), project_state_id=msg["id"]
-                                )
-
-        log.debug(f"Convo exists: {len(convo) > 0}")
-
     if args.project or args.branch or args.step:
+        convo = (await load_convo(sm, args.project, args.branch))[-50:]
+        await print_convo(ui, convo)
+
         telemetry.set("is_continuation", True)
         success = await load_project(sm, args.project, args.branch, args.step)
         if not success:
             return False
+
     else:
         success = await start_new_project(sm, ui)
         if not success:

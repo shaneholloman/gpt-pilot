@@ -78,13 +78,9 @@ class StateManager:
         async with self.session_manager as session:
             return await Project.get_all_projects(session)
 
-    async def get_convo(self):
+    async def get_project_states(self, project_id: Optional[UUID], branch_id: Optional[UUID]) -> list[ProjectState]:
         async with self.session_manager as session:
-            return await Project.get_convo(session)
-
-    async def get_project_states(self, project_id: UUID) -> list[ProjectState]:
-        async with self.session_manager as session:
-            return await ProjectState.get_project_states(session, project_id)
+            return await ProjectState.get_project_states(session, project_id, branch_id)
 
     async def get_branches_for_project_id(self, project_id: UUID) -> list[Branch]:
         async with self.session_manager as session:

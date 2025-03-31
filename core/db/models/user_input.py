@@ -69,13 +69,4 @@ class UserInput(Base):
             )
         )
         user_input = user_input.scalars().all()
-
-        if user_input is None:
-            user_input = await session.execute(
-                select(UserInput).where(
-                    and_(UserInput.branch_id == branch_id, UserInput.project_state_id == project_state.prev_state_id)
-                )
-            )
-            user_input = user_input.scalars().all()
-
         return user_input if len(user_input) > 0 else []

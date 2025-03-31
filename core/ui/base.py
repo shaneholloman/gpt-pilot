@@ -491,12 +491,6 @@ class UIBase:
 
 
 pythagora_source = UISource("Pythagora", "pythagora")
-
-developer_source = AgentSource("Developer", "developer")
-bug_hunter_source = AgentSource("Bug Hunter", "bug-hunter")
-
-history_source1 = UISource("Developer", "developer")
-history_source2 = UISource("Bug Hunter", "bug-hunter")
 success_source = UISource("Congratulations", "success")
 
 

@@ -10,15 +10,26 @@ from uuid import UUID
 
 from core.config import Config, LLMProvider, LocalIPCConfig, ProviderConfig, UIAdapter, get_config, loader
 from core.config.actions import (
+    BH_ADDITIONAL_FEEDBACK,
+    BH_HUMAN_TEST_AGAIN,
+    BH_IS_BUG_FIXED,
     BH_START_BUG_HUNT,
     BH_START_USER_TEST,
     BH_STARTING_PAIR_PROGRAMMING,
     BH_WAIT_BUG_REP_INSTRUCTIONS,
     CM_UPDATE_FILES,
     DEV_TASK_BREAKDOWN,
+    DEV_TASK_START,
     DEV_TROUBLESHOOT,
+    FE_CHANGE_REQ,
+    FE_DONE_WITH_UI,
+    HUMAN_INTERVENTION_QUESTION,
     MIX_BREAKDOWN_CHAT_PROMPT,
+    RUN_COMMAND,
     TC_TASK_DONE,
+    TL_EDIT_DEV_PLAN,
+    TS_APP_WORKING,
+    TS_DESCRIBE_ISSUE,
 )
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
@@ -26,7 +37,7 @@ from core.db.session import SessionManager
 from core.db.setup import run_migrations
 from core.log import get_logger, setup
 from core.state.state_manager import StateManager
-from core.ui.base import UIBase
+from core.ui.base import AgentSource, UIBase, UISource
 from core.ui.console import PlainConsoleUI
 from core.ui.ipc_client import IPCClientUI
 from core.ui.virtual import VirtualUI
@@ -314,21 +325,107 @@ def trim_logs(logs: str) -> str:
     return logs
 
 
+def get_source_for_history(msg_type: Optional[str] = "", question: Optional[str] = ""):
+    if question in [TL_EDIT_DEV_PLAN]:
+        return AgentSource("Tech Lead", "tech-lead")
+
+    if question in [FE_CHANGE_REQ, FE_DONE_WITH_UI]:
+        return AgentSource("Frontend", "frontend")
+
+    elif question in [
+        TS_DESCRIBE_ISSUE,
+        BH_HUMAN_TEST_AGAIN,
+        BH_IS_BUG_FIXED,
+        TS_APP_WORKING,
+        BH_ADDITIONAL_FEEDBACK,
+    ] or msg_type in ["instructions", "bh_breakdown"]:
+        return AgentSource("Bug Hunter", "bug-hunter")
+
+    elif msg_type in ["bug_reproduction_instructions", "bug_description"]:
+        return AgentSource("Troubleshooter", "troubleshooter")
+
+    elif HUMAN_INTERVENTION_QUESTION in question:
+        return AgentSource("Human Input", "human-input")
+
+    elif RUN_COMMAND in question:
+        return AgentSource("Executor", "executor")
+
+    elif msg_type in ["task_description", "task_breakdown"]:
+        return AgentSource("Developer", "developer")
+
+    else:
+        return UISource("Pythagora", "pythagora")
+
+
+async def print_convo(
+    ui: UIBase,
+    convo: list,
+):
+    for msg in convo:
+        if "bh_breakdown" in msg:
+            await ui.send_message(
+                msg["bh_breakdown"],
+                source=get_source_for_history(msg_type="bh_breakdown"),
+                project_state_id=msg["id"],
+            )
+
+        if "task_description" in msg:
+            await ui.send_message(
+                msg["task_description"],
+                source=get_source_for_history(msg_type="task_description"),
+                project_state_id=msg["id"],
+            )
+
+        if "task_breakdown" in msg:
+            await ui.send_message(
+                msg["task_breakdown"],
+                source=get_source_for_history(msg_type="task_breakdown"),
+                project_state_id=msg["id"],
+            )
+
+        if "test_instructions" in msg:
+            await ui.send_test_instructions(
+                msg["test_instructions"],
+                source=get_source_for_history("test_instructions"),
+                project_state_id=msg["id"],
+            )
+
+        if "files" in msg:
+            for f in msg["files"]:
+                await ui.send_file_status(f["path"], "done")
+                await ui.generate_diff(
+                    file_path=f["path"],
+                    file_old=f.get("old_content", ""),
+                    file_new=f.get("new_content", ""),
+                    n_new_lines=f["diff"][0],
+                    n_del_lines=f["diff"][1],
+                )
+
+        if "user_inputs" in msg and msg["user_inputs"]:
+            for input_item in msg["user_inputs"]:
+                if "question" in input_item:
+                    await ui.send_message(
+                        input_item["question"],
+                        source=get_source_for_history(question=input_item["question"]),
+                        project_state_id=msg["id"],
+                    )
+
+                if "answer" in input_item:
+                    if input_item["question"] != TL_EDIT_DEV_PLAN:
+                        await ui.send_user_input_history(input_item["answer"], project_state_id=msg["id"])
+
+
 async def load_convo(
     sm: StateManager,
     project_id: Optional[UUID] = None,
-    step_index: Optional[int] = None,
+    branch_id: Optional[UUID] = None,
 ) -> list:
     """
     List all projects in the database.
     """
     convo = []
 
-    project_states = await sm.get_project_states(project_id)
-    project_states = [state for state in project_states if 0 <= state.step_index <= step_index]
-
-    branches = await sm.get_branches_for_project_id(project_id)
-    branch_id = branches[0].id
+    project_states = await sm.get_project_states(project_id, branch_id)
 
     task_counter = 1
 
@@ -343,7 +440,39 @@ async def load_convo(
             convo_el["user_inputs"] = []
             for ui in user_inputs:
                 if ui.question:
+                    if ui.question == MIX_BREAKDOWN_CHAT_PROMPT:
+                        if len(state.iterations) > 0:
+                            # as it's not available in the current state, take the next state's description - that is the bug description!
+                            next_state = project_states[i + 1] if i + 1 < len(project_states) else None
+                            if next_state is not None and next_state.iterations is not None:
+                                si = next_state.iterations[-1]
+                                if si is not None:
+                                    if si.get("description", None) is not None:
+                                        convo_el["bh_breakdown"] = si["description"]
+                        else:
+                            # if there are no iterations, it means developer made task breakdown, take the next state's first task with status = todo
+                            next_state = project_states[i + 1] if i + 1 < len(project_states) else None
+                            if next_state is not None:
+                                task = find_first_todo_task(next_state.tasks)
+                                if task.get("test_instructions", None) is not None:
+                                    convo_el["test_instructions"] = task["test_instructions"]
+                                if task.get("instructions", None) is not None:
+                                    convo_el["task_breakdown"] = task["instructions"]
+
+                    if ui.question == BH_HUMAN_TEST_AGAIN:
+                        if state.iterations:
+                            if state.iterations[0].get("bug_reproduction_description", None) is not None:
+                                convo_el["bug_reproduction_description"] = state.iterations[0][
+                                    "bug_reproduction_description"
+                                ]
+
                     answer = trim_logs(ui.answer_text) if ui.answer_text is not None else ui.answer_button
+                    if answer == "bug":
+                        answer = "There is an issue"
+                    elif answer == "continue":
+                        answer = "Everything works"
+                    elif answer == "change":
+                        answer = "I want to make a change"
                     convo_el["user_inputs"].append({"question": ui.question, "answer": answer})
 
         if state.action is not None:
@@ -351,31 +480,32 @@ async def load_convo(
                 task_counter = int(state.action.split("#")[1].split()[0])
 
             elif state.action == DEV_TROUBLESHOOT.format(task_counter):
-                if state.iterations is not None:
+                if state.iterations is not None and len(state.iterations) > 0:
                     si = state.iterations[-1]
                     if si is not None:
-                        if si["user_feedback"] is not None:
+                        if si.get("user_feedback", None) is not None:
                             convo_el["user_feedback"] = si["user_feedback"]
-                        if si["description"] is not None:
+                        if si.get("description", None) is not None:
                             convo_el["description"] = si["description"]
 
             elif state.action == DEV_TASK_BREAKDOWN.format(task_counter):
                 task = state.tasks[task_counter - 1]
-                if "description" in task and task["description"] is not None:
+                if task.get("description", None) is not None:
                     convo_el["description"] = task["description"]
 
-                if "instructions" in task and task["instructions"] is not None:
+                if task.get("instructions", None) is not None:
                     convo_el["instructions"] = task["instructions"]
 
             elif state.action == TC_TASK_DONE.format(task_counter):
                 if state.tasks:
-                    # find the next task description and print it in question
                     next_task = find_first_todo_task(state.tasks)
-                    if next_task:
-                        convo_el["task_description"] = next_task["description"]
-                    task = state.tasks[task_counter - 1]
-                    if "test_instructions" in task and task["test_instructions"] is not None:
-                        convo_el["test_instructions"] = task["test_instructions"]
+                    if next_task is not None and next_task.get("description", None) is not None:
+                        convo_el["task_description"] = f"Task #{task_counter} - " + next_task["description"]
+
+            elif state.action == DEV_TASK_START:
+                task = state.tasks[task_counter - 1]
+                if task.get("instructions", None) is not None:
+                    convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == CM_UPDATE_FILES:
                 files = []
@@ -402,25 +532,23 @@ async def load_convo(
 
                 convo_el["files"] = files
 
-            elif state.action == BH_START_BUG_HUNT.format(task_counter):
+            if state.iterations is not None and len(state.iterations) > 0:
                 si = state.iterations[-1]
-                if si is not None:
-                    if "user_feedback" in si and si["user_feedback"] is not None:
+
+                if state.action == BH_START_BUG_HUNT.format(task_counter):
+                    if si.get("user_feedback", None) is not None:
                         convo_el["user_feedback"] = si["user_feedback"]
 
-                    if "description" in si and si["description"] is not None:
+                    if si.get("description", None) is not None:
                         convo_el["description"] = si["description"]
 
-            elif state.action == BH_WAIT_BUG_REP_INSTRUCTIONS.format(task_counter):
-                if state.iterations is not None:
+                elif state.action == BH_WAIT_BUG_REP_INSTRUCTIONS.format(task_counter):
                     for si in state.iterations:
-                        if "bug_reproduction_description" in si and si["bug_reproduction_description"] is not None:
+                        if si.get("bug_reproduction_description", None) is not None:
                             convo_el["bug_reproduction_description"] = si["bug_reproduction_description"]
 
-            elif state.action == BH_START_USER_TEST.format(task_counter):
-                si = state.iterations[-1]
-                if si is not None:
-                    if "bug_hunting_cycles" in si and si["bug_hunting_cycles"] is not None:
+                elif state.action == BH_START_USER_TEST.format(task_counter):
+                    if si.get("bug_hunting_cycles", None) is not None:
                         cycle = si["bug_hunting_cycles"][-1]
                         if cycle is not None:
                             if "user_feedback" in cycle and cycle["user_feedback"] is not None:
@@ -431,49 +559,14 @@ async def load_convo(
                             ):
                                 convo_el["human_readable_instructions"] = cycle["human_readable_instructions"]
 
-            elif state.action == BH_STARTING_PAIR_PROGRAMMING.format(task_counter):
-                si = state.iterations[-1]
-                if si is not None:
+                elif state.action == BH_STARTING_PAIR_PROGRAMMING.format(task_counter):
                     if "user_feedback" in si and si["user_feedback"] is not None:
                         convo_el["user_feedback"] = si["user_feedback"]
                     if "initial_explanation" in si and si["initial_explanation"] is not None:
                         convo_el["initial_explanation"] = si["initial_explanation"]
 
-        if convo_el.get("user_inputs", None) is not None or convo_el.get("files", None) is not None:
-            for j, ui in enumerate(user_inputs):
-                if ui.question and ui.question == MIX_BREAKDOWN_CHAT_PROMPT:
-                    if len(state.tasks) == 1:
-                        if state.tasks[0]["instructions"] is not None:
-                            convo_el["breakdown"] = state.tasks[task_counter - 1]["instructions"]
-                            break
-                    elif (
-                        state.tasks[task_counter - 1] is not None
-                        and state.tasks[task_counter - 1]["instructions"] is not None
-                    ):
-                        convo_el["breakdown"] = state.tasks[task_counter - 1]["instructions"]
-                        break
-                    elif state.iterations:
-                        if (
-                            state.iterations[-1].get("bug_hunting_cycles", None) is not None
-                            and state.iterations[-1]["bug_hunting_cycles"]
-                            and state.iterations[-1]["bug_hunting_cycles"][-1].get("human_readable_instructions", None)
-                            is not None
-                        ):
-                            convo_el["breakdown"] = state.iterations[-1]["bug_hunting_cycles"][-1][
-                                "human_readable_instructions"
-                            ]
-                        break
-                    else:
-                        # try to get the next state's instructions from the task
-                        next_state = project_states[i + 1]
-                        if next_state.tasks is not None:
-                            next_task = find_first_todo_task(next_state.tasks)
-                            if next_task:
-                                convo_el["task_description"] = next_task["description"]
-                                break
-
-            convo_el["action"] = state.action
-            convo.append(convo_el)
+        convo_el["action"] = state.action
+        convo.append(convo_el)
 
     return convo
 

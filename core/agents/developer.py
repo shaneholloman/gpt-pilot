@@ -11,6 +11,7 @@ from core.agents.mixins import ChatWithBreakdownMixin, RelevantFilesMixin
 from core.agents.response import AgentResponse
 from core.config import PARSE_TASK_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME
 from core.config.actions import (
+    DEV_EXECUTE_TASK,
     DEV_TASK_BREAKDOWN,
     DEV_TASK_REVIEW_FEEDBACK,
     DEV_TASK_START,
@@ -329,7 +330,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
         user_response = await self.ask_question(
-            "Do you want to execute the above task?",
+            DEV_EXECUTE_TASK,
             buttons=buttons,
             default="yes",
             buttons_only=True,

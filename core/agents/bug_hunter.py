@@ -10,6 +10,9 @@ from core.agents.mixins import ChatWithBreakdownMixin, TestSteps
 from core.agents.response import AgentResponse
 from core.config import CHECK_LOGS_AGENT_NAME, magic_words
 from core.config.actions import (
+    BH_ADDITIONAL_FEEDBACK,
+    BH_HUMAN_TEST_AGAIN,
+    BH_IS_BUG_FIXED,
     BH_START_BUG_HUNT,
     BH_START_USER_TEST,
     BH_STARTING_PAIR_PROGRAMMING,
@@ -162,7 +165,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             await self.ui.send_run_command(self.current_state.run_command)
 
         await self.ask_question(
-            "Please test the app again.",
+            BH_HUMAN_TEST_AGAIN,
             buttons={"done": "I am done testing"},
             buttons_only=True,
             default="continue",
@@ -173,7 +176,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         if awaiting_user_test:
             buttons = {"yes": "Yes, the issue is fixed", "no": "No", "start_pair_programming": "Start Pair Programming"}
             user_feedback = await self.ask_question(
-                "Is the bug you reported fixed now?",
+                BH_IS_BUG_FIXED,
                 buttons=buttons,
                 default="yes",
                 buttons_only=True,
@@ -201,7 +204,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 }
             )
             user_feedback = await self.ask_question(
-                "Please add any additional feedback that could help Pythagora solve this bug",
+                BH_ADDITIONAL_FEEDBACK,
                 buttons=buttons,
                 default="continue",
                 extra_info="collect_logs",

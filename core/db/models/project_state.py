@@ -218,16 +218,27 @@ class ProjectState(Base):
     @staticmethod
     async def get_project_states(
         session: "AsyncSession",
-        project_id: UUID,
+        project_id: Optional[UUID] = None,
+        branch_id: Optional[UUID] = None,
     ) -> list["ProjectState"]:
         from core.db.models import Branch, ProjectState
 
-        branch = await session.execute(select(Branch).where(Branch.project_id == project_id))
-        branch = branch.scalar_one_or_none()
+        branch = None
 
-        project_states_result = await session.execute(select(ProjectState).where(ProjectState.branch_id == branch.id))
-        # project_states_result = await session.execute(select(ProjectState).where(and_(ProjectState.branch_id == branch.id), ProjectState.action.isnot(None)))
-        return project_states_result.scalars().all()
+        if branch_id:
+            branch = await session.execute(select(Branch).where(Branch.id == branch_id))
+            branch = branch.scalar_one_or_none()
+        elif project_id:
+            branch = await session.execute(select(Branch).where(Branch.project_id == project_id))
+            branch = branch.scalar_one_or_none()
+
+        if branch:
+            project_states_result = await session.execute(
+                select(ProjectState).where(ProjectState.branch_id == branch.id)
+            )
+            return project_states_result.scalars().all()
+
+        return []
 
     async def create_next_state(self) -> "ProjectState":
         """

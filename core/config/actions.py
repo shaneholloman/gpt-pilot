@@ -37,9 +37,21 @@ SPEC_CHANGE_FEATURE_STEP_NAME = "Change specification due to new feature"
 
 TS_TASK_REVIEWED = "Task #{} reviewed"
 TS_ALT_SOLUTION = "Alternative solution (attempt #{})"
+TS_APP_WORKING = "Please check if the app is working"
 
 PS_EPIC_COMPLETE = "Epic {} completed"
 
 # other constants
 TL_EDIT_DEV_PLAN = "Open and edit your development plan in the Progress tab"
 MIX_BREAKDOWN_CHAT_PROMPT = "Are you happy with the breakdown? Now is a good time to ask questions or suggest changes."
+FE_CHANGE_REQ = (
+    "Do you want to change anything or report a bug? Keep in mind that currently ONLY frontend is implemented."
+)
+FE_DONE_WITH_UI = "Are you sure you're done building the UI and want to start building the backend functionality now?"
+TS_DESCRIBE_ISSUE = "Please describe the issue you found (one at a time) and share any relevant server logs"
+BH_HUMAN_TEST_AGAIN = "Please test the app again."
+BH_IS_BUG_FIXED = "Is the bug you reported fixed now?"
+BH_ADDITIONAL_FEEDBACK = "Please add any additional feedback that could help Pythagora solve this bug"
+HUMAN_INTERVENTION_QUESTION = "I need human intervention:"
+RUN_COMMAND = "Can I run command:"
+DEV_EXECUTE_TASK = "Do you want to execute the above task?"
