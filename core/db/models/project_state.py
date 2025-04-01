@@ -225,6 +225,7 @@ class ProjectState(Base):
         from core.db.models import Branch, ProjectState
 
         branch = None
+        limit = 100
 
         if branch_id:
             branch = await session.execute(select(Branch).where(Branch.id == branch_id))
@@ -234,9 +235,8 @@ class ProjectState(Base):
             branch = branch.scalar_one_or_none()
 
         if branch:
-            project_states_result = await session.execute(
-                select(ProjectState).where(ProjectState.branch_id == branch.id)
-            )
+            query = select(ProjectState).where(ProjectState.branch_id == branch.id).limit(limit)
+            project_states_result = await session.execute(query)
             return project_states_result.scalars().all()
 
         return []

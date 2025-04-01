@@ -212,7 +212,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     """
 
     if args.project or args.branch or args.step:
-        convo = (await load_convo(sm, args.project, args.branch))[-50:]
+        convo = await load_convo(sm, args.project, args.branch)
         await print_convo(ui, convo)
 
         telemetry.set("is_continuation", True)
