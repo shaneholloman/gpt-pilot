@@ -560,12 +560,12 @@ async def load_convo(
     return convo
 
 
-async def list_projects(db: SessionManager):
+async def list_projects_old(db: SessionManager):
     """
     List all projects in the database.
     """
     sm = StateManager(db)
-    projects = await sm.list_projects()
+    projects = await sm.list_projects_old()
 
     print(f"Available projects ({len(projects)}):")
     for project in projects:
@@ -661,4 +661,4 @@ def init() -> tuple[UIBase, SessionManager, Namespace]:
     return (ui, db, args)
 
 
-__all__ = ["parse_arguments", "load_config", "list_projects_json", "list_projects", "load_project", "init"]
+__all__ = ["parse_arguments", "load_config", "list_projects_json", "list_projects_old", "load_project", "init"]

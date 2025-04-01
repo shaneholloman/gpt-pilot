@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING, Optional, Union
 from unicodedata import normalize
 from uuid import UUID, uuid4
 
-from sqlalchemy import Row, delete, inspect, select
+from sqlalchemy import Row, and_, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 from sqlalchemy.sql import func
 
 from core.db.models import Base, File
@@ -86,6 +86,42 @@ class Project(Base):
 
         result = await session.execute(query)
         return result.fetchall()
+
+    @staticmethod
+    async def get_all_projects_old(session: "AsyncSession") -> list["Project"]:
+        """
+        Get all projects.
+
+        This assumes the projects have at least one branch and one state.
+
+        :param session: The SQLAlchemy session.
+        :return: List of Project objects.
+        """
+        from core.db.models import Branch, ProjectState
+
+        latest_state_query = (
+            select(ProjectState.branch_id, func.max(ProjectState.step_index).label("max_index"))
+            .group_by(ProjectState.branch_id)
+            .subquery()
+        )
+
+        query = (
+            select(Project, Branch, ProjectState)
+            .join(Branch, Project.branches)
+            .join(ProjectState, Branch.states)
+            .join(
+                latest_state_query,
+                and_(
+                    ProjectState.branch_id == latest_state_query.columns.branch_id,
+                    ProjectState.step_index == latest_state_query.columns.max_index,
+                ),
+            )
+            .options(selectinload(Project.branches), selectinload(Branch.states))
+            .order_by(Project.name, Branch.name)
+        )
+
+        results = await session.execute(query)
+        return results.scalars().all()
 
     @staticmethod
     def get_folder_from_project_name(name: str):
