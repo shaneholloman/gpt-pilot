@@ -412,7 +412,8 @@ async def load_convo(
     branch_id: Optional[UUID] = None,
 ) -> list:
     """
-    List all projects in the database.
+    Loads the conversation from an existing project.
+    returns: list of dictionaries with the conversation history
     """
     convo = []
 
