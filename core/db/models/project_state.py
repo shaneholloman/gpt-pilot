@@ -213,6 +213,7 @@ class ProjectState(Base):
             branch=branch,
             specification=Specification(),
             step_index=1,
+            action="Initial project state",
         )
 
     @staticmethod

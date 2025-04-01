@@ -250,36 +250,19 @@ async def list_projects_json(db: SessionManager):
     """
     sm = StateManager(db)
     projects = await sm.list_projects()
-
-    data = []
-    for project in projects:
-        last_updated = None
-        p = {
-            "name": project.name,
-            "id": project.id.hex,
-            "branches": [],
-        }
-        for branch in project.branches:
-            b = {
-                "name": branch.name,
-                "id": branch.id.hex,
-                "steps": [],
+    projects_list = []
+    for row in projects:
+        project_id, project_name, created_at, folder_name = row
+        projects_list.append(
+            {
+                "id": project_id.hex,
+                "name": project_name,
+                "folder_name": folder_name,
+                "updated_at": created_at.isoformat(),
             }
-            for state in branch.states:
-                if not last_updated or state.created_at > last_updated:
-                    last_updated = state.created_at
-                s = {
-                    "name": state.action or f"Step #{state.step_index}",
-                    "step": state.step_index,
-                }
-                b["steps"].append(s)
-            if b["steps"]:
-                b["steps"][-1]["name"] = "Latest step"
-            p["branches"].append(b)
-        p["updated_at"] = last_updated.isoformat() if last_updated else None
-        data.append(p)
+        )
 
-    print(json.dumps(data, indent=2))
+    print(json.dumps(projects_list, indent=2, default=str))
 
 
 def find_first_todo_task(tasks):

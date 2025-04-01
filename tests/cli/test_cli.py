@@ -167,46 +167,29 @@ def test_show_default_config(capsys):
 async def test_list_projects_json(mock_StateManager, capsys):
     sm = mock_StateManager.return_value
 
-    branch = MagicMock(
-        id=MagicMock(hex="1234"),
-        states=[
-            MagicMock(step_index=1, action="foo", created_at=datetime(2021, 1, 1)),
-            MagicMock(step_index=2, action=None, created_at=datetime(2021, 1, 2)),
-            MagicMock(step_index=3, action="baz", created_at=datetime(2021, 1, 3)),
-        ],
-    )
-    branch.name = "branch1"
+    project_id1 = MagicMock(hex="abcd")
+    project_id2 = MagicMock(hex="efgh")
 
-    project = MagicMock(
-        id=MagicMock(hex="abcd"),
-        branches=[branch],
-    )
-    project.name = "project1"
-    sm.list_projects = AsyncMock(return_value=[project])
+    created_at1 = datetime(2021, 1, 1)
+    created_at2 = datetime(2021, 1, 2)
+
+    projects_data = [
+        (project_id1, "project1", created_at1, "folder1"),
+        (project_id2, "project2", created_at2, "folder2"),
+    ]
+
+    sm.list_projects = AsyncMock(return_value=projects_data)
     await list_projects_json(None)
 
     mock_StateManager.assert_called_once_with(None)
     sm.list_projects.assert_awaited_once_with()
 
-    data = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr().out
+    data = json.loads(captured)
 
     assert data == [
-        {
-            "name": "project1",
-            "id": "abcd",
-            "updated_at": "2021-01-03T00:00:00",
-            "branches": [
-                {
-                    "name": "branch1",
-                    "id": "1234",
-                    "steps": [
-                        {"step": 1, "name": "foo"},
-                        {"step": 2, "name": "Step #2"},
-                        {"step": 3, "name": "Latest step"},
-                    ],
-                },
-            ],
-        },
+        {"id": "abcd", "name": "project1", "folder_name": "folder1", "updated_at": "2021-01-01T00:00:00"},
+        {"id": "efgh", "name": "project2", "folder_name": "folder2", "updated_at": "2021-01-02T00:00:00"},
     ]
 
 
