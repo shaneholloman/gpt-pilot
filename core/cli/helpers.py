@@ -1,6 +1,7 @@
 import json
 import os
 import os.path
+import re
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
 from difflib import unified_diff
@@ -489,7 +490,8 @@ async def load_convo(
 
         if state.action is not None:
             if "Task" in state.action and "start" in state.action:
-                task_counter = int(state.action.split("#")[1].split()[0])
+                match = re.search(r"Task\s+#\s*(?:\{)?(\d+)(?:\})?", state.action)
+                task_counter = int(match.group(1))
 
             elif state.action == DEV_TROUBLESHOOT.format(task_counter):
                 if state.iterations is not None and len(state.iterations) > 0:
