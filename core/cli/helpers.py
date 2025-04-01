@@ -373,6 +373,13 @@ async def print_convo(
                 project_state_id=msg["id"],
             )
 
+        if "bh_testing_instructions" in msg:
+            await ui.send_test_instructions(
+                msg["bh_testing_instructions"],
+                source=get_source_for_history("test_instructions"),
+                project_state_id=msg["id"],
+            )
+
         if "files" in msg:
             for f in msg["files"]:
                 await ui.send_file_status(f["path"], "done")
@@ -449,11 +456,27 @@ async def load_convo(
                                     convo_el["task_breakdown"] = task["instructions"]
 
                     if ui.question == BH_HUMAN_TEST_AGAIN:
-                        if state.iterations:
-                            if state.iterations[0].get("bug_reproduction_description", None) is not None:
-                                convo_el["bug_reproduction_description"] = state.iterations[0][
-                                    "bug_reproduction_description"
-                                ]
+                        if len(state.iterations) > 0:
+                            si = state.iterations[-1]
+                            if si is not None:
+                                if si.get("bug_reproduction_description", None) is not None:
+                                    convo_el["bh_testing_instructions"] = si["bug_reproduction_description"]
+                                if si.get("description", None) is not None:  ######
+                                    convo_el["bh_breakdown"] = si["description"]  ######
+
+                    if ui.question == TS_APP_WORKING:
+                        if len(state.iterations) > 0:
+                            si = state.iterations[-1]
+                            if si is not None:
+                                if si.get("bug_reproduction_description", None) is not None:
+                                    convo_el["bh_testing_instructions"] = si["bug_reproduction_description"]
+                        else:
+                            task = find_first_todo_task(state.tasks)
+                            if task:
+                                if task.get("test_instructions", None) is not None:
+                                    convo_el["test_instructions"] = task["test_instructions"]
+                                if task.get("instructions", None) is not None:
+                                    convo_el["task_breakdown"] = task["instructions"]
 
                     answer = trim_logs(ui.answer_text) if ui.answer_text is not None else ui.answer_button
                     if answer == "bug":
