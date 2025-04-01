@@ -530,6 +530,9 @@ async def load_convo(
                         current_file = await sm.get_file_for_project(state.id, path)
                         prev_file = await sm.get_file_for_project(prev_state.id, path)
 
+                        if not current_file or not prev_file:
+                            continue
+
                         file["diff"] = get_line_changes(
                             old_content=prev_file.content.content if prev_file else "",
                             new_content=current_file.content.content,
