@@ -1,7 +1,6 @@
 import json
 import os
 import os.path
-import re
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
 from difflib import unified_diff
@@ -274,9 +273,13 @@ def find_first_todo_task(tasks):
     :param tasks: List of task objects
     :return: First task with status 'todo', or None if not found
     """
+    if not tasks:
+        return None
+
     for task in tasks:
         if task.get("status") == "todo":
             return task
+
     return None
 
 
@@ -435,6 +438,10 @@ async def load_convo(
         convo_el["id"] = str(state.id)
         user_inputs = await sm.find_user_input(state, branch_id)
 
+        todo_task = find_first_todo_task(state.tasks)
+        if todo_task:
+            task_counter = state.tasks.index(todo_task) + 1
+
         if user_inputs:
             convo_el["user_inputs"] = []
             for ui in user_inputs:
@@ -487,11 +494,7 @@ async def load_convo(
                     convo_el["user_inputs"].append({"question": ui.question, "answer": answer})
 
         if state.action is not None:
-            if "Task" in state.action and "start" in state.action:
-                match = re.search(r"Task\s+#\s*(?:\{)?(\d+)(?:\})?", state.action)
-                task_counter = int(match.group(1))
-
-            elif state.action == DEV_TROUBLESHOOT.format(task_counter):
+            if state.action == DEV_TROUBLESHOOT.format(task_counter):
                 if state.iterations is not None and len(state.iterations) > 0:
                     si = state.iterations[-1]
                     if si is not None:
@@ -503,10 +506,10 @@ async def load_convo(
             elif state.action == DEV_TASK_BREAKDOWN.format(task_counter):
                 task = state.tasks[task_counter - 1]
                 if task.get("description", None) is not None:
-                    convo_el["description"] = task["description"]
+                    convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
 
                 if task.get("instructions", None) is not None:
-                    convo_el["instructions"] = task["instructions"]
+                    convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == TC_TASK_DONE.format(task_counter):
                 if state.tasks:
