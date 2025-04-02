@@ -19,6 +19,7 @@ from core.config.actions import (
     BH_STARTING_PAIR_PROGRAMMING,
     BH_WAIT_BUG_REP_INSTRUCTIONS,
     CM_UPDATE_FILES,
+    DEV_EXECUTE_TASK,
     DEV_TASK_BREAKDOWN,
     DEV_TASK_START,
     DEV_TROUBLESHOOT,
@@ -472,11 +473,15 @@ async def load_convo(
                             if task.get("test_instructions", None) is not None:
                                 convo_el["test_instructions"] = task["test_instructions"]
 
+                    if ui.question == DEV_EXECUTE_TASK:
+                        task = find_first_todo_task(state.tasks)
+                        if task:
+                            if task.get("description", None) is not None:
+                                convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
+
                     answer = trim_logs(ui.answer_text) if ui.answer_text is not None else ui.answer_button
                     if answer == "bug":
                         answer = "There is an issue"
-                    elif answer == "continue":
-                        answer = "Everything works"
                     elif answer == "change":
                         answer = "I want to make a change"
                     convo_el["user_inputs"].append({"question": ui.question, "answer": answer})
