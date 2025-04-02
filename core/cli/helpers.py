@@ -471,8 +471,6 @@ async def load_convo(
                         if task:
                             if task.get("test_instructions", None) is not None:
                                 convo_el["test_instructions"] = task["test_instructions"]
-                            if task.get("instructions", None) is not None:
-                                convo_el["task_breakdown"] = task["instructions"]
 
                     answer = trim_logs(ui.answer_text) if ui.answer_text is not None else ui.answer_button
                     if answer == "bug":
