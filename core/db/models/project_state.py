@@ -235,9 +235,16 @@ class ProjectState(Base):
             branch = branch.scalar_one_or_none()
 
         if branch:
-            query = select(ProjectState).where(ProjectState.branch_id == branch.id).limit(limit)
+            query = (
+                select(ProjectState)
+                .where(ProjectState.branch_id == branch.id)
+                .order_by(ProjectState.step_index.desc())  # Get the latest 100 states
+                .limit(limit)
+            )
+
             project_states_result = await session.execute(query)
-            return project_states_result.scalars().all()
+            project_states = project_states_result.scalars().all()
+            return sorted(project_states, key=lambda x: x.step_index)
 
         return []
 
