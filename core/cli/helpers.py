@@ -466,8 +466,6 @@ async def load_convo(
                             if si is not None:
                                 if si.get("bug_reproduction_description", None) is not None:
                                     convo_el["bh_testing_instructions"] = si["bug_reproduction_description"]
-                                if si.get("description", None) is not None:
-                                    convo_el["bh_breakdown"] = si["description"]
 
                     if ui.question == TS_APP_WORKING:
                         task = find_first_todo_task(state.tasks)
