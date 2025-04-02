@@ -457,6 +457,8 @@ async def load_convo(
                                     convo_el["test_instructions"] = task["test_instructions"]
                                 if task.get("instructions", None) is not None:
                                     convo_el["task_breakdown"] = task["instructions"]
+                        # skip parsing that questions and its answers due to the fact that we do not keep states inside breakdown convo
+                        break
 
                     if ui.question == BH_HUMAN_TEST_AGAIN:
                         if len(state.iterations) > 0:
