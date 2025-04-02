@@ -459,18 +459,43 @@ class ProjectState(Base):
 
     async def delete_after(self):
         """
-        Delete all states in the branch after this one.
+        Delete all states in the branch after this one, along with related data.
+
+        This includes:
+        - ProjectState records after this one
+        - Related UserInput records (including those for the current state)
+        - Related File records
+        - Orphaned FileContent records
         """
+        from core.db.models import FileContent, UserInput
 
         session: AsyncSession = inspect(self).async_session
 
         log.debug(f"Deleting all project states in branch {self.branch_id} after {self.id}")
-        await session.execute(
-            delete(ProjectState).where(
+
+        # Get all project states to be deleted
+        states_to_delete = await session.execute(
+            select(ProjectState).where(
                 ProjectState.branch_id == self.branch_id,
                 ProjectState.step_index > self.step_index,
             )
         )
+        states_to_delete = states_to_delete.scalars().all()
+        state_ids = [state.id for state in states_to_delete]
+
+        # Delete user inputs for the current state
+        await session.execute(delete(UserInput).where(UserInput.project_state_id == self.id))
+
+        if state_ids:
+            # Delete related user inputs for states to be deleted
+            await session.execute(delete(UserInput).where(UserInput.project_state_id.in_(state_ids)))
+
+            # Delete project states
+            await session.execute(delete(ProjectState).where(ProjectState.id.in_(state_ids)))
+
+        # Clean up orphaned file content and user inputs
+        await FileContent.delete_orphans(session)
+        await UserInput.delete_orphans(session)
 
     def get_last_iteration_steps(self) -> list:
         """

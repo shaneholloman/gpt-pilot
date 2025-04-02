@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, and_, inspect, select
+from sqlalchemy import ForeignKey, and_, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -70,3 +70,12 @@ class UserInput(Base):
         )
         user_input = user_input.scalars().all()
         return user_input if len(user_input) > 0 else []
+
+    @classmethod
+    async def delete_orphans(cls, session: AsyncSession):
+        """
+        Delete UserInput objects that have no associated ProjectState.
+
+        :param session: The database session.
+        """
+        await session.execute(delete(UserInput).where(UserInput.project_state_id.is_(None)))
