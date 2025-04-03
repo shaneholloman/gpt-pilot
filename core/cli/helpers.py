@@ -374,14 +374,12 @@ async def print_convo(
         if "test_instructions" in msg:
             await ui.send_test_instructions(
                 msg["test_instructions"],
-                source=get_source_for_history("test_instructions"),
                 project_state_id=msg["id"],
             )
 
         if "bh_testing_instructions" in msg:
             await ui.send_test_instructions(
                 msg["bh_testing_instructions"],
-                source=get_source_for_history("test_instructions"),
                 project_state_id=msg["id"],
             )
 

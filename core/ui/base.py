@@ -383,9 +383,7 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_test_instructions(
-        self, test_instructions: str, project_state_id: Optional[str] = None, source: Optional[UISource] = None
-    ):
+    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
         """
         Send test instructions.
 
