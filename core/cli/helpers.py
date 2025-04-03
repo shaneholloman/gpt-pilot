@@ -531,18 +531,16 @@ async def load_convo(
                         current_file = await sm.get_file_for_project(state.id, path)
                         prev_file = await sm.get_file_for_project(prev_state.id, path)
 
-                        if not current_file or not prev_file:
-                            continue
+                        old_content = prev_file.content.content if prev_file and prev_file.content else ""
+                        new_content = current_file.content.content if current_file and current_file.content else ""
 
                         file["diff"] = get_line_changes(
-                            old_content=prev_file.content.content if prev_file else "",
-                            new_content=current_file.content.content,
+                            old_content=old_content,
+                            new_content=new_content,
                         )
-                        file["old_content"] = prev_file.content.content if prev_file else ""
-                        file["new_content"] = current_file.content.content
+                        file["old_content"] = old_content
+                        file["new_content"] = new_content
 
-                        # hack that works fine because state.steps.completed is false until file is updated, but
-                        # if we don't do this, we would have to compare to previous state which is complicated
                         if file["diff"] != (0, 0):
                             files.append(file)
 
