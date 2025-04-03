@@ -1,5 +1,6 @@
 from core.agents.base import BaseAgent
 from core.agents.response import AgentResponse, ResponseType
+from core.config.actions import HUMAN_INTERVENTION_QUESTION
 
 
 class HumanInput(BaseAgent):
@@ -16,7 +17,7 @@ class HumanInput(BaseAgent):
         description = step["human_intervention_description"]
 
         await self.ask_question(
-            f"I need human intervention: {description}",
+            f"{HUMAN_INTERVENTION_QUESTION} {description}",
             buttons={"continue": "Continue"},
             default="continue",
             buttons_only=True,

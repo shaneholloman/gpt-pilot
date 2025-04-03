@@ -11,6 +11,7 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse, ResponseType
 from core.config import CODE_MONKEY_AGENT_NAME, CODE_REVIEW_AGENT_NAME, DESCRIBE_FILES_AGENT_NAME
+from core.config.actions import CM_UPDATE_FILES
 from core.db.models import File
 from core.llm.parser import JSONParser, OptionalCodeBlockParser
 from core.log import get_logger
@@ -55,9 +56,6 @@ class FileDescription(BaseModel):
     references: list[str] = Field(
         description="List of references the file imports or includes (only files local to the project), where each element specifies the project-relative path of the referenced file, including the file extension."
     )
-
-
-CM_UPDATE_FILES = "Updating files"
 
 
 class CodeMonkey(FileDiffMixin, BaseAgent):

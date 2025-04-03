@@ -1,8 +1,13 @@
+import json
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
+from core.cli.helpers import list_projects_json
 from core.db.models import Branch, Project
+from core.state.state_manager import StateManager
 
 from .factories import create_project_state
 
@@ -72,16 +77,58 @@ async def test_get_branch_no_session():
 
 
 @pytest.mark.asyncio
-async def test_get_all_projects(testdb):
-    state1 = create_project_state()
-    state2 = create_project_state()
+async def test_get_all_projects(testdb, capsys):
+    state1 = create_project_state(project_name="Test Project 1")
+    state2 = create_project_state(project_name="Test Project 2")
+
     testdb.add(state1)
     testdb.add(state2)
+    await testdb.commit()  # Ensure changes are committed
 
-    projects = await Project.get_all_projects(testdb)
-    assert len(projects) == 2
-    assert state1.branch.project in projects
-    assert state2.branch.project in projects
+    # Set folder names for the test
+    folder_name1 = "folder1"
+    folder_name2 = "folder2"
+
+    sm = StateManager(testdb)
+    sm.list_projects = AsyncMock(
+        return_value=[
+            (
+                MagicMock(hex=state1.branch.project.id.hex),
+                state1.branch.project.name,
+                datetime(2021, 1, 1),
+                folder_name1,
+            ),
+            (
+                MagicMock(hex=state2.branch.project.id.hex),
+                state2.branch.project.name,
+                datetime(2021, 1, 2),
+                folder_name2,
+            ),
+        ]
+    )
+
+    with patch("core.cli.helpers.StateManager", return_value=sm):
+        await list_projects_json(testdb)
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    expected_output = [
+        {
+            "id": state1.branch.project.id.hex,
+            "name": "Test Project 1",
+            "folder_name": folder_name1,
+            "updated_at": "2021-01-01T00:00:00",
+        },
+        {
+            "id": state2.branch.project.id.hex,
+            "name": "Test Project 2",
+            "folder_name": folder_name2,
+            "updated_at": "2021-01-02T00:00:00",
+        },
+    ]
+
+    assert data == expected_output
 
 
 @pytest.mark.asyncio

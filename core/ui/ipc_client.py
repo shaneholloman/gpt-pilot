@@ -56,6 +56,7 @@ class MessageType(str, Enum):
     KNOWLEDGE_BASE_UPDATE = "updatedKnowledgeBase"
     STOP_APP = "stopApp"
     TOKEN_EXPIRED = "tokenExpired"
+    USER_INPUT_HISTORY = "userInputHistory"
 
 
 class Message(BaseModel):
@@ -206,6 +207,19 @@ class IPCClientUI(UIBase):
         await self._send(
             MessageType.STREAM,
             content=chunk,
+            category=source.type_name if source else None,
+            project_state_id=project_state_id,
+        )
+
+    async def send_user_input_history(
+        self,
+        message: str,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        await self._send(
+            MessageType.USER_INPUT_HISTORY,
+            content=message,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
         )
@@ -497,7 +511,12 @@ class IPCClientUI(UIBase):
             content=stats,
         )
 
-    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
+    async def send_test_instructions(
+        self,
+        test_instructions: str,
+        project_state_id: Optional[str] = None,
+        source: Optional[UISource] = None,
+    ):
         try:
             log.debug("Sending test instructions")
             parsed_instructions = json.loads(test_instructions)
@@ -511,6 +530,7 @@ class IPCClientUI(UIBase):
                 "test_instructions": parsed_instructions,
             },
             project_state_id=project_state_id,
+            category=source.type_name if source else None,
         )
 
     async def knowledge_base_update(self, knowledge_base: dict):

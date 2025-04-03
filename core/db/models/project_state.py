@@ -3,12 +3,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, UniqueConstraint, delete, inspect
+from sqlalchemy import ForeignKey, UniqueConstraint, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import func
 
+from core.config.actions import PS_EPIC_COMPLETE
 from core.db.models import Base, FileContent
 from core.log import get_logger
 
@@ -44,10 +45,6 @@ class IterationStatus:
     NEW_FEATURE_REQUESTED = "new_feature_requested"
     START_PAIR_PROGRAMMING = "start_pair_programming"
     DONE = "done"
-
-
-PS_EPIC_COMPLETE = "Epic {} completed"
-PS_TASK_COMPLETE = "Task {} completed"
 
 
 class ProjectState(Base):
@@ -216,7 +213,40 @@ class ProjectState(Base):
             branch=branch,
             specification=Specification(),
             step_index=1,
+            action="Initial project state",
         )
+
+    @staticmethod
+    async def get_project_states(
+        session: "AsyncSession",
+        project_id: Optional[UUID] = None,
+        branch_id: Optional[UUID] = None,
+    ) -> list["ProjectState"]:
+        from core.db.models import Branch, ProjectState
+
+        branch = None
+        limit = 100
+
+        if branch_id:
+            branch = await session.execute(select(Branch).where(Branch.id == branch_id))
+            branch = branch.scalar_one_or_none()
+        elif project_id:
+            branch = await session.execute(select(Branch).where(Branch.project_id == project_id))
+            branch = branch.scalar_one_or_none()
+
+        if branch:
+            query = (
+                select(ProjectState)
+                .where(ProjectState.branch_id == branch.id)
+                .order_by(ProjectState.step_index.desc())  # Get the latest 100 states
+                .limit(limit)
+            )
+
+            project_states_result = await session.execute(query)
+            project_states = project_states_result.scalars().all()
+            return sorted(project_states, key=lambda x: x.step_index)
+
+        return []
 
     async def create_next_state(self) -> "ProjectState":
         """
@@ -436,18 +466,43 @@ class ProjectState(Base):
 
     async def delete_after(self):
         """
-        Delete all states in the branch after this one.
+        Delete all states in the branch after this one, along with related data.
+
+        This includes:
+        - ProjectState records after this one
+        - Related UserInput records (including those for the current state)
+        - Related File records
+        - Orphaned FileContent records
         """
+        from core.db.models import FileContent, UserInput
 
         session: AsyncSession = inspect(self).async_session
 
         log.debug(f"Deleting all project states in branch {self.branch_id} after {self.id}")
-        await session.execute(
-            delete(ProjectState).where(
+
+        # Get all project states to be deleted
+        states_to_delete = await session.execute(
+            select(ProjectState).where(
                 ProjectState.branch_id == self.branch_id,
                 ProjectState.step_index > self.step_index,
             )
         )
+        states_to_delete = states_to_delete.scalars().all()
+        state_ids = [state.id for state in states_to_delete]
+
+        # Delete user inputs for the current state
+        await session.execute(delete(UserInput).where(UserInput.project_state_id == self.id))
+
+        if state_ids:
+            # Delete related user inputs for states to be deleted
+            await session.execute(delete(UserInput).where(UserInput.project_state_id.in_(state_ids)))
+
+            # Delete project states
+            await session.execute(delete(ProjectState).where(ProjectState.id.in_(state_ids)))
+
+        # Clean up orphaned file content and user inputs
+        await FileContent.delete_orphans(session)
+        await UserInput.delete_orphans(session)
 
     def get_last_iteration_steps(self) -> list:
         """

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import inspect, select
+from sqlalchemy import Row, inspect, select
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from core.config import FileSystemType, get_config
@@ -69,14 +69,31 @@ class StateManager:
         finally:
             self.blockDb = False  # Unset the block
 
-    async def list_projects(self) -> list[Project]:
+    async def list_projects(self) -> list[Row]:
         """
-        List projects with branches
-
-        :return: List of projects with all their branches.
+        :return: List of projects
         """
         async with self.session_manager as session:
             return await Project.get_all_projects(session)
+
+    async def list_projects_with_branches_states(self) -> list[Project]:
+        """
+        :return: List of projects with branches and states (old) - for debugging
+        """
+        async with self.session_manager as session:
+            return await Project.get_all_projects_with_branches_states(session)
+
+    async def get_project_states(self, project_id: Optional[UUID], branch_id: Optional[UUID]) -> list[ProjectState]:
+        return await ProjectState.get_project_states(self.current_session, project_id, branch_id)
+
+    async def get_branches_for_project_id(self, project_id: UUID) -> list[Branch]:
+        return await Project.get_branches_for_project_id(self.current_session, project_id)
+
+    async def find_user_input(self, project_state, branch_id) -> Optional[list["UserInput"]]:
+        return await UserInput.find_user_inputs(self.current_session, project_state, branch_id)
+
+    async def get_file_for_project(self, state_id: UUID, path: str):
+        return await Project.get_file_for_project(self.current_session, state_id, path)
 
     async def create_project(self, name: str, folder_name: Optional[str] = None) -> Project:
         """
