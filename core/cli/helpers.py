@@ -529,7 +529,7 @@ async def load_convo(
                         file["path"] = path
 
                         current_file = await sm.get_file_for_project(state.id, path)
-                        prev_file = await sm.get_file_for_project(prev_state.id, path)
+                        prev_file = await sm.get_file_for_project(prev_state.id, path) if prev_state else None
 
                         old_content = prev_file.content.content if prev_file and prev_file.content else ""
                         new_content = current_file.content.content if current_file and current_file.content else ""
