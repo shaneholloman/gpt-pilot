@@ -42,7 +42,6 @@ from core.ui.base import (
 log = get_logger(__name__)
 
 telemetry_sent = False
-source_alt = True
 
 
 def init_sentry():
