@@ -76,12 +76,12 @@ class StateManager:
         async with self.session_manager as session:
             return await Project.get_all_projects(session)
 
-    async def list_projects_old(self) -> list[Project]:
+    async def list_projects_with_branches_states(self) -> list[Project]:
         """
         :return: List of projects with branches and states (old) - for debugging
         """
         async with self.session_manager as session:
-            return await Project.get_all_projects_old(session)
+            return await Project.get_all_projects_with_branches_states(session)
 
     async def get_project_states(self, project_id: Optional[UUID], branch_id: Optional[UUID]) -> list[ProjectState]:
         return await ProjectState.get_project_states(self.current_session, project_id, branch_id)

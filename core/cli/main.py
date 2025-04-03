@@ -17,8 +17,8 @@ from core.agents.orchestrator import Orchestrator
 from core.cli.helpers import (
     delete_project,
     init,
+    list_projects_branches_states,
     list_projects_json,
-    list_projects_old,
     load_convo,
     load_project,
     print_convo,
@@ -243,7 +243,7 @@ async def async_main(
     global telemetry_sent
 
     if args.list:
-        await list_projects_old(db)
+        await list_projects_branches_states(db)
         return True
     elif args.list_json:
         await list_projects_json(db)

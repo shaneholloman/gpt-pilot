@@ -7,8 +7,8 @@ import pytest
 
 from core.cli.helpers import (
     init,
+    list_projects_branches_states,
     list_projects_json,
-    list_projects_old,
     load_config,
     load_project,
     parse_arguments,
@@ -213,11 +213,11 @@ async def test_list_projects(mock_StateManager, capsys):
     )
     project.name = "project1"
 
-    sm.list_projects_old = AsyncMock(return_value=[project])
-    await list_projects_old(None)
+    sm.list_projects_with_branches_states = AsyncMock(return_value=[project])
+    await list_projects_branches_states(None)
 
     mock_StateManager.assert_called_once_with(None)
-    sm.list_projects_old.assert_awaited_once_with()
+    sm.list_projects_with_branches_states.assert_awaited_once_with()
 
     data = capsys.readouterr().out
 

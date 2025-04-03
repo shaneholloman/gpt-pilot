@@ -88,7 +88,7 @@ class Project(Base):
         return result.fetchall()
 
     @staticmethod
-    async def get_all_projects_old(session: "AsyncSession") -> list["Project"]:
+    async def get_all_projects_with_branches_states(session: "AsyncSession") -> list["Project"]:
         """
         Get all projects.
 
