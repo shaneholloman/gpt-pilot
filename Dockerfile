@@ -56,6 +56,7 @@ RUN groupadd -g 1000 devusergroup && \
 # Set up entrypoint and VS Code extension
 ADD cloud/entrypoint.sh /entrypoint.sh
 ADD cloud/on-event-extension-install.sh /var/init_data/on-event-extension-install.sh
+ADD cloud/create-tokens.sh /var/init_data/create-tokens.sh
 
 # Create necessary directories with proper permissions for code-server
 RUN mkdir -p /usr/local/share/code-server/data/User/globalStorage && \
@@ -67,6 +68,7 @@ RUN mkdir -p /usr/local/share/code-server/data/User/globalStorage && \
 
 RUN chmod +x /entrypoint.sh && \
     chmod +x /var/init_data/on-event-extension-install.sh && \
+    chmod +x /var/init_data/create-tokens.sh && \
     chown -R devuser:devusergroup /pythagora && \
     chown -R devuser: /var/init_data/
 
