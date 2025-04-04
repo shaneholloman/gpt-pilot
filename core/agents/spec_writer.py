@@ -2,6 +2,7 @@ from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse, ResponseType
 from core.config import SPEC_WRITER_AGENT_NAME
+from core.config.actions import SPEC_CHANGE_FEATURE_STEP_NAME, SPEC_CHANGE_STEP_NAME, SPEC_CREATE_STEP_NAME
 from core.db.models import Complexity
 from core.db.models.project_state import IterationStatus
 from core.llm.parser import StringParser
@@ -14,10 +15,6 @@ ANALYZE_THRESHOLD = 1500
 INITIAL_PROJECT_HOWTO_URL = (
     "https://github.com/Pythagora-io/gpt-pilot/wiki/How-to-write-a-good-initial-project-description"
 )
-SPEC_CREATE_STEP_NAME = "Create specification"
-SPEC_CHANGE_STEP_NAME = "Change specification"
-SPEC_CHANGE_FEATURE_STEP_NAME = "Change specification due to new feature"
-
 log = get_logger(__name__)
 
 

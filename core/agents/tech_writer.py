@@ -1,13 +1,12 @@
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse
+from core.config.actions import TW_WRITE
 from core.db.models.project_state import TaskStatus
 from core.log import get_logger
 from core.ui.base import success_source
 
 log = get_logger(__name__)
-
-TW_WRITE = "Write documentation"
 
 
 class TechnicalWriter(BaseAgent):

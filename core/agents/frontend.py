@@ -8,6 +8,15 @@ from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.config import FRONTEND_AGENT_NAME
+from core.config.actions import (
+    FE_CHANGE_REQ,
+    FE_CONTINUE,
+    FE_DONE_WITH_UI,
+    FE_INIT,
+    FE_ITERATION,
+    FE_ITERATION_DONE,
+    FE_START,
+)
 from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
@@ -15,12 +24,6 @@ from core.templates.registry import PROJECT_TEMPLATES
 from core.ui.base import ProjectStage
 
 log = get_logger(__name__)
-
-FE_INIT = "Frontend init"
-FE_START = "Frontend start"
-FE_CONTINUE = "Frontend continue"
-FE_ITERATION = "Frontend iteration"
-FE_ITERATION_DONE = "Frontend iteration done"
 
 
 class Frontend(FileDiffMixin, GitMixin, BaseAgent):
@@ -81,6 +84,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         )
         description = description.text.strip()
         self.state_manager.template["description"] = description
+        self.next_state.specification.description = description
 
         self.next_state.epics = [
             {
@@ -106,8 +110,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         llm = self.get_llm(FRONTEND_AGENT_NAME)
         convo = AgentConvo(self).template(
             "build_frontend",
-            summary=self.state_manager.template["template"].get_summary(),
-            description=self.state_manager.template["description"],
+            summary=self.state_manager.template["template"].get_summary()
+            if self.state_manager.template is not None
+            else self.current_state.specification.template_summary,
+            description=self.state_manager.template["description"]
+            if self.state_manager.template is not None
+            else self.next_state.epics[0]["description"],
             user_feedback=None,
         )
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
@@ -117,7 +125,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # Await the template task if it's not done yet
         if self.state_manager.async_tasks:
             if not self.state_manager.async_tasks[-1].done():
-                await self.state_manager.async_tasks[-1].done()
+                await self.state_manager.async_tasks[-1]
             self.state_manager.async_tasks = []
 
         await self.process_response(response_blocks)
@@ -171,7 +179,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND})
 
         answer = await self.ask_question(
-            "Do you want to change anything or report a bug? Keep in mind that currently ONLY frontend is implemented.",
+            FE_CHANGE_REQ,
             buttons={
                 "yes": "I'm done building the UI",
             },
@@ -182,7 +190,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         if answer.button == "yes":
             answer = await self.ask_question(
-                "Are you sure you're done building the UI and want to start building the backend functionality now?",
+                FE_DONE_WITH_UI,
                 buttons={
                     "yes": "Yes, let's build the backend",
                     "no": "No, continue working on the UI",
@@ -265,6 +273,9 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 # Extract file path from the last line - get everything after "file:"
                 file_path = last_line[last_line.index("file:") + 5 :].strip()
                 file_path = file_path.strip("\"'`")
+                # Skip empty file paths
+                if file_path.strip() == "":
+                    continue
                 new_content = content
                 old_content = self.current_state.get_file_content_by_path(file_path)
                 n_new_lines, n_del_lines = self.get_line_changes(old_content, new_content)
@@ -283,6 +294,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         # Add "cd client" prefix if not already present
                         if not command.startswith("cd "):
                             command = f"cd client && {command}"
+
+                        # if command is cd client && some_command client/ -> won't work, we need to remove client/ after &&
+                        prefix, cmd_part = command.split("&&", 1)
+                        cmd_part = cmd_part.strip().replace("client/", "")
+                        command = f"{prefix} && {cmd_part}"
+
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
             else:

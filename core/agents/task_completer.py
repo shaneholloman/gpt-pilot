@@ -1,12 +1,11 @@
 from core.agents.base import BaseAgent
 from core.agents.git import GitMixin
 from core.agents.response import AgentResponse
+from core.config.actions import TC_TASK_DONE
 from core.log import get_logger
 from core.telemetry import telemetry
 
 log = get_logger(__name__)
-
-TC_TASK_DONE = "Task #{} complete"
 
 
 class TaskCompleter(BaseAgent, GitMixin):

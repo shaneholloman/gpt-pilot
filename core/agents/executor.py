@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse
+from core.config.actions import EX_RUN_COMMAND, EX_SKIP_COMMAND, RUN_COMMAND
 from core.llm.parser import JSONParser
 from core.log import get_logger
 from core.proc.exec_log import ExecLog
@@ -30,10 +31,6 @@ class CommandResult(BaseModel):
     success: bool = Field(
         description="True if the command should be treated as successful and the task should continue, false if the command unexpectedly failed and we should debug the issue"
     )
-
-
-EX_SKIP_COMMAND = 'Skip "{}"'
-EX_RUN_COMMAND = 'Run "{}"'
 
 
 class Executor(BaseAgent):
@@ -82,9 +79,9 @@ class Executor(BaseAgent):
         timeout = options.get("timeout")
 
         if timeout:
-            q = f"Can I run command: {cmd} with {timeout}s timeout?"
+            q = f"{RUN_COMMAND} {cmd} with {timeout}s timeout?"
         else:
-            q = f"Can I run command: {cmd}?"
+            q = f"{RUN_COMMAND} {cmd}?"
 
         confirm = await self.ask_question(
             q,
