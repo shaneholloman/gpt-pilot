@@ -353,7 +353,7 @@ class Config(_StrictModel):
             ),
             FRONTEND_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.0,
             ),
             GET_RELEVANT_FILES_AGENT_NAME: AgentLLMConfig(
