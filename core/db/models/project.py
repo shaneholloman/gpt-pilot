@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING, Optional, Union
 from unicodedata import normalize
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, delete, inspect, select
+from sqlalchemy import Row, and_, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 from sqlalchemy.sql import func
 
-from core.db.models import Base
+from core.db.models import Base, File
 
 if TYPE_CHECKING:
     from core.db.models import Branch
@@ -68,7 +68,28 @@ class Project(Base):
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all_projects(session: "AsyncSession") -> list["Project"]:
+    async def get_file_for_project(session: AsyncSession, project_state_id: UUID, path: str) -> Optional["File"]:
+        file_result = await session.execute(
+            select(File).where(File.project_state_id == project_state_id, File.path == path)
+        )
+        return file_result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_branches_for_project_id(session: AsyncSession, project_id: UUID) -> list["Branch"]:
+        from core.db.models import Branch
+
+        branch_result = await session.execute(select(Branch).where(Branch.project_id == project_id))
+        return branch_result.scalars().all()
+
+    @staticmethod
+    async def get_all_projects(session: "AsyncSession") -> list[Row]:
+        query = select(Project.id, Project.name, Project.created_at, Project.folder_name).order_by(Project.name)
+
+        result = await session.execute(query)
+        return result.fetchall()
+
+    @staticmethod
+    async def get_all_projects_with_branches_states(session: "AsyncSession") -> list["Project"]:
         """
         Get all projects.
 

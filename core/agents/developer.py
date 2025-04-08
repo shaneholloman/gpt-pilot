@@ -10,6 +10,14 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, RelevantFilesMixin
 from core.agents.response import AgentResponse
 from core.config import PARSE_TASK_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME
+from core.config.actions import (
+    DEV_EXECUTE_TASK,
+    DEV_TASK_BREAKDOWN,
+    DEV_TASK_REVIEW_FEEDBACK,
+    DEV_TASK_START,
+    DEV_TROUBLESHOOT,
+    DEV_WAIT_TEST,
+)
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.db.models.specification import Complexity
 from core.llm.parser import JSONParser
@@ -70,13 +78,6 @@ Step = Annotated[
 
 class TaskSteps(BaseModel):
     steps: list[Step]
-
-
-DEV_WAIT_TEST = "Awaiting user test"
-DEV_TASK_STARTING = "Starting task #{}"
-DEV_TASK_BREAKDOWN = "Task #{} breakdown"
-DEV_TROUBLESHOOT = "Troubleshooting #{}"
-DEV_TASK_REVIEW_FEEDBACK = "Task review feedback"
 
 
 class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
@@ -214,6 +215,8 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         # Check which files are relevant to the current task
         await self.get_relevant_files_parallel()
 
+        current_task_index = self.current_state.tasks.index(current_task)
+
         await self.send_message("Thinking about how to implement this task ...")
 
         await self.ui.start_breakdown_stream()
@@ -255,6 +258,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         # There might be state leftovers from previous tasks that we need to clean here
         self.next_state.modified_files = {}
         self.set_next_steps(response, source)
+        self.next_state.action = DEV_TASK_START.format(current_task_index + 1)
         await telemetry.trace_code_event(
             "task-start",
             {
@@ -322,12 +326,11 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "task_index": task_index,
             }
         )
-        self.next_state.action = DEV_TASK_STARTING.format(task_index)
         await self.send_message(f"Starting task #{task_index} with the description:\n\n" + description)
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
         user_response = await self.ask_question(
-            "Do you want to execute the above task?",
+            DEV_EXECUTE_TASK,
             buttons=buttons,
             default="yes",
             buttons_only=True,

@@ -9,6 +9,13 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import RelevantFilesMixin
 from core.agents.response import AgentResponse
 from core.config import TECH_LEAD_EPIC_BREAKDOWN, TECH_LEAD_PLANNING
+from core.config.actions import (
+    TL_CREATE_INITIAL_EPIC,
+    TL_CREATE_PLAN,
+    TL_EDIT_DEV_PLAN,
+    TL_INITIAL_PROJECT_NAME,
+    TL_START_FEATURE,
+)
 from core.db.models import Complexity
 from core.db.models.project_state import TaskStatus
 from core.llm.parser import JSONParser
@@ -44,11 +51,6 @@ class DevelopmentPlan(BaseModel):
 
 class EpicPlan(BaseModel):
     plan: list[Task] = Field(description="List of tasks that need to be done to implement the entire epic.")
-
-
-TL_CREATE_INITIAL_EPIC = "Create initial project epic"
-TL_CREATE_PLAN = "Create a development plan for epic: {}"
-TL_START_FEATURE = "Start of feature #{}"
 
 
 class TechLead(RelevantFilesMixin, BaseAgent):
@@ -94,7 +96,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         self.next_state.epics = self.current_state.epics + [
             {
                 "id": uuid4().hex,
-                "name": "Initial Project",
+                "name": TL_INITIAL_PROJECT_NAME,
                 "source": "app",
                 "description": self.current_state.specification.description,
                 "test_instructions": None,
@@ -301,7 +303,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         await self.ui.send_project_stage({"stage": ProjectStage.OPEN_PLAN})
         response = await self.ask_question(
-            "Open and edit your development plan in the Progress tab",
+            TL_EDIT_DEV_PLAN,
             buttons={"done_editing": "I'm done editing, the plan looks good"},
             default="done_editing",
             buttons_only=True,

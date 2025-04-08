@@ -8,18 +8,20 @@ from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.config import FRONTEND_AGENT_NAME, SWAGGER_EMBEDDINGS_API
+from core.config.actions import (
+    FE_CHANGE_REQ,
+    FE_CONTINUE,
+    FE_DONE_WITH_UI,
+    FE_ITERATION,
+    FE_ITERATION_DONE,
+    FE_START,
+)
 from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.ui.base import ProjectStage
 
 log = get_logger(__name__)
-
-FE_INIT = "Frontend init"
-FE_START = "Frontend start"
-FE_CONTINUE = "Frontend continue"
-FE_ITERATION = "Frontend iteration"
-FE_ITERATION_DONE = "Frontend iteration done"
 
 
 class Frontend(FileDiffMixin, GitMixin, BaseAgent):
@@ -125,9 +127,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND})
 
         answer = await self.ask_question(
-            "Do you want to change anything or report a bug?"
-            if frontend_only
-            else "Do you want to change anything or report a bug? Keep in mind that currently ONLY frontend is implemented.",
+            "Do you want to change anything or report a bug?" if frontend_only else FE_CHANGE_REQ,
             buttons={"yes": "I'm done building the UI"} if not frontend_only else None,
             default="yes",
             extra_info="restart_app/collect_logs",
@@ -136,7 +136,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         if answer.button == "yes":
             answer = await self.ask_question(
-                "Are you sure you're done building the UI and want to start building the backend functionality now?",
+                FE_DONE_WITH_UI,
                 buttons={
                     "yes": "Yes, let's build the backend",
                     "no": "No, continue working on the UI",
@@ -280,6 +280,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                             command = f"cd client && {command}"
                         if "run start" or "run dev" in command:
                             continue
+
+                        # if command is cd client && some_command client/ -> won't work, we need to remove client/ after &&
+                        prefix, cmd_part = command.split("&&", 1)
+                        cmd_part = cmd_part.strip().replace("client/", "")
+                        command = f"{prefix} && {cmd_part}"
+
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
             else:

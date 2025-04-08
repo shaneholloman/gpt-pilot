@@ -9,6 +9,7 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, IterationPromptMixin, RelevantFilesMixin, TestSteps
 from core.agents.response import AgentResponse
 from core.config import TROUBLESHOOTER_GET_RUN_COMMAND
+from core.config.actions import TS_ALT_SOLUTION, TS_APP_WORKING, TS_DESCRIBE_ISSUE, TS_TASK_REVIEWED
 from core.db.models.file import File
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.llm.parser import JSONParser, OptionalCodeBlockParser
@@ -29,10 +30,6 @@ class BugReportQuestions(BaseModel):
 
 class RouteFilePaths(BaseModel):
     files: list[str] = Field(description="List of paths for files that contain routes")
-
-
-TS_TASK_REVIEWED = "Task #{} reviewed"
-TS_ALT_SOLUTION = "Alternative solution (attempt #{})"
 
 
 class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFilesMixin, BaseAgent):
@@ -265,7 +262,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         while True:
             await self.ui.send_project_stage({"stage": ProjectStage.GET_USER_FEEDBACK})
 
-            test_message = "Please check if the app is working"
+            test_message = TS_APP_WORKING
             if user_instructions:
                 hint = " Here is a description of what should be working:\n\n" + user_instructions
 
@@ -307,7 +304,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
             elif user_response.button == "bug":
                 await self.ui.send_project_stage({"stage": ProjectStage.DESCRIBE_ISSUE})
                 user_description = await self.ask_question(
-                    "Please describe the issue you found (one at a time) and share any relevant server logs",
+                    TS_DESCRIBE_ISSUE,
                     extra_info="collect_logs",
                     buttons={"back": "Back"},
                 )

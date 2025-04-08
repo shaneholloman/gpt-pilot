@@ -9,9 +9,9 @@ import httpx
 import yaml
 
 from core.agents.base import BaseAgent
-from core.agents.frontend import FE_INIT
 from core.agents.response import AgentResponse
 from core.config import SWAGGER_EMBEDDINGS_API
+from core.config.actions import FE_INIT
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.templates.registry import PROJECT_TEMPLATES

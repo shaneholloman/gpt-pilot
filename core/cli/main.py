@@ -14,7 +14,16 @@ except ImportError:
     SENTRY_AVAILABLE = False
 
 from core.agents.orchestrator import Orchestrator
-from core.cli.helpers import delete_project, init, list_projects, list_projects_json, load_project, show_config
+from core.cli.helpers import (
+    delete_project,
+    init,
+    list_projects_branches_states,
+    list_projects_json,
+    load_convo,
+    load_project,
+    print_convo,
+    show_config,
+)
 from core.db.session import SessionManager
 from core.db.v0importer import LegacyDatabaseImporter
 from core.llm.anthropic_client import CustomAssertionError
@@ -22,10 +31,15 @@ from core.llm.base import APIError
 from core.log import get_logger
 from core.state.state_manager import StateManager
 from core.telemetry import telemetry
-from core.ui.base import ProjectStage, UIBase, UIClosedError, UserInput, pythagora_source
+from core.ui.base import (
+    ProjectStage,
+    UIBase,
+    UIClosedError,
+    UserInput,
+    pythagora_source,
+)
 
 log = get_logger(__name__)
-
 
 telemetry_sent = False
 
@@ -200,6 +214,10 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         success = await load_project(sm, args.project, args.branch, args.step)
         if not success:
             return False
+
+        convo = await load_convo(sm, args.project, args.branch)
+        await print_convo(ui, convo)
+
     else:
         success = await start_new_project(sm, ui)
         if not success:
@@ -224,7 +242,7 @@ async def async_main(
     global telemetry_sent
 
     if args.list:
-        await list_projects(db)
+        await list_projects_branches_states(db)
         return True
     elif args.list_json:
         await list_projects_json(db)

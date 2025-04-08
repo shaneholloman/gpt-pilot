@@ -5,6 +5,8 @@ from typing import Any, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import Annotated
 
+from core.config.constants import LOGS_LINE_LIMIT
+
 ROOT_DIR = abspath(join(dirname(__file__), "..", ".."))
 DEFAULT_IGNORE_PATHS = [
     ".git",
@@ -219,6 +221,10 @@ class LogConfig(_StrictModel):
         "pythagora.log",
         description="Output file for logs (if not specified, logs are printed to stderr)",
     )
+    max_lines: int = Field(
+        LOGS_LINE_LIMIT,
+        description="Maximum number of lines to keep in the log file",
+    )
 
 
 class DBConfig(_StrictModel):
@@ -348,7 +354,7 @@ class Config(_StrictModel):
             ),
             FRONTEND_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.0,
             ),
             GET_RELEVANT_FILES_AGENT_NAME: AgentLLMConfig(

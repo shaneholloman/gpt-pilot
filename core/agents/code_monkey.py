@@ -2,7 +2,7 @@ import asyncio
 import re
 from difflib import unified_diff
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,7 @@ from core.agents.convo import AgentConvo
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse, ResponseType
 from core.config import CODE_MONKEY_AGENT_NAME, CODE_REVIEW_AGENT_NAME, DESCRIBE_FILES_AGENT_NAME
+from core.config.actions import CM_UPDATE_FILES
 from core.db.models import File
 from core.llm.parser import JSONParser, OptionalCodeBlockParser
 from core.log import get_logger
@@ -57,9 +58,6 @@ class FileDescription(BaseModel):
     )
 
 
-CM_UPDATE_FILES = "Updating files"
-
-
 class CodeMonkey(FileDiffMixin, BaseAgent):
     agent_type = "code-monkey"
     display_name = "Code Monkey"
@@ -69,12 +67,7 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
             return await self.describe_files()
         else:
             data = await self.implement_changes()
-            code_review_done = False
-            while not code_review_done:
-                review_response = await self.run_code_review(data)
-                if isinstance(review_response, AgentResponse):
-                    return review_response
-                data = await self.implement_changes(review_response)
+            return await self.accept_changes(data["path"], data["old_content"], data["new_content"])
 
     async def implement_changes(self, data: Optional[dict] = None) -> dict:
         file_name = self.step["save_file"]["path"]
@@ -190,33 +183,6 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
     # ------------------------------
     # CODE REVIEW
     # ------------------------------
-
-    async def run_code_review(self, data: Optional[dict]) -> Union[AgentResponse, dict]:
-        await self.ui.send_file_status(data["path"], "reviewing", source=self.ui_source)
-        if (
-            data is not None
-            and not data["old_content"]
-            or data["new_content"] == data["old_content"]
-            or data["attempt"] >= MAX_CODING_ATTEMPTS
-        ):
-            # we always auto-accept new files and unchanged files, or if we've tried too many times
-            return await self.accept_changes(data["path"], data["old_content"], data["new_content"])
-
-        approved_content, feedback = await self.review_change(
-            data["path"],
-            data["instructions"],
-            data["old_content"],
-            data["new_content"],
-        )
-        if feedback:
-            return {
-                "new_content": data["new_content"],
-                "approved_content": approved_content,
-                "feedback": feedback,
-                "attempt": data["attempt"],
-            }
-        else:
-            return await self.accept_changes(data["path"], data["old_content"], approved_content)
 
     async def accept_changes(self, file_path: str, old_content: str, new_content: str) -> AgentResponse:
         await self.ui.send_file_status(file_path, "done", source=self.ui_source)
@@ -367,7 +333,7 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
         """
         Get the diff between two files.
 
-        This uses Python difflib to produce an unified diff, then splits
+        This uses Python difflib to produce a unified diff, then splits
         it into hunks that will be separately reviewed by the reviewer.
 
         :param file_name: name of the file being modified
