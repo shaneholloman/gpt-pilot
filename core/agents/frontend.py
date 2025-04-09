@@ -101,9 +101,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response doesn't end by mentioning continuing, respond only with `DONE` and with nothing else."
         )
 
-        if len(convo.messages) > 5:
-            convo.slice(2, 5)
-
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
         response_blocks = response.blocks
         convo.assistant(response.original_response)
