@@ -52,11 +52,11 @@ class Wizard(BaseAgent):
 
     async def run(self) -> AgentResponse:
         success = await self.init_frontend()
-        if success is None:
+        if not success:
             return AgentResponse.exit(self)
         return AgentResponse.done(self)
 
-    async def init_frontend(self) -> bool | None:
+    async def init_frontend(self) -> bool:
         """
         Sets up the frontend
 
@@ -88,7 +88,7 @@ class Wizard(BaseAgent):
                     success = await self.upload_docs(docs.text.strip())
                     if not success:
                         await self.send_message("Please try creating a new project.")
-                        return None
+                        return False
                     else:
                         break
                 except Exception as e:

@@ -115,7 +115,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return False
 
-    async def iterate_frontend(self) -> bool | None:
+    async def iterate_frontend(self):
         """
         Iterates over the frontend.
 
@@ -313,7 +313,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return AgentResponse.done(self)
 
-    async def remove_mock(self) -> bool | None:
+    async def remove_mock(self):
         """
         Remove mock API from the backend and replace it with api endpoints defined in the external documentation
         """
