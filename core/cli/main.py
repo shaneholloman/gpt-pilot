@@ -7,7 +7,6 @@ from asyncio import run
 
 try:
     import sentry_sdk
-    from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
     SENTRY_AVAILABLE = True
 except ImportError:
@@ -15,8 +14,10 @@ except ImportError:
 
 from core.agents.orchestrator import Orchestrator
 from core.cli.helpers import (
+    capture_exception,
     delete_project,
     init,
+    init_sentry,
     list_projects_branches_states,
     list_projects_json,
     load_convo,
@@ -42,21 +43,6 @@ from core.ui.base import (
 log = get_logger(__name__)
 
 telemetry_sent = False
-
-
-def init_sentry():
-    if SENTRY_AVAILABLE:
-        sentry_sdk.init(
-            dsn="https://4101633bc5560bae67d6eab013ba9686@o4508731634221056.ingest.us.sentry.io/4508732401909760",
-            send_default_pii=True,
-            traces_sample_rate=1.0,
-            integrations=[AsyncioIntegration()],
-        )
-
-
-def capture_exception(err):
-    if SENTRY_AVAILABLE:
-        sentry_sdk.capture_exception(err)
 
 
 async def cleanup(ui: UIBase):
@@ -98,7 +84,6 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
         await sm.rollback()
     except APIError as err:
         log.warning(f"LLM API error occurred: {err.message}")
-        init_sentry()
         capture_exception(err)
         await ui.send_message(
             f"Stopping Pythagora due to an error while calling the LLM API: {err.message}",
@@ -108,7 +93,6 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
         await sm.rollback()
     except CustomAssertionError as err:
         log.warning(f"Anthropic assertion error occurred: {str(err)}")
-        init_sentry()
         capture_exception(err)
         await ui.send_message(
             f"Stopping Pythagora due to an error inside Anthropic SDK. {str(err)}",
@@ -118,7 +102,6 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
         await sm.rollback()
     except Exception as err:
         log.error(f"Uncaught exception: {err}", exc_info=True)
-        init_sentry()
         capture_exception(err)
 
         stack_trace = telemetry.record_crash(err)
@@ -261,6 +244,7 @@ async def async_main(
     telemetry.set("user_contact", args.email)
 
     if SENTRY_AVAILABLE and args.email:
+        init_sentry()
         sentry_sdk.set_user({"email": args.email})
 
     if args.extension_version:
@@ -304,7 +288,6 @@ async def async_main(
         success = await run_pythagora_session(sm, ui, args)
     except Exception as err:
         log.error(f"Uncaught exception in main session: {err}", exc_info=True)
-        init_sentry()
         capture_exception(err)
         raise
     finally:

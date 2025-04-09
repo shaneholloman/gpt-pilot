@@ -10,6 +10,7 @@ import yaml
 
 from core.agents.base import BaseAgent
 from core.agents.response import AgentResponse
+from core.cli.helpers import capture_exception
 from core.config import SWAGGER_EMBEDDINGS_API
 from core.config.actions import FE_INIT
 from core.log import get_logger
@@ -50,10 +51,12 @@ class Wizard(BaseAgent):
         return auth_methods
 
     async def run(self) -> AgentResponse:
-        await self.init_frontend()
+        success = await self.init_frontend()
+        if success is None:
+            return AgentResponse.exit(self)
         return AgentResponse.done(self)
 
-    async def init_frontend(self) -> bool:
+    async def init_frontend(self) -> bool | None:
         """
         Sets up the frontend
 
@@ -82,23 +85,12 @@ class Wizard(BaseAgent):
 
                     auth_data = self.get_auth_data(content)
 
-                    try:
-                        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/upload")
-                        async with httpx.AsyncClient(
-                            transport=httpx.AsyncHTTPTransport(retries=3), timeout=httpx.Timeout(30.0, connect=60.0)
-                        ) as client:
-                            await client.post(
-                                url,
-                                json={
-                                    "text": docs.text.strip(),
-                                    "project_id": str(self.state_manager.project.id),
-                                },
-                                headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
-                            )
-                    except Exception as e:
-                        log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
-
-                    break
+                    success = await self.upload_docs(docs.text.strip())
+                    if not success:
+                        await self.send_message("Please try creating a new project.")
+                        return None
+                    else:
+                        break
                 except Exception as e:
                     log.debug(f"An error occurred: {str(e)}")
                     await self.send_message("Please provide a valid input.")
@@ -191,6 +183,48 @@ class Wizard(BaseAgent):
         ]
 
         return True
+
+    async def upload_docs(self, docs: str) -> bool:
+        error = None
+        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/upload")
+        for attempt in range(3):
+            log.debug(f"Uploading docs to RAG service... attempt {attempt}")
+            try:
+                async with httpx.AsyncClient(
+                    transport=httpx.AsyncHTTPTransport(), timeout=httpx.Timeout(10.0, connect=5.0)
+                ) as client:
+                    resp = await client.post(
+                        url,
+                        json={
+                            "text": docs,
+                            "project_id": str(self.state_manager.project.id),
+                        },
+                        headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
+                    )
+
+                    if resp.status_code == 200:
+                        log.debug("Uploading docs to RAG service successful")
+                        return True
+                    elif resp.status_code == 403:
+                        log.debug("Uploading docs to RAG service failed, trying to refresh token")
+                        access_token = await self.ui.send_token_expired()
+                        self.state_manager.update_access_token(access_token)
+                    else:
+                        try:
+                            error = resp.json()["error"]
+                        except Exception as e:
+                            capture_exception(e)
+                            error = e
+                        log.debug(f"Uploading docs to RAG service failed: {error}")
+
+            except Exception as e:
+                log.warning(f"Attempt {attempt + 1} failed: {e}", exc_info=True)
+                capture_exception(e)
+
+        await self.ui.send_message(
+            f"An error occurred while uploading the docs. Error: {error if error else 'unknown'}",
+        )
+        return False
 
     async def apply_template(self, options: dict = {}):
         """

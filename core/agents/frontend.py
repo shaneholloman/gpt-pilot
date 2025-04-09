@@ -7,6 +7,7 @@ from core.agents.convo import AgentConvo
 from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
+from core.cli.helpers import capture_exception
 from core.config import FRONTEND_AGENT_NAME, SWAGGER_EMBEDDINGS_API
 from core.config.actions import (
     FE_CHANGE_REQ,
@@ -33,11 +34,15 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             finished = await self.start_frontend()
         elif self.next_state.epics[-1].get("file_paths_to_remove_mock"):
             finished = await self.remove_mock()
+            if finished is None:
+                return AgentResponse.exit(self)
         elif not self.next_state.epics[-1].get("fe_iteration_done"):
             finished = await self.continue_frontend()
         else:
             await self.set_app_details()
             finished = await self.iterate_frontend()
+            if finished is None:
+                return AgentResponse.exit(self)
 
         return await self.end_frontend_iteration(finished)
 
@@ -113,7 +118,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return False
 
-    async def iterate_frontend(self) -> bool:
+    async def iterate_frontend(self) -> bool | None:
         """
         Iterates over the frontend.
 
@@ -154,32 +159,50 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         llm = self.get_llm(FRONTEND_AGENT_NAME)
 
-        convo = AgentConvo(self).template(
-            "is_relevant_for_docs_search",
-            user_feedback=answer.text,
-        )
-
-        response = await llm(convo)
-
         relevant_api_documentation = None
 
-        if response == "yes":
-            try:
-                url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
-                async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
-                    resp = await client.post(
-                        url,
-                        json={"text": answer.text, "project_id": str(self.state_manager.project.id)},
-                        headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
-                    )
+        if frontend_only:
+            convo = AgentConvo(self).template(
+                "is_relevant_for_docs_search",
+                user_feedback=answer.text,
+            )
 
-                    if resp.status_code in [401, 403]:
-                        access_token = await self.ui.send_token_expired()
-                        self.state_manager.update_access_token(access_token)
+            response = await llm(convo)
+            if str(response).lower() == "yes":
+                error = None
+                for attempt in range(3):
+                    try:
+                        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
+                        async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
+                            resp = await client.post(
+                                url,
+                                json={"text": answer.text, "project_id": str(self.state_manager.project.id)},
+                                headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
+                            )
 
-                    relevant_api_documentation = "\n".join(item["content"] for item in resp.json())
-            except Exception as e:
-                log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
+                            if resp.status_code in [200]:
+                                relevant_api_documentation = "\n".join(item["content"] for item in resp.json())
+                                break
+                            elif resp.status_code in [401, 403]:
+                                access_token = await self.ui.send_token_expired()
+                                self.state_manager.update_access_token(access_token)
+                            else:
+                                try:
+                                    error = resp.json()["error"]
+                                except Exception as e:
+                                    error = e
+                                log.warning(f"Failed to fetch from RAG service: {error}")
+                                await self.send_message(
+                                    f"Couldn't find any relevant API documentation. Retrying... \nError: {error}"
+                                )
+
+                    except Exception as e:
+                        error = e
+                        capture_exception(e)
+                        log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
+                if error:
+                    await self.send_message(f"Please try reloading the project. \nError: {error}")
+                    return None
 
         convo = AgentConvo(self).template(
             "build_frontend",
@@ -293,7 +316,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return AgentResponse.done(self)
 
-    async def remove_mock(self) -> bool:
+    async def remove_mock(self) -> bool | None:
         """
         Remove mock API from the backend and replace it with api endpoints defined in the external documentation
         """
@@ -307,42 +330,57 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             topics = await llm(convo)
 
             if topics != "None":
-                try:
-                    url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
-                    async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(retries=3)) as client:
-                        resp = await client.post(
-                            url,
-                            json={"text": topics, "project_id": str(self.state_manager.project.id)},
-                            headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
-                        )
+                error = None
+                for attempt in range(3):
+                    try:
+                        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
+                        async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
+                            resp = await client.post(
+                                url,
+                                json={"text": topics, "project_id": str(self.state_manager.project.id)},
+                                headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
+                            )
+                            if resp.status_code == 200:
+                                resp_json = resp.json()
+                                relevant_api_documentation = "\n".join(item["content"] for item in resp_json)
 
-                        if resp.status_code in [401, 403]:
-                            access_token = await self.ui.send_token_expired()
-                            self.state_manager.update_access_token(access_token)
+                                referencing_files = await self.state_manager.get_referencing_files(
+                                    self.current_state, file_path
+                                )
 
-                        resp_json = resp.json()
-                        relevant_api_documentation = "\n".join(item["content"] for item in resp_json)
+                                convo = AgentConvo(self).template(
+                                    "remove_mock",
+                                    relevant_api_documentation=relevant_api_documentation,
+                                    file_content=old_content,
+                                    file_path=file_path,
+                                    referencing_files=referencing_files,
+                                    lines=len(old_content.splitlines()),
+                                )
 
-                        referencing_files = await self.state_manager.get_referencing_files(
-                            self.current_state, file_path
-                        )
-
-                        convo = AgentConvo(self).template(
-                            "remove_mock",
-                            relevant_api_documentation=relevant_api_documentation,
-                            file_content=old_content,
-                            file_path=file_path,
-                            referencing_files=referencing_files,
-                            lines=len(old_content.splitlines()),
-                        )
-
-                        response = await llm(convo, parser=DescriptiveCodeBlockParser())
-                        response_blocks = response.blocks
-                        convo.assistant(response.original_response)
-                        await self.process_response(response_blocks, removed_mock=True)
-                        self.next_state.epics[-1]["file_paths_to_remove_mock"].remove(file_path)
-                except Exception as e:
-                    log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
+                                response = await llm(convo, parser=DescriptiveCodeBlockParser())
+                                response_blocks = response.blocks
+                                convo.assistant(response.original_response)
+                                await self.process_response(response_blocks, removed_mock=True)
+                                self.next_state.epics[-1]["file_paths_to_remove_mock"].remove(file_path)
+                                break
+                            elif resp.status_code in [401, 403]:
+                                access_token = await self.ui.send_token_expired()
+                                self.state_manager.update_access_token(access_token)
+                            else:
+                                try:
+                                    error = resp.json()["error"]
+                                except Exception as e:
+                                    error = e
+                                log.warning(f"Failed to fetch from RAG service: {error}")
+                                await self.send_message(
+                                    f"I couldn't find any relevant API documentation. Retrying... \nError: {error}"
+                                )
+                    except Exception as e:
+                        capture_exception(e)
+                        log.warning(f"Failed to fetch from RAG service: {e}", exc_info=True)
+                if error:
+                    await self.send_message(f"Please try reloading the project. \nError: {error}")
+                    return None
 
         return False
 
