@@ -63,8 +63,6 @@ class Wizard(BaseAgent):
         :return: AgentResponse.done(self)
         """
         self.next_state.action = FE_INIT
-        await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
-
         self.state_manager.template = {}
         options = {}
         auth_data = {}
@@ -157,6 +155,8 @@ class Wizard(BaseAgent):
         if not self.state_manager.async_tasks:
             self.state_manager.async_tasks = []
             self.state_manager.async_tasks.append(asyncio.create_task(self.apply_template(options)))
+
+        await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
 
         description = await self.ask_question(
             "Please describe the app you want to build.",
