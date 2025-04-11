@@ -112,7 +112,7 @@ class Wizard(BaseAgent):
 
                 if auth_type_question.button == "api_key":
                     api_key = await self.ask_question(
-                        "Enter your API key here",
+                        "Enter your API key here. It will be saved in the .env file on the frontend.",
                         allow_empty=False,
                         verbose=True,
                     )

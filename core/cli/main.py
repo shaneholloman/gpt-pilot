@@ -128,7 +128,7 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         allow_empty=False,
         buttons={
             "node": "Node.js",
-            "swagger": "Frontend only with OpenAPI (Swagger) backend",
+            "swagger": "Frontend only\nFor OpenAPI (Swagger) backend",
             "other": "Other (coming soon)",
         },
         buttons_only=True,
