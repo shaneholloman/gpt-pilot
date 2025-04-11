@@ -82,6 +82,9 @@ class Wizard(BaseAgent):
                         continue
 
                     auth_data = self.get_auth_data(content)
+                    if auth_data == {}:
+                        await self.send_message("Please provide a valid input.")
+                        continue
 
                     success = await self.upload_docs(docs.text.strip())
                     if not success:
