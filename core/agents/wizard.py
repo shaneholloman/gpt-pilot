@@ -37,7 +37,7 @@ class Wizard(BaseAgent):
 
     def get_auth_data(self, docs: dict[str, any]) -> dict[str, any]:
         auth_methods = {}
-        if "swagger" in docs and docs["swagger"].startswith("3."):
+        if "openapi" in docs and docs["openapi"].startswith("3."):
             if "components" in docs and "securitySchemes" in docs["components"]:
                 auth_methods["types"] = [details["type"] for details in docs["components"]["securitySchemes"].values()]
             auth_methods["api_version"] = 3
