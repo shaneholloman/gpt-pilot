@@ -3,6 +3,9 @@ import JSONbig from 'json-bigint';
 
 {% if options.auth_type == "api_key" %}
 const API_KEY = import.meta.env.VITE_API_KEY;
+{% endif %}
+
+{% if options.auth_type != "login" %}
 const EXTERNAL_API_URL = import.meta.env.VITE_EXTERNAL_API_URL;
 {% endif %}
 
