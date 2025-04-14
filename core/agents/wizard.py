@@ -38,10 +38,14 @@ class Wizard(BaseAgent):
     def get_auth_data(self, docs: dict[str, any]) -> dict[str, any]:
         auth_methods = {}
         if "swagger" in docs and docs["swagger"].startswith("3."):
+            if "components" in docs and "securitySchemes" in docs["components"]:
+                auth_methods["types"] = [details["type"] for details in docs["components"]["securitySchemes"].values()]
             auth_methods["api_version"] = 3
             auth_methods["external_api_url"] = docs.get("servers", [{}])[0].get("url", "https://api.example.com")
 
         elif "swagger" in docs and docs["swagger"].startswith("2."):
+            if "securityDefinitions" in docs:
+                auth_methods["types"] = [details["type"] for details in docs["securityDefinitions"].values()]
             auth_methods["api_version"] = 2
             auth_methods["external_api_url"] = (
                 "https://" + docs.get("host", "api.example.com") + docs.get("basePath", "")
@@ -112,6 +116,15 @@ class Wizard(BaseAgent):
                 )
 
                 if auth_type_question.button == "api_key":
+                    if auth_data.get("types") is None or "apiKey" not in auth_data["types"]:
+                        addit_question = await self.ask_question(
+                            "The API key authentication method is not supported by your backend. Do you want to continue?",
+                            buttons_only=True,
+                            buttons={"yes": "Yes", "no": "Go back"},
+                        )
+                        if addit_question.button != "yes":
+                            continue
+
                     api_key = await self.ask_question(
                         "Enter your API key here. It will be saved in the .env file on the frontend.",
                         allow_empty=False,
