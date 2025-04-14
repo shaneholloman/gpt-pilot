@@ -250,7 +250,7 @@ class Wizard(BaseAgent):
         """
         Applies a template to the frontend.
         """
-        if options["auth_type"] == "api_key":
+        if options["auth_type"] == "api_key" or "none":
             template_name = "vite_react_swagger"
         else:
             template_name = "vite_react"
