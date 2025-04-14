@@ -30,7 +30,7 @@ if [ -z "$accessToken" ] || [ -z "$refreshToken" ]; then
 fi
 
 # Create the JSON file
-cat > /pythagora/pythagora-core/workspace/tokens.json << EOF
+cat > /pythagora/tokens.json << EOF
 {
     "accessToken": "$accessToken",
     "refreshToken": "$refreshToken"
