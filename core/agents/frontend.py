@@ -154,7 +154,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         await self.send_message("Implementing the changes you suggested...")
 
-        llm = self.get_llm(FRONTEND_AGENT_NAME)
+        llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
 
         relevant_api_documentation = None
 
