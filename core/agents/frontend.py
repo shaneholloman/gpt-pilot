@@ -154,7 +154,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         await self.send_message("Implementing the changes you suggested...")
 
-        llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
+        llm = self.get_llm(FRONTEND_AGENT_NAME)
 
         relevant_api_documentation = None
 
@@ -200,6 +200,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 if error:
                     await self.send_message(f"Please try reloading the project. \nError: {error}")
                     return None
+
+        llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
 
         convo = AgentConvo(self).template(
             "build_frontend",
