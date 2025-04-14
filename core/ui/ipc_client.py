@@ -595,8 +595,8 @@ class IPCClientUI(UIBase):
         log.debug("Sending project loading finished signal to the extension")
         await self._send(MessageType.LOADING_FINISHED)
 
-    async def send_project_description(self, description: str):
-        await self._send(MessageType.PROJECT_DESCRIPTION, content={"project_description": description})
+    async def send_project_description(self, state: dict):
+        await self._send(MessageType.PROJECT_DESCRIPTION, content=state)
 
     async def send_features_list(self, features: list[str]):
         await self._send(MessageType.FEATURES_LIST, content={"featuresList": features})

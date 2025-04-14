@@ -45,6 +45,14 @@ from core.ui.virtual import VirtualUI
 
 log = get_logger(__name__)
 
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.asyncio import AsyncioIntegration
+
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+
 
 def parse_llm_endpoint(value: str) -> Optional[tuple[LLMProvider, str]]:
     """
@@ -583,6 +591,22 @@ async def load_convo(
         convo.append(convo_el)
 
     return convo
+
+
+def init_sentry():
+    if SENTRY_AVAILABLE:
+        sentry_sdk.init(
+            dsn="https://4101633bc5560bae67d6eab013ba9686@o4508731634221056.ingest.us.sentry.io/4508732401909760",
+            send_default_pii=True,
+            traces_sample_rate=1.0,
+            integrations=[AsyncioIntegration()],
+        )
+
+
+def capture_exception(exc: Exception):
+    if SENTRY_AVAILABLE:
+        init_sentry()
+        sentry_sdk.capture_exception(exc)
 
 
 async def list_projects_branches_states(db: SessionManager):

@@ -27,7 +27,7 @@ async def test_get_by_id_no_match(testdb):
 
 @pytest.mark.asyncio
 async def test_get_by_id(testdb):
-    project = Project(name="test")
+    project = Project(name="test", project_type="node")
     testdb.add(project)
     await testdb.commit()
 
@@ -37,7 +37,7 @@ async def test_get_by_id(testdb):
 
 @pytest.mark.asyncio
 async def test_delete_by_id(testdb):
-    project = Project(name="test")
+    project = Project(name="test", project_type="node")
     testdb.add(project)
     await testdb.commit()
 
@@ -48,7 +48,7 @@ async def test_delete_by_id(testdb):
 
 @pytest.mark.asyncio
 async def test_get_branch_no_match(testdb):
-    project = Project(name="test")
+    project = Project(name="test", project_type="node")
     testdb.add(project)
     await testdb.commit()
 
@@ -58,7 +58,7 @@ async def test_get_branch_no_match(testdb):
 
 @pytest.mark.asyncio
 async def test_get_branch(testdb):
-    project = Project(name="test")
+    project = Project(name="test", project_type="node")
     branch = Branch(project=project)
     testdb.add(project)
     testdb.add(branch)
@@ -70,7 +70,7 @@ async def test_get_branch(testdb):
 
 @pytest.mark.asyncio
 async def test_get_branch_no_session():
-    project = Project(name="test")
+    project = Project(name="test", project_type="node")
 
     with pytest.raises(ValueError):
         await project.get_branch()
@@ -133,7 +133,7 @@ async def test_get_all_projects(testdb, capsys):
 
 @pytest.mark.asyncio
 async def test_default_folder_name(testdb):
-    project = Project(name="test project")
+    project = Project(name="test project", project_type="node")
     testdb.add(project)
     await testdb.commit()
 
