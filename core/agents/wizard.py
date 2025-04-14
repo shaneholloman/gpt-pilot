@@ -37,13 +37,11 @@ class Wizard(BaseAgent):
 
     def get_auth_data(self, docs: dict[str, any]) -> dict[str, any]:
         auth_methods = {}
-        if "components" in docs and "securitySchemes" in docs["components"]:
-            auth_methods["types"] = [details["type"] for details in docs["components"]["securitySchemes"].values()]
+        if "swagger" in docs and docs["swagger"].startswith("3."):
             auth_methods["api_version"] = 3
             auth_methods["external_api_url"] = docs.get("servers", [{}])[0].get("url", "https://api.example.com")
 
-        elif "securityDefinitions" in docs:
-            auth_methods["types"] = [details["type"] for details in docs["securityDefinitions"].values()]
+        elif "swagger" in docs and docs["swagger"].startswith("2."):
             auth_methods["api_version"] = 2
             auth_methods["external_api_url"] = (
                 "https://" + docs.get("host", "api.example.com") + docs.get("basePath", "")
@@ -86,6 +84,7 @@ class Wizard(BaseAgent):
                         await self.send_message("Please provide a valid input.")
                         continue
 
+                    options["external_api_url"] = auth_data["external_api_url"]
                     success = await self.upload_docs(docs.text.strip())
                     if not success:
                         await self.send_message("Please try creating a new project.")
@@ -101,6 +100,7 @@ class Wizard(BaseAgent):
                 auth_type_question = await self.ask_question(
                     "Which authentication method do you want to use?",
                     buttons={
+                        "none": "No authentication",
                         "api_key": "API Key",
                         "bearer": "HTTP Bearer (coming soon)",
                         "open_id_connect": "OpenID Connect (coming soon)",
@@ -108,6 +108,7 @@ class Wizard(BaseAgent):
                     },
                     buttons_only=True,
                     default="api_key",
+                    full_screen=True,
                 )
 
                 if auth_type_question.button == "api_key":
@@ -118,7 +119,10 @@ class Wizard(BaseAgent):
                     )
                     options["auth_type"] = "api_key"
                     options["api_key"] = api_key.text.strip()
-                    options["external_api_url"] = auth_data["external_api_url"]
+                    options["auth"] = False
+                    break
+                elif auth_type_question.button == "none":
+                    options["auth_type"] = "none"
                     options["auth"] = False
                     break
                 else:
