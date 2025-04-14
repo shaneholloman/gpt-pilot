@@ -98,7 +98,7 @@ class Wizard(BaseAgent):
 
             while True:
                 auth_type_question = await self.ask_question(
-                    "Which authentication method do you want to use?",
+                    "Which authentication method does your backend use?",
                     buttons={
                         "none": "No authentication",
                         "api_key": "API Key",
