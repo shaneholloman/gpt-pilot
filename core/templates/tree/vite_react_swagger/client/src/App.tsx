@@ -5,9 +5,9 @@ import { AuthProvider } from "./contexts/AuthContext"
 {% if options.auth %}
 import { Login } from "./pages/Login"
 import { Register } from "./pages/Register"
+import { ProtectedRoute } from "./components/ProtectedRoute"
 {% endif %}
 import { Layout } from "./components/Layout"
-import { ProtectedRoute } from "./components/ProtectedRoute"
 
 function App() {
   return (
@@ -18,8 +18,11 @@ function App() {
               {% if options.auth %}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              {% endif %}
               <Route path="/" element={<ProtectedRoute> <Layout /> </ProtectedRoute>} />
+              {% else %}
+              <Route path="/" element={<Layout />} />
+              {% endif %}
+
             </Routes>
           </Router>
           <Toaster />
