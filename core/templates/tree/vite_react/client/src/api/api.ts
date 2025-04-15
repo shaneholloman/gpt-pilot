@@ -71,7 +71,8 @@ const setupInterceptors = (apiInstance: typeof axios) => {
     (error: AxiosError): Promise<AxiosError> => Promise.reject(error)
   );
 
-  apiInstance.interceptors.response.use(
+    {% if options.auth %}
+    apiInstance.interceptors.response.use(
     (response) => response,
     async (error: AxiosError): Promise<any> => {
       const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
@@ -110,6 +111,7 @@ const setupInterceptors = (apiInstance: typeof axios) => {
       return Promise.reject(error);
     }
   );
+    {% endif %}
 };
 
 setupInterceptors(localApi);

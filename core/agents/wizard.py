@@ -132,11 +132,9 @@ class Wizard(BaseAgent):
                     )
                     options["auth_type"] = "api_key"
                     options["api_key"] = api_key.text.strip()
-                    options["auth"] = False
                     break
                 elif auth_type_question.button == "none":
                     options["auth_type"] = "none"
-                    options["auth"] = False
                     break
                 else:
                     auth_type_question_trace = await self.ask_question(
@@ -153,21 +151,21 @@ class Wizard(BaseAgent):
                         )
                         await self.send_message("Thank you for submitting your request. We will be in touch.")
         else:
-            auth_needed = await self.ask_question(
-                "Do you need authentication in your app (login, register, etc.)?",
-                buttons={
-                    "yes": "Yes",
-                    "no": "No",
-                },
-                buttons_only=True,
-                default="no",
-            )
-            options = {
-                "auth": auth_needed.button == "yes",
-                "auth_type": "login",
-                "jwt_secret": secrets.token_hex(32),
-                "refresh_token_secret": secrets.token_hex(32),
-            }
+            options["auth_type"] = "login"
+
+        auth_needed = await self.ask_question(
+            "Do you need authentication in your app (login, register, etc.)?",
+            buttons={
+                "yes": "Yes",
+                "no": "No",
+            },
+            buttons_only=True,
+            default="no",
+        )
+
+        options["auth"] = auth_needed.button == "yes"
+        options["jwt_secret"] = secrets.token_hex(32)
+        options["refresh_token_secret"] = secrets.token_hex(32)
 
         self.next_state.knowledge_base["user_options"] = options
         self.state_manager.user_options = options
