@@ -300,7 +300,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         # Add "cd client" prefix if not already present
                         if not command.startswith("cd "):
                             command = f"cd client && {command}"
-                        if "run start" or "run dev" in command:
+                        if "run start" in command or "run dev" in command:
                             continue
 
                         # if command is cd client && some_command client/ -> won't work, we need to remove client/ after &&
