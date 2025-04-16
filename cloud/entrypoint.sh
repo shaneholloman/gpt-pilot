@@ -18,11 +18,16 @@ chmod -R 755 /usr/local/share/code-server
 set -e
 
 # Start the VS Code extension installer/HTTP server script in the background
-su -c "cd /var/init_data/ && ./on-event-extension-install.sh &" devuser
+su -c "cd /var/init_data/ && ./on-event-extension-install.sh" devuser
 
 # Set up git config
 su -c "git config --global user.email 'devuser@pythagora.ai'" devuser
 su -c "git config --global user.name 'pythagora'" devuser
+
+# Mark entrypoint as done
+su -c "touch /tmp/entrypoint.done" devuser
+
+echo "Entrypoint script finished"
 
 # Keep container running
 tail -f /dev/null

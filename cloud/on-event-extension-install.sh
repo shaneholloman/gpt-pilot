@@ -14,4 +14,10 @@ code-server --config /etc/code-server/config.yaml /pythagora/pythagora-core/work
 CODE_SERVER_PID=$!
 echo $CODE_SERVER_PID > /tmp/vscode-http-server.pid
 
+# Wait for code-server to open the port (e.g., 8080)
+until curl -s "http://localhost:$VSCODE_SERVER_PORT" > /dev/null; do
+  echo "Waiting for code-server to start..."
+  sleep 1
+done
+
 echo "VS Code HTTP server started with PID $CODE_SERVER_PID. Access at http://localhost:$VSCODE_SERVER_PORT"
