@@ -24,6 +24,7 @@ from core.agents.task_completer import TaskCompleter
 from core.agents.tech_lead import TechLead
 from core.agents.tech_writer import TechnicalWriter
 from core.agents.troubleshooter import Troubleshooter
+from core.agents.wizard import Wizard
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.log import get_logger
 from core.telemetry import telemetry
@@ -375,7 +376,9 @@ class Orchestrator(BaseAgent, GitMixin):
             if prev_response.type == ResponseType.UPDATE_SPECIFICATION:
                 return SpecWriter(self.state_manager, self.ui, prev_response=prev_response)
 
-        if not state.epics or (state.current_epic and state.current_epic.get("source") == "frontend"):
+        if not state.epics:
+            return Wizard(self.state_manager, self.ui, process_manager=self.process_manager)
+        elif state.current_epic and state.current_epic.get("source") == "frontend":
             # Build frontend
             return Frontend(self.state_manager, self.ui, process_manager=self.process_manager)
         elif not state.specification.description:
@@ -502,7 +505,12 @@ class Orchestrator(BaseAgent, GitMixin):
                 await self.ui.send_features_list([e["description"] for e in self.current_state.epics[2:-1]])
 
         if self.current_state.specification.description:
-            await self.ui.send_project_description(self.current_state.specification.description)
+            await self.ui.send_project_description(
+                {
+                    "project_description": self.current_state.specification.description,
+                    "project_type": self.current_state.branch.project.project_type,
+                }
+            )
 
     async def update_stats(self):
         if self.current_state.steps and self.current_state.current_step:

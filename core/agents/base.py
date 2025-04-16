@@ -113,7 +113,7 @@ class BaseAgent:
             verbose=verbose,
             initial_text=initial_text,
             source=self.ui_source,
-            project_state_id=str(self.current_state.id),
+            project_state_id=str(self.current_state.id) if self.current_state.prev_state_id is not None else None,
             extra_info=extra_info,
             placeholder=placeholder,
         )

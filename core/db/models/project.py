@@ -27,6 +27,7 @@ class Project(Base):
     folder_name: Mapped[str] = mapped_column(
         default=lambda context: Project.get_folder_from_project_name(context.get_current_parameters()["name"])
     )
+    project_type: Mapped[str] = mapped_column()
 
     # Relationships
     branches: Mapped[list["Branch"]] = relationship(back_populates="project", cascade="all", lazy="raise")

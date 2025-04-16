@@ -209,6 +209,7 @@ async def test_list_projects(mock_StateManager, capsys):
 
     project = MagicMock(
         id="abcd",
+        project_type="node",
         branches=[branch],
     )
     project.name = "project1"
@@ -288,7 +289,14 @@ async def test_main(mock_Orchestrator, args, run_orchestrator, retval, tmp_path)
     with patch("core.cli.helpers.ArgumentParser", new=MockArgumentParser):
         ui, db, args = init()
 
-    ui.ask_question = AsyncMock(return_value=MagicMock(text="test", cancelled=False))
+    # Create a mock with a string value for the button attribute
+    mock_response = MagicMock()
+    mock_response.text = "test"
+    mock_response.cancelled = False
+    # Set a string value for the button attribute
+    mock_response.button = "node"  # or whatever valid project type you want to use
+
+    ui.ask_question = AsyncMock(return_value=mock_response)
 
     mock_orca = mock_Orchestrator.return_value
     mock_orca.run = AsyncMock(return_value=True)
@@ -314,7 +322,10 @@ async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     with patch("core.cli.helpers.ArgumentParser", new=MockArgumentParser):
         ui, db, args = init()
 
-    ui.ask_question = AsyncMock(return_value=MagicMock(text="test", cancelled=False))
+    # Create a mock response with a string value for the button attribute
+    mock_response = MagicMock(text="test", cancelled=False)
+    mock_response.button = "test_project_type"  # Set a string value for project_type
+    ui.ask_question = AsyncMock(return_value=mock_response)
     ui.send_message = AsyncMock()
 
     mock_orca = mock_Orchestrator.return_value

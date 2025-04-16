@@ -458,7 +458,7 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_project_description(self, description: str):
+    async def send_project_description(self, state: dict):
         """
         Send the project description to the UI.
 

@@ -204,14 +204,22 @@ class BaseLLMClient:
                         self.client = openai.AsyncOpenAI(
                             api_key=original_client.api_key,
                             base_url=original_client.base_url,
-                            default_headers={"Authorization": f"Bearer {access_token}"},
+                            timeout=original_client.timeout,
+                            default_headers={
+                                "Authorization": f"Bearer {access_token}",
+                                "Timeout": str(max(self.config.connect_timeout, self.config.read_timeout)),
+                            },
                         )
                     elif isinstance(original_client, anthropic.AsyncAnthropic):
                         # Create new Anthropic client with custom headers
                         self.client = anthropic.AsyncAnthropic(
                             api_key=original_client.api_key,
                             base_url=original_client.base_url,
-                            default_headers={"Authorization": f"Bearer {access_token}"},
+                            timeout=original_client.timeout,
+                            default_headers={
+                                "Authorization": f"Bearer {access_token}",
+                                "Timeout": str(max(self.config.connect_timeout, self.config.read_timeout)),
+                            },
                         )
                     else:
                         # Handle other client types or raise exception
