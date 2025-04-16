@@ -66,7 +66,7 @@ class Orchestrator(BaseAgent, GitMixin):
             await self.init_git_if_needed()
 
         await self.set_frontend_script()
-        await self.set_allowed_hosts()
+        await self.set_vite_config()
         await self.enable_debugger()
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
@@ -209,61 +209,44 @@ class Orchestrator(BaseAgent, GitMixin):
         except Exception as e:
             log.debug(f"An error occurred: {e}")
 
-    async def set_allowed_hosts(self):
+    async def set_vite_config(self):
         file_path = os.path.join("client", "vite.config.ts")
         absolute_path = os.path.join(self.state_manager.get_full_project_root(), file_path)
-        allowed_hosts = """    allowedHosts: ["localhost", ".deployments.pythagora.ai"],"""
 
         if not os.path.exists(absolute_path):
             return
 
         try:
-            # Read the TypeScript file
+            # Read the current file
             with open(absolute_path, "r", encoding="utf-8") as file:
-                content = file.read()
+                current_content = file.read()
 
-            # Find the server configuration
-            server_block_match = re.search(r"server:\s*{[^}]*}", content, re.DOTALL)
+            # Check if required configs already exist
+            has_host_true = "host: true" in current_content
+            has_watch_config = "watch: {" in current_content and "ignored:" in current_content
 
-            if server_block_match:
-                server_block = server_block_match.group(0)
+            # If both required configs exist, no need to change anything
+            if has_host_true and has_watch_config:
+                log.debug("Vite config already has host:true and watch configuration. No changes needed.")
+                return
 
-                # Check if allowedHosts array exists with the required values
-                if all(word in content for word in ["allowedHosts", "localhost", ".deployments.pythagora.ai"]):
-                    log.debug("allowedHosts array already exists with the required values.")
-                else:
-                    # Add the allowedHosts array inside the server block
-                    updated_server_block = re.sub(r"(server:\s*{)", r"\1\n" + allowed_hosts, server_block)
-                    content = content.replace(server_block, updated_server_block)
+            # Get the template path
+            project_root = self.state_manager.get_full_project_root()
+            base_path = project_root.split("/pythagora-core")[0] + "/pythagora-core"
+            template_path = os.path.join(
+                base_path, "core", "templates", "tree", "vite_react", "client", "vite.config.ts"
+            )
 
-                    await self.state_manager.save_file(file_path, content)
-                    log.debug("allowedHosts array added to the server block.")
-            else:
-                log.debug("Server block not found, adding it.")
-                server_block = """  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      }
-    },
-    allowedHosts: [
-      'localhost',
-      '.deployments.pythagora.ai'
-    ],
-  },\n"""
-                # Match the content inside defineConfig({...})
-                config_content = re.search(r"defineConfig\(\{(.*?)\}\)", content, re.DOTALL)
-                if config_content:
-                    # Get the content inside the brackets
-                    inner_content = config_content.group(1)
-                    # Add the server block before the closing bracket
-                    updated_content = content.replace(inner_content, inner_content + server_block)
-                    await self.state_manager.save_file(file_path, updated_content)
-                    log.debug("Proxy and allowedHosts configuration added.")
+            # Read the template file
+            with open(template_path, "r", encoding="utf-8") as file:
+                template_content = file.read()
+
+            # Save the template content to the target file
+            await self.state_manager.save_file(file_path, template_content)
+            log.debug("Updated vite.config.ts with the template configuration.")
 
         except Exception as e:
-            log.debug(f"An error occurred: {e}")
+            log.debug(f"An error occurred while updating vite.config.ts: {e}")
 
     def handle_parallel_responses(self, agent: BaseAgent, responses: List[AgentResponse]) -> AgentResponse:
         """
