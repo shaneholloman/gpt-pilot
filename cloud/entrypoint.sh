@@ -7,7 +7,6 @@ mkdir -p $MONGO_DB_DATA
 mongod --dbpath "$MONGO_DB_DATA" --bind_ip_all >> $MONGO_DB_DATA/mongo_logs.txt 2>&1 &
 
 # Loop until MongoDB is running (use pgrep for speed)
-echo "TASK: Starting MongoDB..."
 for ((i=0; i<10*5; i++)); do
   if pgrep -x mongod > /dev/null; then
     echo "TASK: MongoDB started"
