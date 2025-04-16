@@ -47,9 +47,10 @@ class Wizard(BaseAgent):
             if "securityDefinitions" in docs:
                 auth_methods["types"] = [details["type"] for details in docs["securityDefinitions"].values()]
             auth_methods["api_version"] = 2
-            auth_methods["external_api_url"] = (
-                "https://" + docs.get("host", "api.example.com") + docs.get("basePath", "")
-            )
+            scheme = docs.get("schemes", ["https"])[0] + "://"
+            host = docs.get("host", "api.example.com")
+            base_path = docs.get("basePath", "")
+            auth_methods["external_api_url"] = scheme + host + base_path
         return auth_methods
 
     async def run(self) -> AgentResponse:
