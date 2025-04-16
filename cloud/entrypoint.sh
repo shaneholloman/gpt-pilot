@@ -1,10 +1,20 @@
 #!/bin/bash
-
+echo "TASK: Entrypoint script started"
 export MONGO_DB_DATA=$PYTHAGORA_DATA_DIR/mongodata
 mkdir -p $MONGO_DB_DATA
 
 # Start MongoDB in the background
 mongod --dbpath "$MONGO_DB_DATA" --bind_ip_all >> $MONGO_DB_DATA/mongo_logs.txt 2>&1 &
+
+# Loop until MongoDB is running (use pgrep for speed)
+echo "TASK: Starting MongoDB..."
+for ((i=0; i<10*5; i++)); do
+  if pgrep -x mongod > /dev/null; then
+    echo "TASK: MongoDB started"
+    break
+  fi
+  sleep 0.2
+done
 
 export DB_DIR=$PYTHAGORA_DATA_DIR/database
 
@@ -27,7 +37,7 @@ su -c "git config --global user.name 'pythagora'" devuser
 # Mark entrypoint as done
 su -c "touch /tmp/entrypoint.done" devuser
 
-echo "Entrypoint script finished"
+echo "FINISH: Entrypoint script finished"
 
 # Keep container running
 tail -f /dev/null
