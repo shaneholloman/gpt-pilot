@@ -68,6 +68,7 @@ class Orchestrator(BaseAgent, GitMixin):
 
         await self.set_frontend_script()
         await self.set_allowed_hosts()
+        await self.set_package_json()
         await self.enable_debugger()
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
@@ -206,6 +207,29 @@ class Orchestrator(BaseAgent, GitMixin):
             await self.process_manager.run_command("npm install", show_output=True, timeout=600)
 
             log.debug("Debugger support added.")
+
+        except Exception as e:
+            log.debug(f"An error occurred: {e}")
+
+    async def set_package_json(self):
+        file_path = os.path.join("client", "package.json")
+        absolute_path = os.path.join(self.state_manager.get_full_project_root(), file_path)
+
+        if not os.path.exists(absolute_path):
+            return
+
+        try:
+            script = "vite build"
+            with open(absolute_path, "r") as file:
+                package_json = json.load(file)
+
+            if package_json["scripts"].get("build") == script:
+                return
+
+            package_json["scripts"]["build"] = script
+
+            await self.state_manager.save_file(absolute_path, json.dumps(package_json, indent=4))
+            log.debug(f"Build script changed to {script}.")
 
         except Exception as e:
             log.debug(f"An error occurred: {e}")
