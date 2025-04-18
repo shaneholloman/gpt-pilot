@@ -10,7 +10,7 @@ printf '{\n  "gptPilot.isRemoteWs": true,\n  "gptPilot.useRemoteWs": false,\n  "
 
 # Start code-server and direct to our workspace
 echo "Starting code-server..."
-code-server --config /etc/code-server/config.yaml /pythagora/pythagora-core/workspace &
+code-server --disable-workspace-trust --config /etc/code-server/config.yaml /pythagora/pythagora-core/workspace &
 CODE_SERVER_PID=$!
 echo $CODE_SERVER_PID > /tmp/vscode-http-server.pid
 
