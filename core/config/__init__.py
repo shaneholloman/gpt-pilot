@@ -38,6 +38,7 @@ IGNORE_SIZE_THRESHOLD = 50000  # 50K+ files are ignored by default
 DEFAULT_AGENT_NAME = "default"
 CODE_MONKEY_AGENT_NAME = "CodeMonkey"
 CODE_REVIEW_AGENT_NAME = "CodeMonkey.code_review"
+IMPLEMENT_CHANGES_AGENT_NAME = "CodeMonkey.implement_changes"
 DESCRIBE_FILES_AGENT_NAME = "CodeMonkey.describe_files"
 CHECK_LOGS_AGENT_NAME = "BugHunter.check_logs"
 PARSE_TASK_AGENT_NAME = "Developer.parse_task"
@@ -71,6 +72,7 @@ class LLMProvider(str, Enum):
     """
 
     OPENAI = "openai"
+    RELACE = "relace"
     ANTHROPIC = "anthropic"
     GROQ = "groq"
     LM_STUDIO = "lm-studio"
@@ -327,6 +329,7 @@ class Config(_StrictModel):
         default={
             LLMProvider.OPENAI: ProviderConfig(),
             LLMProvider.ANTHROPIC: ProviderConfig(),
+            LLMProvider.RELACE: ProviderConfig(),
         }
     )
     agent: dict[str, AgentLLMConfig] = Field(
@@ -346,6 +349,11 @@ class Config(_StrictModel):
                 provider=LLMProvider.OPENAI,
                 model="claude-3-5-sonnet-20240620",
                 temperature=0.0,
+            ),
+            IMPLEMENT_CHANGES_AGENT_NAME: AgentLLMConfig(
+                provider=LLMProvider.RELACE,
+                model="relace-code-merge",
+                temperature=0.0,  # temperature is unused for relace
             ),
             DESCRIBE_FILES_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,

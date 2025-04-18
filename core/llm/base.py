@@ -7,6 +7,7 @@ from time import time
 from typing import Any, Callable, Optional, Tuple
 
 import httpx
+from httpx import AsyncClient
 
 from core.config import LLMConfig, LLMProvider
 from core.llm.convo import Convo
@@ -221,6 +222,8 @@ class BaseLLMClient:
                                 "Timeout": str(max(self.config.connect_timeout, self.config.read_timeout)),
                             },
                         )
+                    elif isinstance(original_client, AsyncClient):
+                        self.client = AsyncClient()
                     else:
                         # Handle other client types or raise exception
                         raise ValueError(f"Unsupported client type: {type(original_client)}")
@@ -398,9 +401,12 @@ class BaseLLMClient:
         from .azure_client import AzureClient
         from .groq_client import GroqClient
         from .openai_client import OpenAIClient
+        from .relace_client import RelaceClient
 
         if provider == LLMProvider.OPENAI:
             return OpenAIClient
+        elif provider == LLMProvider.RELACE:
+            return RelaceClient
         elif provider == LLMProvider.ANTHROPIC:
             return AnthropicClient
         elif provider == LLMProvider.GROQ:
