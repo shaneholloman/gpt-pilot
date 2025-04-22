@@ -10,15 +10,23 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/logs': {
+        target: 'http://localhost:4444',
         changeOrigin: true,
       }
     },
     allowedHosts: [
       'localhost',
-      '.deployments.pythagora.ai'
+      '.pythagora.ai'
     ],
+    watch: {
+      ignored: ['**/node_modules/**', '**/dist/**', '**/public/**', '**/log/**']
+    }
   },
 })

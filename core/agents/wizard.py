@@ -47,9 +47,10 @@ class Wizard(BaseAgent):
             if "securityDefinitions" in docs:
                 auth_methods["types"] = [details["type"] for details in docs["securityDefinitions"].values()]
             auth_methods["api_version"] = 2
-            auth_methods["external_api_url"] = (
-                "https://" + docs.get("host", "api.example.com") + docs.get("basePath", "")
-            )
+            scheme = docs.get("schemes", ["https"])[0] + "://"
+            host = docs.get("host", "api.example.com")
+            base_path = docs.get("basePath", "")
+            auth_methods["external_api_url"] = scheme + host + base_path
         return auth_methods
 
     async def run(self) -> AgentResponse:
@@ -132,11 +133,9 @@ class Wizard(BaseAgent):
                     )
                     options["auth_type"] = "api_key"
                     options["api_key"] = api_key.text.strip()
-                    options["auth"] = False
                     break
                 elif auth_type_question.button == "none":
                     options["auth_type"] = "none"
-                    options["auth"] = False
                     break
                 else:
                     auth_type_question_trace = await self.ask_question(
@@ -153,21 +152,21 @@ class Wizard(BaseAgent):
                         )
                         await self.send_message("Thank you for submitting your request. We will be in touch.")
         else:
-            auth_needed = await self.ask_question(
-                "Do you need authentication in your app (login, register, etc.)?",
-                buttons={
-                    "yes": "Yes",
-                    "no": "No",
-                },
-                buttons_only=True,
-                default="no",
-            )
-            options = {
-                "auth": auth_needed.button == "yes",
-                "auth_type": "login",
-                "jwt_secret": secrets.token_hex(32),
-                "refresh_token_secret": secrets.token_hex(32),
-            }
+            options["auth_type"] = "login"
+
+        auth_needed = await self.ask_question(
+            "Do you need authentication in your app (login, register, etc.)?",
+            buttons={
+                "yes": "Yes",
+                "no": "No",
+            },
+            buttons_only=True,
+            default="no",
+        )
+
+        options["auth"] = auth_needed.button == "yes"
+        options["jwt_secret"] = secrets.token_hex(32)
+        options["refresh_token_secret"] = secrets.token_hex(32)
 
         self.next_state.knowledge_base["user_options"] = options
         self.state_manager.user_options = options
