@@ -6,11 +6,11 @@ VSCODE_SERVER_PORT=8080
 
 # Create workspace directory and settings
 mkdir -p /pythagora/pythagora-core/workspace/.vscode
-printf '{\n  "gptPilot.isRemoteWs": true,\n  "gptPilot.useRemoteWs": false,\n  "workbench.colorTheme": "Default Dark+"\n}' > /pythagora/pythagora-core/workspace/.vscode/settings.json
+printf '{\n  "gptPilot.isRemoteWs": true,\n  "gptPilot.useRemoteWs": false,\n  "workbench.colorTheme": "Default Dark+",\n  "remote.autoForwardPorts": false\n}' > /pythagora/pythagora-core/workspace/.vscode/settings.json
 
 # Start code-server and direct to our workspace
 echo "Starting code-server..."
-code-server --disable-workspace-trust --config /etc/code-server/config.yaml /pythagora/pythagora-core/workspace &
+code-server --disable-proxy --disable-workspace-trust --config /etc/code-server/config.yaml /pythagora/pythagora-core/workspace &
 CODE_SERVER_PID=$!
 echo $CODE_SERVER_PID > /tmp/vscode-http-server.pid
 
