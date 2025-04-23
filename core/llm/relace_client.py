@@ -14,7 +14,7 @@ class RelaceClient(BaseLLMClient):
     provider = LLMProvider.RELACE
 
     def _init_client(self):
-        self.url = "http://localhost:3002/v1/relace/merge"
+        self.url = "https://api.pythagora.io/v1/relace/merge"
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.state_manager.get_access_token()}",
