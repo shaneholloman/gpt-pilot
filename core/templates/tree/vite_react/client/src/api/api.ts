@@ -34,19 +34,19 @@ const externalApi = axios.create({
 
 let accessToken: string | null = null;
 
-{% if options.auth %}
+const getApiInstance = (url: string) => {
+  {% if options.auth_type != "login" %}
+return isAuthEndpoint(url) ? localApi : externalApi;
+  {% else %}
+  return localApi;
+  {% endif %}
+};
+
 const isAuthEndpoint = (url: string): boolean => {
   return url.includes("/api/auth");
 };
 
-const getApiInstance = (url: string) => {
-    {% if options.auth_type != "login" %}
-  return isAuthEndpoint(url) ? localApi : externalApi;
-    {% else %}
-    return localApi;
-    {% endif %}
-};
-
+{% if options.auth %}
 const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.request.use(
     (config: AxiosRequestConfig): AxiosRequestConfig => {
@@ -71,7 +71,8 @@ const setupInterceptors = (apiInstance: typeof axios) => {
     (error: AxiosError): Promise<AxiosError> => Promise.reject(error)
   );
 
-  apiInstance.interceptors.response.use(
+    {% if options.auth %}
+    apiInstance.interceptors.response.use(
     (response) => response,
     async (error: AxiosError): Promise<any> => {
       const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
@@ -110,6 +111,7 @@ const setupInterceptors = (apiInstance: typeof axios) => {
       return Promise.reject(error);
     }
   );
+    {% endif %}
 };
 
 setupInterceptors(localApi);

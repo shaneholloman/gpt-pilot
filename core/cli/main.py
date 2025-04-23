@@ -124,12 +124,11 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
     """
 
     stack = await ui.ask_question(
-        "What do you want to use to build your app?",
+        "What do you want to build?",
         allow_empty=False,
         buttons={
-            "node": "Node.js",
-            "swagger": "Frontend only\nFor OpenAPI (Swagger) backend",
-            "other": "Other (coming soon)",
+            "node": "Full stack app\n(easiest to get started)",
+            "swagger": "Frontend only\n(if you have backend with OpenAPI\Swagger)",
         },
         buttons_only=True,
         source=pythagora_source,
