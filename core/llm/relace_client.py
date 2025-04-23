@@ -17,7 +17,7 @@ class RelaceClient(BaseLLMClient):
         self.url = "http://localhost:3002/v1/relace/merge"
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.state_manager.get_access_token()}",
         }
         self.client = AsyncClient()
 
