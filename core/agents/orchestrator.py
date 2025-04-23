@@ -67,7 +67,9 @@ class Orchestrator(BaseAgent, GitMixin):
             await self.init_git_if_needed()
 
         await self.set_frontend_script()
+        await self.set_package_json()
         await self.set_vite_config()
+        await self.set_favicon()
         await self.enable_debugger()
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
@@ -206,6 +208,60 @@ class Orchestrator(BaseAgent, GitMixin):
             await self.process_manager.run_command("npm install", show_output=True, timeout=600)
 
             log.debug("Debugger support added.")
+
+        except Exception as e:
+            log.debug(f"An error occurred: {e}")
+
+    async def set_favicon(self):
+        """
+        Set up favicon link in the client/index.html file.
+        """
+        try:
+            client_dir = os.path.join(self.state_manager.get_full_project_root(), "client")
+            index_path = os.path.join(client_dir, "index.html")
+
+            if not os.path.exists(index_path):
+                return
+
+            # Read the HTML file
+            with open(index_path, "r", encoding="utf-8") as file:
+                content = file.read()
+
+            favicon_link = '<link rel="icon" type="image/x-icon" href="https://s3.us-east-1.amazonaws.com/assets.pythagora.ai/logos/favicon.ico" />'
+
+            # Check if favicon link already exists
+            if favicon_link in content:
+                return
+
+            # Find the position where to insert the favicon link
+            # Look for </head> tag and insert before it
+            updated_content = content.replace("</head>", f"  {favicon_link}\n  </head>")
+
+            await self.state_manager.save_file(index_path, updated_content)
+            log.debug("Favicon link added to index.html")
+
+        except Exception as e:
+            log.debug(f"An error occurred while setting favicon: {e}")
+
+    async def set_package_json(self):
+        file_path = os.path.join("client", "package.json")
+        absolute_path = os.path.join(self.state_manager.get_full_project_root(), file_path)
+
+        if not os.path.exists(absolute_path):
+            return
+
+        try:
+            script = "vite build"
+            with open(absolute_path, "r") as file:
+                package_json = json.load(file)
+
+            if package_json["scripts"].get("build") == script:
+                return
+
+            package_json["scripts"]["build"] = script
+
+            await self.state_manager.save_file(absolute_path, json.dumps(package_json, indent=4))
+            log.debug(f"Build script changed to {script}.")
 
         except Exception as e:
             log.debug(f"An error occurred: {e}")
