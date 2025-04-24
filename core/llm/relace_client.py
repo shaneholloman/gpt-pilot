@@ -14,7 +14,6 @@ class RelaceClient(BaseLLMClient):
     provider = LLMProvider.RELACE
 
     def _init_client(self):
-        self.url = "https://api.pythagora.io/v1/relace/merge"
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.state_manager.get_access_token()}",
@@ -43,7 +42,9 @@ class RelaceClient(BaseLLMClient):
 
         async with self.client as client:
             try:
-                response = await client.post(self.url, headers=self.headers, json=data)
+                response = await client.post(
+                    "https://api.pythagora.io/v1/relace/merge", headers=self.headers, json=data
+                )
                 response.raise_for_status()
                 response_json = response.json()
                 return (
