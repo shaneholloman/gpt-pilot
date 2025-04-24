@@ -28,7 +28,7 @@ PATCH_HEADER_PATTERN = re.compile(r"^@@ -(\d+),?(\d+)? \+(\d+),?(\d+)? @@")
 # Maximum number of attempts to ask for review if it can't be parsed
 MAX_REVIEW_RETRIES = 2
 
-# Maximum number of code implementation attempts after which we accept the changes unconditionaly
+# Maximum number of code implementation attempts after which we accept the changes unconditionally
 MAX_CODING_ATTEMPTS = 3
 
 
@@ -113,8 +113,27 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
             instructions = self.current_state.current_task["instructions"]
 
         blocks = extract_code_blocks(instructions)
-        if not self.state_manager.get_access_token() or not blocks:
-            await self.send_message("Using OpenAI for code implementation. - todo remove this msg after testing")
+        response = None
+
+        if blocks and self.state_manager.get_access_token():
+            # Try Relace first
+            await self.send_message("Using Relace for code implementation. - todo remove this msg after testing")
+            block = next((item for item in blocks if item["file_name"] == file_name), None)
+            if block:
+                llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
+                convo = Convo().user(
+                    {
+                        "initialCode": file_content,
+                        "editSnippet": block["file_content"],
+                    }
+                )
+                response = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
+
+        # Fall back to OpenAI if Relace wasn't used or returned empty response
+        if not response or response is None:
+            await self.send_message(
+                "Falling back to OpenAI for code implementation - todo remove this msg after testing"
+            )
             llm = self.get_llm(CODE_MONKEY_AGENT_NAME)
             convo = AgentConvo(self).template(
                 "implement_changes",
@@ -131,24 +150,8 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
                     original_content=file_content,
                     rework_feedback=feedback,
                 )
-        else:
-            await self.send_message("Using Relace for code implementation. - todo remove this msg after testing")
-            block = next((item for item in blocks if item["file_name"] == file_name), None)
+            response = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
 
-            if block:
-                llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
-                convo = Convo().user(
-                    {
-                        "initialCode": file_content,
-                        "editSnippet": block["file_content"],
-                    }
-                )
-            else:
-                log.error(f"Could not find a block for {file_name}")
-                return {}
-
-        response: str = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
-        # FIXME: provide a counter here so that we don't have an endless loop here
         return {
             "path": file_name,
             "old_content": file_content,

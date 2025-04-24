@@ -1,5 +1,6 @@
 from typing import Optional
 
+import httpx
 from httpx import AsyncClient
 
 from core.config import LLMProvider
@@ -40,7 +41,7 @@ class RelaceClient(BaseLLMClient):
             "model": self.config.model,
         }
 
-        async with self.client as client:
+        async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
             try:
                 response = await client.post(
                     "https://api.pythagora.io/v1/relace/merge", headers=self.headers, json=data
@@ -53,8 +54,9 @@ class RelaceClient(BaseLLMClient):
                     response_json.get("outputTokens", 0),
                 )
             except Exception as e:
-                log.error(f"Relace API request failed: {e}")
-                raise RuntimeError("Failed to communicate with Relace API") from e
+                # Fall back to other ai provider
+                log.debug(f"Relace API request failed: {e}")
+                return ("", 0, 0)
 
 
 __all__ = ["RelaceClient"]
