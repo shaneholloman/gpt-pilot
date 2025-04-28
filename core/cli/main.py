@@ -128,7 +128,7 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         allow_empty=False,
         buttons={
             "node": "Full stack app\n(easiest to get started)",
-            "swagger": "Frontend only\n(if you have backend with OpenAPI\Swagger)",
+            "swagger": "Frontend only\n(if you have backend with OpenAPI\\Swagger)",
         },
         buttons_only=True,
         source=pythagora_source,
