@@ -13,6 +13,13 @@
       "connect_timeout": 60.0,
       "read_timeout": 60.0,
       "extra": null
+    },
+    "relace": {
+      "base_url": null,
+      "api_key": null,
+      "connect_timeout": 60.0,
+      "read_timeout": 60.0,
+      "extra": null
     }
   },
   "agent": {
@@ -34,6 +41,11 @@
     "CodeMonkey.code_review": {
       "provider": "openai",
       "model": "claude-3-5-sonnet-20240620",
+      "temperature": 0.0
+    },
+    "CodeMonkey.implement_changes": {
+      "provider": "relace",
+      "model": "relace-code-merge",
       "temperature": 0.0
     },
     "CodeMonkey.describe_files": {

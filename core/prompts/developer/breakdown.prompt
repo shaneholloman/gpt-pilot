@@ -31,6 +31,9 @@ Whenever you add an API request from the frontend, make sure to wrap the request
 
 ** IMPORTANT - current implementation **
 Pay close attention to the currently implemented files, and DO NOT tell me to implement something that is already implemented. Similarly, do not change the current implementation if you think it is working correctly. It is not necessary for you to change files - you can leave the files as they are and just tell me that they are correctly implemented.
+
+** IMPORTANT - labels around code **
+Always address code that needs to be changed by files and add labels <code file="client/src/api/api.ts"> and </code> around changes for a specific file (in this case client/src/api/api.ts) - you can mention multiple changes for a single file but never mix changes for multiple files in a single <code> block.
 ~~END_OF_DEVELOPMENT_INSTRUCTIONS~~
 
 ~~DEVELOPMENT_PLAN~~
