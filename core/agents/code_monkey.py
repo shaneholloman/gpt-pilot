@@ -117,7 +117,6 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
 
         if blocks and self.state_manager.get_access_token():
             # Try Relace first
-            await self.send_message("Using Relace for code implementation. - todo remove this msg after testing")
             block = next((item for item in blocks if item["file_name"] == file_name), None)
             if block:
                 llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
@@ -131,9 +130,6 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
 
         # Fall back to OpenAI if Relace wasn't used or returned empty response
         if not response or response is None:
-            await self.send_message(
-                "Falling back to OpenAI for code implementation - todo remove this msg after testing"
-            )
             llm = self.get_llm(CODE_MONKEY_AGENT_NAME)
             convo = AgentConvo(self).template(
                 "implement_changes",
