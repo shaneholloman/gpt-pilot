@@ -374,7 +374,10 @@ class BaseLLMClient:
                     request_log.error = f"Error parsing response: {err}"
                     request_log.status = LLMRequestStatus.ERROR
                     log.debug(f"Error parsing LLM response: {err}, asking LLM to retry", exc_info=True)
-                    convo.assistant(response)
+                    if response:
+                        convo.assistant(response)
+                    else:
+                        convo.assistant(".")
                     convo.user(f"Error parsing response: {err}. Please output your response EXACTLY as requested.")
                     continue
             else:
