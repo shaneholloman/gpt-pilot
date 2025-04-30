@@ -116,17 +116,20 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
         response = None
 
         if blocks and self.state_manager.get_access_token():
-            # Try Relace first
-            block = next((item for item in blocks if item["file_name"] == file_name), None)
-            if block:
-                llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
-                convo = Convo().user(
-                    {
-                        "initialCode": file_content,
-                        "editSnippet": block["file_content"],
-                    }
-                )
-                response = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
+            try:
+                # Try Relace first
+                block = next((item for item in blocks if item["file_name"] == file_name), None)
+                if block:
+                    llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
+                    convo = Convo().user(
+                        {
+                            "initialCode": file_content,
+                            "editSnippet": block["file_content"],
+                        }
+                    )
+                    response = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
+            except Exception:
+                response = None
 
         # Fall back to OpenAI if Relace wasn't used or returned empty response
         if not response or response is None:
