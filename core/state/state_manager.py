@@ -740,28 +740,39 @@ class StateManager:
         if not endpoint_line:
             return None
 
-        method = endpoint_line.split("/")[0].strip().lower().strip()
-        endpoint = endpoint_line.strip().split("/")[-1].strip()
+        try:
+            method = endpoint_line.split("/")[0].strip().lower().strip()
+            endpoint = endpoint_line.strip().split("/")[-1].strip()
 
-        if ":" in endpoint:
-            pattern = re.compile(rf"{method}.*?[\'\"]/?{re.escape(endpoint)}[\'\"]", re.IGNORECASE)
-        else:
-            pattern = re.compile(rf"\b{method}\b.*?\b{endpoint}\b", re.IGNORECASE)
+            if not method or not endpoint:
+                return None
 
-        file = next(
-            (file for file in self.next_state.files if "server/" in file.path and pattern.search(file.content.content)),
-            None,
-        )
+            if ":" in endpoint:
+                pattern = re.compile(rf"{method}.*?[\'\"]/?{re.escape(endpoint)}[\'\"]", re.IGNORECASE)
+            else:
+                pattern = re.compile(rf"\b{method}\b.*?\b{endpoint}\b", re.IGNORECASE)
 
-        if not file:
+            file = next(
+                (
+                    file
+                    for file in self.next_state.files
+                    if "server/" in file.path and pattern.search(file.content.content)
+                ),
+                None,
+            )
+
+            if not file:
+                return None
+
+            match = pattern.search(file.content.content)
+            line_number = file.content.content[: match.start()].count("\n") + 1 if match else 0
+            return {
+                "path": file.path,
+                "line": line_number,
+            }
+        except Exception as e:
+            log.error(f"Error finding backend implementation: {e}")
             return None
-
-        match = pattern.search(file.content.content)
-        line_number = file.content.content[: match.start()].count("\n") + 1 if match else 0
-        return {
-            "path": file.path,
-            "line": line_number,
-        }
 
     async def update_apis(self, files_with_implemented_apis: list[dict] = []):
         """
