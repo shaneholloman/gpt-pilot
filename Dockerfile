@@ -56,6 +56,8 @@ RUN groupadd -g 1000 devusergroup && \
 # Set up entrypoint and VS Code extension
 ADD cloud/entrypoint.sh /entrypoint.sh
 ADD cloud/on-event-extension-install.sh /var/init_data/on-event-extension-install.sh
+ADD cloud/favicon.svg /favicon.svg
+ADD cloud/favicon.ico /favicon.ico
 
 # Create necessary directories with proper permissions for code-server
 RUN mkdir -p /usr/local/share/code-server/data/User/globalStorage && \
