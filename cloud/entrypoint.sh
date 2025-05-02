@@ -21,9 +21,9 @@ chown -R devuser: $PYTHAGORA_DATA_DIR
 su -c "mkdir -p $DB_DIR" devuser
 
 # Copy icons before changing permissions
-mv -f /favicon.ico /usr/local/lib/code-server/src/browser/media/favicon.ico
-mv -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon-dark-support.svg
-mv -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon.svg
+cp -f /favicon.ico /usr/local/lib/code-server/src/browser/media/favicon.ico
+cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon-dark-support.svg
+cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon.svg
 # Ensure code-server directories have correct permissions
 chown -R devuser:devusergroup /usr/local/share/code-server
 chmod -R 755 /usr/local/share/code-server
