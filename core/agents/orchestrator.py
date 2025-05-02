@@ -83,8 +83,7 @@ class Orchestrator(BaseAgent, GitMixin):
             # In case where agent is a list, run all agents in parallel.
             # Only one agent type can be run in parallel at a time (for now). See handle_parallel_responses().
             if isinstance(agent, list):
-                # TODO: check the rest of project for exact same fix (asyncio.to_thread)
-                tasks = [asyncio.to_thread(asyncio.run, single_agent.run()) for single_agent in agent]
+                tasks = [single_agent.run() for single_agent in agent]
                 log.debug(
                     f"Running agents {[a.__class__.__name__ for a in agent]} (step {self.current_state.step_index})"
                 )
