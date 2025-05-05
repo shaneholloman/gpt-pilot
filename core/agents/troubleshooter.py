@@ -86,11 +86,25 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         # use "current_iteration" here
         last_iteration = self.current_state.iterations[-1] if len(self.current_state.iterations) >= 3 else None
 
-        should_iterate, is_loop, bug_report, change_description = await self.get_user_feedback(
+        should_iterate, is_loop, should_redo, bug_report, change_description = await self.get_user_feedback(
             run_command,
             user_instructions,
             last_iteration is not None,
         )
+
+        if should_redo:
+            # ask user to provide more info
+            task_redo_info_question = await self.ask_question(
+                "Please provide more information about the task you want to redo",
+                buttons_only=False,
+            )
+
+            if task_redo_info_question.text:
+                self.next_state.current_task["redo_human_instructions"] = task_redo_info_question.text
+                self.next_state.current_task["redo_task_id"] = self.current_state.current_task["id"]
+
+            return AgentResponse.done(self)
+
         if not should_iterate:
             # User tested and reported no problems, we're done with the task
             return await self.complete_task()
@@ -235,7 +249,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         run_command: str,
         user_instructions: str,
         last_iteration: Optional[dict],
-    ) -> tuple[bool, bool, str, str]:
+    ) -> tuple[bool, bool, bool, str, str]:
         """
         Ask the user to test the app and provide feedback.
 
@@ -247,6 +261,8 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
         If "is_loop" is True, Pythagora is stuck in a loop and needs to consider alternative solutions.
 
+        If "should_redo" is True, the user wants to redo the task and we need to reset the task and start over.
+
         The last element in the tuple is the user feedback, which may be empty if the user provided no
         feedback (eg. if they just clicked on "Continue" or "Start Pair Programming").
         """
@@ -257,6 +273,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
         is_loop = False
         should_iterate = True
+        should_redo = False
         extra_info = "restart_app" if not self.current_state.iterations else None
 
         while True:
@@ -273,6 +290,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 "continue": "Everything works",
                 "change": "I want to make a change",
                 "bug": "There is an issue",
+                "redo": "Redo task",
             }
 
             user_response = await self.ask_question(
@@ -284,6 +302,10 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 extra_info=extra_info,
             )
             extra_info = None
+
+            if user_response.button == "redo":
+                should_redo = True
+                break
 
             if user_response.button == "continue" or user_response.cancelled:
                 should_iterate = False
@@ -314,7 +336,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 await self.get_relevant_files_parallel(user_feedback=bug_report)
                 break
 
-        return should_iterate, is_loop, bug_report, change_description
+        return should_iterate, is_loop, should_redo, bug_report, change_description
 
     def try_next_alternative_solution(self, user_feedback: str, user_feedback_qa: list[str]) -> AgentResponse:
         """
