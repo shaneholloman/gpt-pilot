@@ -101,7 +101,6 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
             if task_redo_info_question.text:
                 self.next_state.current_task["redo_human_instructions"] = task_redo_info_question.text
-                self.next_state.current_task["redo_task_id"] = self.current_state.current_task["id"]
 
             return AgentResponse.done(self)
 
