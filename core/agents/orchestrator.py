@@ -434,12 +434,12 @@ class Orchestrator(BaseAgent, GitMixin):
 
         if not state.epics:
             return Wizard(self.state_manager, self.ui, process_manager=self.process_manager)
+        elif state.epics and not state.epics[0].get("description"):
+            # New project: ask the Spec Writer to refine and save the project specification
+            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager)
         elif state.current_epic and state.current_epic.get("source") == "frontend":
             # Build frontend
             return Frontend(self.state_manager, self.ui, process_manager=self.process_manager)
-        elif not state.specification.description:
-            # New project: ask the Spec Writer to refine and save the project specification
-            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager)
         elif not state.specification.architecture:
             # Ask the Architect to design the project architecture and determine dependencies
             return Architect(self.state_manager, self.ui, process_manager=self.process_manager)

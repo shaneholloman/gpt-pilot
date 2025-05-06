@@ -377,7 +377,7 @@ class Config(_StrictModel):
             ),
             SPEC_WRITER_AGENT_NAME: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
-                model="gpt-4-0125-preview",
+                model="claude-3-7-sonnet-20250219",
                 temperature=0.0,
             ),
             TASK_BREAKDOWN_AGENT_NAME: AgentLLMConfig(
