@@ -51,7 +51,7 @@ jobs:
           cd tmp_extension
           SHA=$(git rev-parse HEAD)
           echo "Extension SHA: $SHA"
-          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "extension_sha=$SHA" >> $GITHUB_OUTPUT
           cd ..
     
           
@@ -70,7 +70,7 @@ jobs:
           cd tmp_core
           SHA=$(git rev-parse HEAD)
           echo "Core SHA: $SHA"
-          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "core_sha=$SHA" >> $GITHUB_OUTPUT
           cd ..
     
       - name: Generate combined image tag
