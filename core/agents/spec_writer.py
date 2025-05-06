@@ -3,11 +3,11 @@ from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse, ResponseType
 from core.config import SPEC_WRITER_AGENT_NAME
 from core.config.actions import SPEC_CHANGE_FEATURE_STEP_NAME, SPEC_CHANGE_STEP_NAME, SPEC_CREATE_STEP_NAME
-from core.db.models import Complexity
 from core.db.models.project_state import IterationStatus
 from core.llm.parser import StringParser
 from core.log import get_logger
 from core.telemetry import telemetry
+from core.ui.base import ProjectStage
 
 # If the project description is less than this, perform an analysis using LLM
 ANALYZE_THRESHOLD = 1500
@@ -33,37 +33,86 @@ class SpecWriter(BaseAgent):
 
     async def initialize_spec(self) -> AgentResponse:
         self.next_state.action = SPEC_CREATE_STEP_NAME
-        # response = await self.ask_question(
-        #     "Describe your app in as much detail as possible",
-        #     allow_empty=False,
-        # )
-        # if response.cancelled:
-        #     return AgentResponse.error(self, "No project description")
-        #
-        # user_description = response.text.strip()
-        user_description = self.current_state.epics[0]["description"]
 
-        complexity = await self.check_prompt_complexity(user_description)
+        await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
+
+        user_description = await self.ask_question(
+            "Please describe the app you want to build.",
+            allow_empty=False,
+            full_screen=True,
+        )
+        description = user_description.text.strip()
+
+        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True)
+        convo = AgentConvo(self).template(
+            "build_full_specification",
+            initial_prompt=description,
+            auth=(self.current_state.knowledge_base or {}).get("auth", False),
+        )
+
+        await self.ui.start_important_stream()
+        llm_assisted_description = await llm(convo)
+
+        while True:
+            user_done_with_description = await self.ask_question(
+                "Are you satisfied with the project description?",
+                buttons={
+                    "yes": "Yes",
+                    "no": "No, I want to add more details",
+                },
+                default="yes",
+                buttons_only=True,
+            )
+
+            if user_done_with_description.button == "yes":
+                break
+
+            user_add_to_spec = await self.ask_question(
+                "What would you like to add?",
+                allow_empty=False,
+            )
+
+            convo = convo.template("add_to_specification", user_message=user_add_to_spec.text.strip())
+
+            if len(convo.messages) > 6:
+                convo.slice(1, 4)
+
+            await self.ui.start_important_stream()
+            llm_assisted_description = await llm(convo)
+            convo = convo.template(
+                "build_full_specification",
+                auth=(self.current_state.knowledge_base or {}).get("auth", False),
+                initial_prompt=llm_assisted_description.strip(),
+            )
+
+        self.state_manager.template["description"] = llm_assisted_description
+
+        await self.ui.send_project_description(
+            {
+                "project_description": llm_assisted_description,
+                "project_type": self.current_state.branch.project.project_type,
+            }
+        )
+
         await telemetry.trace_code_event(
             "project-description",
             {
-                "initial_prompt": user_description,
-                "complexity": complexity,
+                "initial_prompt": description,
+                "llm_assisted_prompt": llm_assisted_description,
             },
         )
 
-        reviewed_spec = user_description
-        # if len(user_description) < ANALYZE_THRESHOLD and complexity != Complexity.SIMPLE:
-        #     initial_spec = await self.analyze_spec(user_description)
-        #     reviewed_spec = await self.review_spec(desc=user_description, spec=initial_spec)
-
-        self.next_state.specification = self.current_state.specification.clone()
-        self.next_state.specification.original_description = user_description
-        self.next_state.specification.description = reviewed_spec
-        self.next_state.specification.complexity = complexity
-        telemetry.set("initial_prompt", user_description)
-        telemetry.set("updated_prompt", reviewed_spec)
-        telemetry.set("is_complex_app", complexity != Complexity.SIMPLE)
+        self.next_state.epics = [
+            {
+                "id": self.current_state.epics[0]["id"],
+                "name": "Build frontend",
+                "source": "frontend",
+                "description": llm_assisted_description,
+                "messages": [],
+                "summary": None,
+                "completed": False,
+            }
+        ]
 
         return AgentResponse.done(self)
 
