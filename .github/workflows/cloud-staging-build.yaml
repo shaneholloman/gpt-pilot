@@ -31,8 +31,8 @@ jobs:
   get-versions:
     runs-on: ubuntu-latest
     outputs:
-      extension_sha: ${{ steps.set-extension-sha.outputs.extension_sha }}
-      core_sha: ${{ steps.set-core-sha.outputs.core_sha }}
+      extension_sha: ${{ steps.get-extension-sha.outputs.extension_sha }}
+      core_sha: ${{ steps.get-core-sha.outputs.core_sha }}
       combined_tag: ${{ steps.generate-tag.outputs.combined_tag }}
 
     steps:
