@@ -94,6 +94,9 @@ class StateManager:
     async def get_branches_for_project_id(self, project_id: UUID) -> list[Branch]:
         return await Project.get_branches_for_project_id(self.current_session, project_id)
 
+    async def get_project_state_for_redo_task(self, project_state: ProjectState) -> Optional[ProjectState]:
+        return await ProjectState.get_state_for_redo_task(self.current_session, project_state)
+
     async def find_user_input(self, project_state, branch_id) -> Optional[list["UserInput"]]:
         return await UserInput.find_user_inputs(self.current_session, project_state, branch_id)
 
