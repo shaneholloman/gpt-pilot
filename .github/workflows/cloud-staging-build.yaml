@@ -76,8 +76,8 @@ jobs:
       - name: Generate combined image tag
         id: generate-tag
         run: |
-          EXT_SHORT=$(echo "${{ steps.get-extension-sha.outputs.sha }}" | cut -c1-7)
-          CORE_SHORT=$(echo "${{ steps.get-core-sha.outputs.sha }}" | cut -c1-7)
+          EXT_SHORT=$(echo "${{ steps.get-extension-sha.outputs.extension_sha }}" | cut -c1-7)
+          CORE_SHORT=$(echo "${{ steps.get-core-sha.outputs.core_sha }}" | cut -c1-7)
           TAG="ext-${EXT_SHORT}_core-${CORE_SHORT}"
           echo "Combined tag: $TAG"
           echo "combined_tag=$TAG" >> $GITHUB_OUTPUT
