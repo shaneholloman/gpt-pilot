@@ -88,6 +88,7 @@ class Orchestrator(BaseAgent, GitMixin):
                     await self.state_manager.load_project(
                         branch_id=project_state.branch_id, step_index=project_state.step_index
                     )
+                    await self.state_manager.restore_files()
                     self.next_state.current_task["redo_human_instructions"] = redo_human_instructions
 
             await self.update_stats()
