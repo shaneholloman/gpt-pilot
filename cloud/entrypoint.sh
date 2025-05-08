@@ -1,4 +1,9 @@
 #!/bin/bash
+
+set -e
+export PS4='+ $(date "+%Y-%m-%d %H:%M:%S") '
+set -x
+
 echo "TASK: Entrypoint script started"
 export MONGO_DB_DATA=$PYTHAGORA_DATA_DIR/mongodata
 mkdir -p $MONGO_DB_DATA
@@ -20,27 +25,9 @@ export DB_DIR=$PYTHAGORA_DATA_DIR/database
 chown -R devuser: $PYTHAGORA_DATA_DIR
 su -c "mkdir -p $DB_DIR" devuser
 
-# Copy icons before changing permissions
-cp -f /favicon.ico /usr/local/lib/code-server/src/browser/media/favicon.ico
-cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon-dark-support.svg
-cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon.svg
-# Ensure code-server directories have correct permissions
-chown -R devuser:devusergroup /usr/local/share/code-server
-chmod -R 755 /usr/local/share/code-server
-
-set -e
-
 # Start the VS Code extension installer/HTTP server script in the background
 su -c "cd /var/init_data/ && ./on-event-extension-install.sh" devuser
 
-# Set up git config
-su -c "git config --global user.email 'devuser@pythagora.ai'" devuser
-su -c "git config --global user.name 'pythagora'" devuser
-
-# Mark entrypoint as done
-su -c "touch /tmp/entrypoint.done" devuser
-
-echo "FINISH: Entrypoint script finished"
-
 # Keep container running
+echo "FINISH: Entrypoint script finished"
 tail -f /dev/null
