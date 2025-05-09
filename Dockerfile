@@ -66,7 +66,7 @@ RUN mkdir -p /usr/local/share/code-server/data/User/globalStorage && \
     mkdir -p /usr/local/share/code-server/data/logs && \
     chown -R devuser:devusergroup /usr/local/share/code-server && \
     chmod -R 755 /usr/local/share/code-server && \
-    # Copy icons before changing permissions 
+    # Copy icons
     cp -f /favicon.ico /usr/local/lib/code-server/src/browser/media/favicon.ico && \
     cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon-dark-support.svg && \
     cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon.svg
@@ -75,7 +75,6 @@ RUN chmod +x /entrypoint.sh && \
     chmod +x /var/init_data/on-event-extension-install.sh && \
     chown -R devuser:devusergroup /pythagora && \
     chown -R devuser: /var/init_data/
-    
 
 # Create workspace directory
 RUN mkdir -p ${PYTH_INSTALL_DIR}/pythagora-core/workspace && \
