@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from core.agents.response import ResponseType
@@ -57,7 +59,20 @@ async def test_ask_for_feature(agentcontext):
         {"name": "Frontend", "completed": True},
         {"name": "Initial Project", "completed": True},
     ]
-    ui.ask_question.return_value = UserInput(text="make it pop")
+
+    # Mock the responses for the two questions in the updated code
+    ui.ask_question.side_effect = [
+        UserInput(button="feature"),  # First question: choose "Feature"
+        UserInput(text="make it pop"),  # Second question: feature description
+    ]
+
+    # Make ui.send_epics_and_tasks return a coroutine mock
+    ui.send_epics_and_tasks.return_value = asyncio.Future()
+    ui.send_epics_and_tasks.return_value.set_result(None)
+
+    # Make ui.send_project_stage return a coroutine mock
+    ui.send_project_stage.return_value = asyncio.Future()
+    ui.send_project_stage.return_value.set_result(None)
 
     tl = TechLead(sm, ui)
     response = await tl.run()

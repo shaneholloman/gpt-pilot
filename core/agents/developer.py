@@ -343,6 +343,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         if self.next_state.current_task.get("redo_human_instructions", None) is not None:
             return True
 
+        if self.current_state.current_task.get("quick_implementation", False):
+            return True
+
         user_response = await self.ask_question(
             DEV_EXECUTE_TASK,
             buttons=buttons,
