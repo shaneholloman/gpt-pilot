@@ -1,8 +1,9 @@
 #!/bin/bash
 
 set -e
-export PS4='+ $(date "+%Y-%m-%d %H:%M:%S") '
-set -x
+# Production instances are slow with date command and stderr
+# export PS4='+ $(date "+%Y-%m-%d %H:%M:%S") '
+# set -x
 
 echo "TASK: Entrypoint script started"
 export MONGO_DB_DATA=$PYTHAGORA_DATA_DIR/mongodata
