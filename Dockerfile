@@ -65,7 +65,11 @@ RUN mkdir -p /usr/local/share/code-server/data/User/globalStorage && \
     mkdir -p /usr/local/share/code-server/data/Machine && \
     mkdir -p /usr/local/share/code-server/data/logs && \
     chown -R devuser:devusergroup /usr/local/share/code-server && \
-    chmod -R 755 /usr/local/share/code-server
+    chmod -R 755 /usr/local/share/code-server && \
+    # Copy icons
+    cp -f /favicon.ico /usr/local/lib/code-server/src/browser/media/favicon.ico && \
+    cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon-dark-support.svg && \
+    cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon.svg
 
 RUN chmod +x /entrypoint.sh && \
     chmod +x /var/init_data/on-event-extension-install.sh && \
@@ -75,6 +79,10 @@ RUN chmod +x /entrypoint.sh && \
 # Create workspace directory
 RUN mkdir -p ${PYTH_INSTALL_DIR}/pythagora-core/workspace && \
     chown -R devuser:devusergroup ${PYTH_INSTALL_DIR}/pythagora-core/workspace
+
+# Set up git config
+RUN su -c "git config --global user.email 'devuser@pythagora.ai'" devuser && \
+    su -c "git config --global user.name 'pythagora'" devuser
 
 # Remove the USER directive to keep root as the running user
 ENTRYPOINT ["/entrypoint.sh"]
