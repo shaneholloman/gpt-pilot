@@ -329,6 +329,10 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.send_message(f"Starting task #{task_index} with the description:\n\n" + description)
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
+
+        if self.current_state.current_task.get("quick_implementation", False):
+            return True
+
         user_response = await self.ask_question(
             DEV_EXECUTE_TASK,
             buttons=buttons,
