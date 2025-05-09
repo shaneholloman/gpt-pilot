@@ -70,6 +70,7 @@ class Message(BaseModel):
     * `extra_info`: Additional information (eg. "This is a hint"), optional
     * `placeholder`: Placeholder for user input, optional
     * `access_token`: Access token for user input, optional
+    * `request_id`: Unique identifier for request-response matching, optional
     """
 
     type: MessageType
@@ -80,6 +81,7 @@ class Message(BaseModel):
     content: Union[str, dict, None] = None
     placeholder: Optional[str] = None
     accessToken: Optional[str] = None
+    request_id: Optional[str] = None
 
     def to_bytes(self) -> bytes:
         """

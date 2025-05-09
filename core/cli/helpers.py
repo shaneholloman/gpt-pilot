@@ -201,6 +201,24 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--extension-version", help="Version of the VSCode extension", required=False)
     parser.add_argument("--use-git", help="Use Git for version control", action="store_true", required=False)
     parser.add_argument("--access-token", help="Access token", required=False)
+    parser.add_argument(
+        "--enable-api-server",
+        action="store_true",
+        default=True,
+        help="Enable IPC server for external clients",
+    )
+    parser.add_argument(
+        "--local-api-server-host",
+        type=str,
+        default="localhost",
+        help="Host for the IPC server (default: localhost)",
+    )
+    parser.add_argument(
+        "--local-api-server-port",
+        type=int,
+        default=8222,
+        help="Port for the IPC server (default: 8222)",
+    )
     return parser.parse_args()
 
 

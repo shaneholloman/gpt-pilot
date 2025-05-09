@@ -32,6 +32,7 @@ from core.llm.base import APIError
 from core.log import get_logger
 from core.state.state_manager import StateManager
 from core.telemetry import telemetry
+from core.ui.api_server import IPCServer
 from core.ui.base import (
     ProjectStage,
     UIBase,
@@ -253,8 +254,21 @@ async def async_main(
     sm = StateManager(db, ui)
     if args.access_token:
         sm.update_access_token(args.access_token)
+
+    # Start API server if enabled in config
+    api_server = None
+    if hasattr(args, "enable_api_server") and args.enable_api_server:
+        api_host = getattr(args, "local_api_server_host", "localhost")
+        api_port = getattr(args, "local_api_server_port", 8222)  # Different from client port
+        api_server = IPCServer(api_host, api_port, sm)
+        server_started = await api_server.start()
+        if not server_started:
+            log.warning(f"Failed to start API server on {api_host}:{api_port}")
+
     ui_started = await ui.start()
     if not ui_started:
+        if api_server:
+            await api_server.stop()
         return False
 
     telemetry.start()
@@ -291,6 +305,8 @@ async def async_main(
         raise
     finally:
         await cleanup(ui)
+        if api_server:
+            await api_server.stop()
 
     return success
 
