@@ -230,6 +230,15 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         ):
             related_api_endpoints = []
 
+        redo_task_user_feedback = None
+
+        if (
+            self.next_state
+            and self.next_state.current_task
+            and self.next_state.current_task.get("redo_human_instructions", None) is not None
+        ):
+            redo_task_user_feedback = self.next_state.current_task["redo_human_instructions"]
+
         convo = AgentConvo(self).template(
             "breakdown",
             task=current_task,
@@ -237,6 +246,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             current_task_index=current_task_index,
             docs=self.current_state.docs,
             related_api_endpoints=related_api_endpoints,
+            redo_task_user_feedback=redo_task_user_feedback,
         )
         response: str = await llm(convo)
         convo.assistant(response)
@@ -329,6 +339,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.send_message(f"Starting task #{task_index} with the description:\n\n" + description)
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
+
+        if self.next_state.current_task.get("redo_human_instructions", None) is not None:
+            return True
 
         if self.current_state.current_task.get("quick_implementation", False):
             return True

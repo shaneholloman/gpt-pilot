@@ -1,4 +1,3 @@
-import asyncio
 import json
 import secrets
 from json import JSONDecodeError
@@ -16,7 +15,6 @@ from core.config.actions import FE_INIT
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.templates.registry import PROJECT_TEMPLATES
-from core.ui.base import ProjectStage
 
 log = get_logger(__name__)
 
@@ -54,12 +52,12 @@ class Wizard(BaseAgent):
         return auth_methods
 
     async def run(self) -> AgentResponse:
-        success = await self.init_frontend()
+        success = await self.init_template()
         if not success:
             return AgentResponse.exit(self)
         return AgentResponse.done(self)
 
-    async def init_frontend(self) -> bool:
+    async def init_template(self) -> bool:
         """
         Sets up the frontend
 
@@ -173,28 +171,14 @@ class Wizard(BaseAgent):
 
         if not self.state_manager.async_tasks:
             self.state_manager.async_tasks = []
-            self.state_manager.async_tasks.append(asyncio.create_task(self.apply_template(options)))
-
-        await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
-
-        description = await self.ask_question(
-            "Please describe the app you want to build.",
-            allow_empty=False,
-            full_screen=True,
-        )
-        description = description.text.strip()
-        self.state_manager.template["description"] = description
-
-        await self.ui.send_project_description(
-            {"project_description": description, "project_type": self.current_state.branch.project.project_type}
-        )
+            await self.apply_template(options)
 
         self.next_state.epics = [
             {
                 "id": uuid4().hex,
                 "name": "Build frontend",
                 "source": "frontend",
-                "description": description,
+                "description": "",
                 "messages": [],
                 "summary": None,
                 "completed": False,

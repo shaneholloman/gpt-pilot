@@ -2,6 +2,7 @@
 const express = require('express');
 const UserService = require('../services/userService.js');
 const { requireUser } = require('./middleware/auth.js');
+const User = require('../models/User.js');
 const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js');
 const jwt = require('jsonwebtoken');
 
@@ -23,7 +24,7 @@ router.post('/login', async (req, res) => {
 
     user.refreshToken = refreshToken;
     await user.save();
-    return res.json({...user.toObject(), accessToken});
+    return res.json({...user.toObject(), accessToken, refreshToken});
   } else {
     return sendError('Email or password is incorrect');
 
