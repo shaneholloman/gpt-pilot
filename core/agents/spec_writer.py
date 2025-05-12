@@ -85,7 +85,12 @@ class SpecWriter(BaseAgent):
                 initial_prompt=llm_assisted_description.strip(),
             )
 
-        self.state_manager.template["description"] = llm_assisted_description
+        # if we reload the project from the 1st project state, state_manager.template will be None
+        if self.state_manager.template:
+            self.state_manager.template["description"] = llm_assisted_description
+        else:
+            # if we do not set this and reload the project, we will load the "old" project description we entered before reload
+            self.next_state.epics[0]["description"] = llm_assisted_description
 
         await self.ui.send_project_description(
             {
