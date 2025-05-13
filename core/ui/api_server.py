@@ -179,10 +179,6 @@ class IPCServer:
 
         log.debug(f"Sending streaming response of type {message_type}, request ID: {request_id}")
         try:
-            # async for content_chunk in content_generator:
-            #     log.debug(f"Sending chunk of type {message_type}, content chunk: {content_chunk}")
-            #     await send_stream_chunk(writer, message_type, content_chunk, request_id)
-
             await ChatAgent(state_manager=self.state_manager, ui=VirtualUI(inputs=[])).run()
 
             # Send final message
@@ -241,25 +237,14 @@ class IPCServer:
         """
         try:
             log.debug(f"Handling chat message: {message}")
-            # Extract chat message content
             chat_message = message.content.get("message", "")
             if not chat_message:
                 raise ValueError("Chat message is empty")
-
-            # Create an async generator for streaming response
-            # async def content_stream():
-            # This is where you'd implement your actual streaming logic
-            # For demo purposes, we'll just yield words with a delay
-            # words = f"Echo: {chat_message}".split()
-            # for word in words:
-            #     yield word + " "
-            #     await asyncio.sleep(0.1)  # Simulate processing time
 
             # Stream the response
             await self._send_streaming_response(
                 writer,
                 message,
-                # content_stream()
             )
 
         except Exception as err:
