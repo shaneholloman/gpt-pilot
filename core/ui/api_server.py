@@ -3,11 +3,24 @@ from typing import Awaitable, Callable, Dict, Optional
 
 from pydantic import ValidationError
 
+from core.agents.base import BaseAgent
+from core.llm.convo import Convo
 from core.log import get_logger
 from core.state.state_manager import StateManager
 from core.ui.ipc_client import MESSAGE_SIZE_LIMIT, Message, MessageType
+from core.ui.virtual import VirtualUI
 
 log = get_logger(__name__)
+
+
+async def send_stream_chunk(writer: asyncio.StreamWriter, message_type, content_chunk, request_id):
+    if not content_chunk:
+        content_chunk = ""
+    stream_message = Message(type=message_type, content={"chunk": content_chunk}, request_id=request_id)
+    data = stream_message.to_bytes()
+    writer.write(len(data).to_bytes(4))
+    writer.write(data)
+    await writer.drain()
 
 
 class IPCServer:
@@ -33,7 +46,7 @@ class IPCServer:
     def _setup_handlers(self):
         """Set up message handlers."""
         self.handlers[MessageType.EPICS_AND_TASKS] = self._handle_epics_and_tasks
-        # Add more handlers as needed
+        self.handlers[MessageType.CHAT_MESSAGE] = self._handle_chat_message
 
     async def start(self) -> bool:
         """
@@ -80,7 +93,7 @@ class IPCServer:
                     break
 
                 # Parse message length
-                message_length = int.from_bytes(length_bytes, byteorder="big")
+                message_length = int.from_bytes(length_bytes)
 
                 # Read message data
                 data = await reader.readexactly(message_length)
@@ -139,6 +152,47 @@ class IPCServer:
         except (ConnectionResetError, BrokenPipeError) as err:
             log.error(f"Failed to send response: {err}")
 
+    async def _send_streaming_response(self, writer: asyncio.StreamWriter, message: Message):
+        """
+        Send a streaming response to client.
+
+        :param writer: Stream writer.
+        :param message: Message with request id, content and message type.
+        """
+        request_id = message.request_id
+        message_type = MessageType.CHAT_MESSAGE_RESPONSE
+
+        log.debug(f"Sending response to client {request_id}")
+
+        class ChatAgent(BaseAgent):
+            agent_type = "chat-agent"
+            display_name = "Chat Agent"
+
+            async def stream_handler(self, content_chunk: str):
+                await send_stream_chunk(writer, message_type, content_chunk, request_id)
+
+            async def run(self):
+                log.debug("Chat agent started.")
+                llm = self.get_llm(stream_output=True)
+                convo = Convo("you're a friendly assistant").user(message.content.get("message", ""))
+                log.debug(await llm(convo))
+
+        log.debug(f"Sending streaming response of type {message_type}, request ID: {request_id}")
+        try:
+            # async for content_chunk in content_generator:
+            #     log.debug(f"Sending chunk of type {message_type}, content chunk: {content_chunk}")
+            #     await send_stream_chunk(writer, message_type, content_chunk, request_id)
+
+            await ChatAgent(state_manager=self.state_manager, ui=VirtualUI(inputs=[])).run()
+
+            # Send final message
+            await send_stream_chunk(writer, message_type, None, request_id)
+
+        except (ConnectionResetError, BrokenPipeError) as err:
+            log.error(f"Failed to send streaming response: {err}", exc_info=True)
+        except Exception as err:
+            log.error(f"Error during streaming response: {err}", exc_info=True)
+
     async def _send_error(self, writer: asyncio.StreamWriter, error_message: str, request_id: Optional[str] = None):
         """
         Send error response to client.
@@ -176,4 +230,38 @@ class IPCServer:
 
         except Exception as err:
             log.error(f"Error handling epics and tasks request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_chat_message(self, message: Message, writer: asyncio.StreamWriter):
+        """
+        Handle chat message with streaming response.
+
+        :param message: Request message.
+        :param writer: Stream writer to send response.
+        """
+        try:
+            log.debug(f"Handling chat message: {message}")
+            # Extract chat message content
+            chat_message = message.content.get("message", "")
+            if not chat_message:
+                raise ValueError("Chat message is empty")
+
+            # Create an async generator for streaming response
+            # async def content_stream():
+            # This is where you'd implement your actual streaming logic
+            # For demo purposes, we'll just yield words with a delay
+            # words = f"Echo: {chat_message}".split()
+            # for word in words:
+            #     yield word + " "
+            #     await asyncio.sleep(0.1)  # Simulate processing time
+
+            # Stream the response
+            await self._send_streaming_response(
+                writer,
+                message,
+                # content_stream()
+            )
+
+        except Exception as err:
+            log.error(f"Error handling chat message request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
