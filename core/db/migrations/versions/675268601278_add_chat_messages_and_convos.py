@@ -37,8 +37,8 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
         sa.Column("convo_id", sa.Uuid(), sa.ForeignKey("chat_convos.convo_id", ondelete="CASCADE"), nullable=False),
         sa.Column("created_at", sa.DateTime, server_default=func.now(), nullable=False),
-        sa.Column("message_type", sa.Text, nullable=False),
-        sa.Column("message", sa.Text, nullable=False),
+        sa.Column("message_type", sa.String(), nullable=False),
+        sa.Column("message", sa.String(), nullable=False),
         sa.Column("prev_message_id", sa.Uuid(), sa.ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True),
     )
 
