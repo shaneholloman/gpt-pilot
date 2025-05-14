@@ -5,6 +5,8 @@
 
 from .base import Base
 from .branch import Branch
+from .chat_convo import ChatConvo
+from .chat_message import ChatMessage
 from .exec_log import ExecLog
 from .file import File
 from .file_content import FileContent
@@ -26,4 +28,6 @@ __all__ = [
     "ProjectState",
     "Specification",
     "UserInput",
+    "ChatConvo",
+    "ChatMessage",
 ]

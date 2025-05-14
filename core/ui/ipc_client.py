@@ -50,6 +50,7 @@ class MessageType(str, Enum):
     BUG_HUNTER_STATUS = "bugHunterStatus"
     EPICS_AND_TASKS = "epicsAndTasks"
     CHAT_MESSAGE = "chatMessage"
+    START_CHAT = "startChat"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"

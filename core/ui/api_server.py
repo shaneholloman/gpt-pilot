@@ -1,9 +1,13 @@
 import asyncio
+import uuid
 from typing import Awaitable, Callable, Dict, Optional
 
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from core.agents.base import BaseAgent
+from core.db.models.chat_convo import ChatConvo
+from core.db.models.chat_message import ChatMessage
 from core.llm.convo import Convo
 from core.log import get_logger
 from core.state.state_manager import StateManager
@@ -42,11 +46,13 @@ class IPCServer:
         self.server = None
         self.handlers: Dict[MessageType, Callable[[Message, asyncio.StreamWriter], Awaitable[None]]] = {}
         self._setup_handlers()
+        self.convo_id = None
 
     def _setup_handlers(self):
         """Set up message handlers."""
         self.handlers[MessageType.EPICS_AND_TASKS] = self._handle_epics_and_tasks
         self.handlers[MessageType.CHAT_MESSAGE] = self._handle_chat_message
+        self.handlers[MessageType.START_CHAT] = self._handle_start_chat
 
     async def start(self) -> bool:
         """
@@ -152,6 +158,63 @@ class IPCServer:
         except (ConnectionResetError, BrokenPipeError) as err:
             log.error(f"Failed to send response: {err}")
 
+    async def _add_to_chat_history(self, project_state_id: uuid.UUID, message: Message, assistant_message: str):
+        """
+        Add new messages to chat history.
+
+        :param project_state_id: Project state ID.
+        :param user_message: User message.
+        :param assistant_message: Assistant message.
+        """
+        user_message = message.content.get("message", "")
+
+        try:
+            session = self.state_manager.current_session
+            if not session:
+                log.error("No database session available")
+                return
+
+            # Check if convo exists for this convo id
+            query = select(ChatConvo).where(ChatConvo.convo_id == self.convo_id)
+            result = await session.execute(query)
+            convo = result.scalar_one_or_none()
+
+            # Create new convo if needed
+            if not convo:
+                convo = ChatConvo(convo_id=self.convo_id, project_state_id=project_state_id)
+                session.add(convo)
+                await session.flush()
+
+            # Check if any ChatMessages exists with the convo id
+            query = select(ChatMessage).where(ChatMessage.convo_id == convo.convo_id)
+            result = await session.execute(query)
+            results = result.scalars().all()
+            prev_message_id = None
+
+            if results:
+                prev_message_id = results[-1].id
+
+            # Create new messages
+            message_user = ChatMessage(
+                convo_id=convo.convo_id, message_type="user", message=user_message, prev_message_id=prev_message_id
+            )
+            session.add(message_user)
+            await session.flush()
+
+            message_assistant = ChatMessage(
+                convo_id=convo.convo_id,
+                message_type="assistant",
+                message=assistant_message,
+                prev_message_id=message_user.id,
+            )
+            session.add(message_assistant)
+            await session.flush()
+
+            log.debug(f"Added chat message to database for project state {project_state_id}")
+
+        except Exception as e:
+            log.error(f"Error saving chat history: {e}")
+
     async def _send_streaming_response(self, writer: asyncio.StreamWriter, message: Message):
         """
         Send a streaming response to client.
@@ -162,7 +225,7 @@ class IPCServer:
         request_id = message.request_id
         message_type = MessageType.CHAT_MESSAGE_RESPONSE
 
-        log.debug(f"Sending response to client {request_id}")
+        project_state_id = self.state_manager.current_state.id
 
         class ChatAgent(BaseAgent):
             agent_type = "chat-agent"
@@ -175,11 +238,11 @@ class IPCServer:
                 log.debug("Chat agent started.")
                 llm = self.get_llm(stream_output=True)
                 convo = Convo("you're a friendly assistant").user(message.content.get("message", ""))
-                log.debug(await llm(convo))
+                return await llm(convo)
 
-        log.debug(f"Sending streaming response of type {message_type}, request ID: {request_id}")
         try:
-            await ChatAgent(state_manager=self.state_manager, ui=VirtualUI(inputs=[])).run()
+            response = await ChatAgent(state_manager=self.state_manager, ui=VirtualUI(inputs=[])).run()
+            await self._add_to_chat_history(project_state_id, message, str(response))
 
             # Send final message
             await send_stream_chunk(writer, message_type, None, request_id)
@@ -199,6 +262,22 @@ class IPCServer:
         """
         message = Message(type=MessageType.RESPONSE, content={"error": error_message}, request_id=request_id)
         await self._send_response(writer, message)
+
+    async def _handle_start_chat(self, message: Message, writer: asyncio.StreamWriter):
+        """
+        Handle request for starting chat.
+
+        :param message: Request message.
+        :param writer: Stream writer to send response.
+        """
+        log.debug("start chat")
+        self.convo_id = uuid.uuid4()
+        response = Message(
+            type=MessageType.START_CHAT,
+            content={"convoId": self.convo_id},
+            request_id=message.request_id,
+        )
+        await self._send_response(writer, response)
 
     async def _handle_epics_and_tasks(self, message: Message, writer: asyncio.StreamWriter):
         """
@@ -236,7 +315,6 @@ class IPCServer:
         :param writer: Stream writer to send response.
         """
         try:
-            log.debug(f"Handling chat message: {message}")
             chat_message = message.content.get("message", "")
             if not chat_message:
                 raise ValueError("Chat message is empty")

@@ -14,7 +14,7 @@ from core.db.models import Base, FileContent
 from core.log import get_logger
 
 if TYPE_CHECKING:
-    from core.db.models import Branch, ExecLog, File, FileContent, LLMRequest, Specification, UserInput
+    from core.db.models import Branch, ChatConvo, ExecLog, File, FileContent, LLMRequest, Specification, UserInput
 
 log = get_logger(__name__)
 
@@ -94,6 +94,9 @@ class ProjectState(Base):
     llm_requests: Mapped[list["LLMRequest"]] = relationship(back_populates="project_state", cascade="all", lazy="raise")
     user_inputs: Mapped[list["UserInput"]] = relationship(back_populates="project_state", cascade="all", lazy="raise")
     exec_logs: Mapped[list["ExecLog"]] = relationship(back_populates="project_state", cascade="all", lazy="raise")
+    chat_convos: Mapped[list["ChatConvo"]] = relationship(
+        back_populates="project_state", cascade="all,delete-orphan", lazy="raise"
+    )
 
     @property
     def unfinished_steps(self) -> list[dict]:
