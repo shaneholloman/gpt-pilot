@@ -1,3 +1,4 @@
+import asyncio
 from json import loads
 from os.path import dirname, join
 from typing import TYPE_CHECKING, Any, Optional, Type
@@ -116,6 +117,10 @@ class BaseProjectTemplate:
                 from_template=True,
             )
 
+        self.state_manager.async_tasks.append(asyncio.create_task(self.install_hook_template()))
+        return self.get_summary()
+
+    async def install_hook_template(self) -> Any:
         try:
             await self.install_hook()
         except Exception as err:
@@ -123,8 +128,6 @@ class BaseProjectTemplate:
                 f"Error running install hook for project template '{self.name}': {err}",
                 exc_info=True,
             )
-
-        return self.get_summary()
 
     def get_summary(self):
         return self.info_renderer.render_template(
