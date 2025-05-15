@@ -54,6 +54,7 @@ class IPCServer:
         self.handlers[MessageType.EPICS_AND_TASKS] = self._handle_epics_and_tasks
         self.handlers[MessageType.CHAT_MESSAGE] = self._handle_chat_message
         self.handlers[MessageType.START_CHAT] = self._handle_start_chat
+        self.handlers[MessageType.GET_CHAT_HISTORY] = self._handle_get_chat_history
 
     async def start(self) -> bool:
         """
@@ -201,8 +202,7 @@ class IPCServer:
             message_user = ChatMessage(
                 convo_id=chat_convo.convo_id,
                 message_type="user",
-                message=conversation.messages[1]["content"],
-                user_input=user_message,
+                message=conversation.messages[1]["content"] if prev_message_id is None else user_message,
                 prev_message_id=prev_message_id,
             )
             session.add(message_user)
@@ -241,7 +241,7 @@ class IPCServer:
             async def stream_handler(self, content_chunk: str):
                 await send_stream_chunk(writer, message_type, content_chunk, request_id)
 
-            async def generate_prompt(self, user_msg: str) -> Convo:
+            async def generate_prompt(self, convo_id: uuid.UUID, user_msg: str) -> Convo:
                 bug_hunt_cycle_user_feedback = None
                 command_run = None
                 testing_instructions = None
@@ -249,39 +249,39 @@ class IPCServer:
                 task_description = None
                 initial_description = None
 
-                if self.current_state.epics and self.current_state.epics[0].get("description", None) is not None:
-                    initial_description = self.current_state.epics[0]["description"]
+                # get the ChatConvo for the convo_id, then use its project state id to get the wanted project state
+                state = await self.state_manager.get_project_state_for_convo_id(convo_id)
+
+                if state and self.current_state.id != state.id:
+                    log.debug(f"State {state.id} does not match current state")
+                else:
+                    state = self.current_state
+
+                if state.epics and state.epics[0].get("description", None) is not None:
+                    initial_description = state.epics[0]["description"]
+
+                if state.current_task and state.current_task.get("description", None) is not None:
+                    task_description = state.current_task["description"]
+
+                if state.iterations:
+                    bug_hunt_cycle_user_feedback = state.iterations[-1].get("user_feedback", None)
+
+                if state.current_task and state.current_task.get("test_instructions", None):
+                    testing_instructions = state.current_task.get("test_instructions")
 
                 if (
-                    self.state_manager.current_state.current_task
-                    and self.state_manager.current_state.current_task.get("description", None) is not None
+                    state.steps
+                    and state.steps[-1].get("command", {}) != {}
+                    and state.steps[-1].get("completed", False) is False
                 ):
-                    task_description = self.state_manager.current_state.current_task["description"]
-
-                if self.state_manager.current_state.iterations:
-                    bug_hunt_cycle_user_feedback = self.state_manager.current_state.iterations[-1].get(
-                        "user_feedback", None
-                    )
-
-                if self.current_state.current_task and self.current_state.current_task.get("test_instructions", None):
-                    testing_instructions = self.current_state.current_task.get("test_instructions")
+                    command_run = state.steps[-1].get("command", {}).get("command", "")
 
                 if (
-                    self.state_manager.current_state.steps
-                    and self.state_manager.current_state.steps[-1].get("command", {}) != {}
-                    and self.state_manager.current_state.steps[-1].get("completed", False) is False
+                    state.steps
+                    and state.steps[-1].get("human_intervention_description", None) is not None
+                    and state.steps[-1].get("completed", False) is False
                 ):
-                    command_run = self.state_manager.current_state.steps[-1].get("command", {}).get("command", "")
-
-                if (
-                    self.state_manager.current_state.steps
-                    and self.state_manager.current_state.steps[-1].get("human_intervention_description", None)
-                    is not None
-                    and self.state_manager.current_state.steps[-1].get("completed", False) is False
-                ):
-                    human_intervention = self.state_manager.current_state.steps[-1].get(
-                        "human_intervention_description", None
-                    )
+                    human_intervention = state.steps[-1].get("human_intervention_description", None)
 
                 return AgentConvo(self).template(
                     "chat",
@@ -296,7 +296,9 @@ class IPCServer:
 
             async def generate_convo(self, convo_id: uuid.UUID, chat_history: list) -> Convo:
                 # chat_history = await self.state_manager.get_chat_history(convo_id)
-                conversation = await self.generate_prompt(user_msg=message.content.get("message", ""))
+                conversation = await self.generate_prompt(
+                    convo_id=convo_id, user_msg=message.content.get("message", "")
+                )
 
                 for chat_msg in chat_history:
                     if chat_msg.get("role", "") == "user":
@@ -353,6 +355,33 @@ class IPCServer:
         response = Message(
             type=MessageType.START_CHAT,
             content={"convoId": self.convo_id},
+            request_id=message.request_id,
+        )
+        await self._send_response(writer, response)
+
+    async def _handle_get_chat_history(self, message: Message, writer: asyncio.StreamWriter):
+        log.debug("get chat history")
+
+        convo_id = uuid.UUID(message.content.get("convoId", ""))
+        if not convo_id:
+            await self._send_error(writer, "convoId is required", message.request_id)
+            return
+
+        # Get chat history for the given convo_id
+        db_chat_history = await self.state_manager.get_chat_history(convo_id)
+        chat_history = []
+
+        for chat_msg in db_chat_history:
+            chat_history.append(
+                {
+                    "role": chat_msg.message_type,
+                    "content": chat_msg.message,
+                    "id": chat_msg.id,
+                }
+            )
+        response = Message(
+            type=MessageType.GET_CHAT_HISTORY,
+            content={"chatHistory": chat_history},
             request_id=message.request_id,
         )
         await self._send_response(writer, response)

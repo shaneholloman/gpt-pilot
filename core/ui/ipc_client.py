@@ -51,6 +51,7 @@ class MessageType(str, Enum):
     EPICS_AND_TASKS = "epicsAndTasks"
     CHAT_MESSAGE = "chatMessage"
     START_CHAT = "startChat"
+    GET_CHAT_HISTORY = "getChatHistory"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"

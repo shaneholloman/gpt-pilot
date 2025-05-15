@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import ForeignKey, select
@@ -33,3 +33,16 @@ class ChatConvo(Base):
 
         result = await session.execute(select(ChatMessage).where(ChatMessage.convo_id == convo_id))
         return result.scalars().all()
+
+    @staticmethod
+    async def get_project_state_for_convo_id(session: AsyncSession, convo_id) -> Optional["ProjectState"]:
+        from core.db.models import ChatConvo, ProjectState
+
+        result = await session.execute(select(ChatConvo).where(ChatConvo.convo_id == convo_id))
+        chat_convo = result.scalars().first()
+
+        if not chat_convo:
+            return None
+
+        result = await session.execute(select(ProjectState).where(ProjectState.id == chat_convo.project_state_id))
+        return result.scalars().one_or_none()
