@@ -443,15 +443,11 @@ class StateManager:
 
         hash = self.file_system.hash_string(content)
         async with self.db_blocker():
-            file_content = await FileContent.store(self.current_session, hash, content)
+            file_content = await FileContent.store(self.current_session, hash, content, metadata)
 
-        file = self.next_state.save_file(path, file_content)
+        self.next_state.save_file(path, file_content)
         # if self.ui and not from_template:
         #     await self.ui.open_editor(self.file_system.get_full_path(path))
-        if metadata:
-            file.meta = metadata
-        else:
-            file.meta = {}
 
         if not from_template:
             delta_lines = len(content.splitlines()) - len(original_content.splitlines())

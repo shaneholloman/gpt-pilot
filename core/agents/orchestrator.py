@@ -421,7 +421,9 @@ class Orchestrator(BaseAgent, GitMixin):
         import_files_response = await self.import_files()
 
         # If any of the files are missing metadata/descriptions, those need to be filled-in
-        missing_descriptions = [file.path for file in self.current_state.files if not file.meta.get("description")]
+        missing_descriptions = [
+            file.path for file in self.current_state.files if not file.content.meta.get("description")
+        ]
         if missing_descriptions:
             log.debug(f"Some files are missing descriptions: {', '.join(missing_descriptions)}, requesting analysis")
             return AgentResponse.describe_files(self)

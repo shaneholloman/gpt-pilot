@@ -160,7 +160,9 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
     async def describe_files(self) -> AgentResponse:
         tasks = []
         to_describe = {
-            file.path: file.content.content for file in self.current_state.files if not file.meta.get("description")
+            file.path: file.content.content
+            for file in self.current_state.files
+            if not file.content.meta.get("description")
         }
 
         for file in self.next_state.files:
@@ -169,8 +171,8 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
                 continue
 
             if content == "":
-                file.meta = {
-                    **file.meta,
+                file.content.meta = {
+                    **file.content.meta,
                     "description": "Empty file",
                     "references": [],
                 }
@@ -198,8 +200,8 @@ class CodeMonkey(FileDiffMixin, BaseAgent):
         )
         llm_response: FileDescription = await llm(convo, parser=JSONParser(spec=FileDescription))
 
-        file.meta = {
-            **file.meta,
+        file.content.meta = {
+            **file.content.meta,
             "description": llm_response.summary,
             "references": llm_response.references,
         }
