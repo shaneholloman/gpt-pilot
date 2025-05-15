@@ -20,7 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Add meta column to file_contents
-    op.add_column("file_contents", sa.Column("meta", sa.JSON(), server_default="{}", nullable=False))
+    with op.batch_alter_table("file_contents", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("meta", sa.JSON(), server_default="{}", nullable=False))
 
     # Copy data from files.meta to file_contents.meta
     op.execute("""
@@ -31,12 +32,14 @@ def upgrade() -> None:
     """)
 
     # Drop meta column from files
-    op.drop_column("files", "meta")
+    with op.batch_alter_table("files", schema=None) as batch_op:
+        batch_op.drop_column("meta")
 
 
 def downgrade() -> None:
     # Add meta column back to files
-    op.add_column("files", sa.Column("meta", sa.JSON(), server_default="{}", nullable=False))
+    with op.batch_alter_table("files", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("meta", sa.JSON(), server_default="{}", nullable=False))
 
     # Copy data from file_contents.meta back to files.meta
     op.execute("""
@@ -47,4 +50,5 @@ def downgrade() -> None:
     """)
 
     # Drop meta column from file_contents
-    op.drop_column("file_contents", "meta")
+    with op.batch_alter_table("file_contents", schema=None) as batch_op:
+        batch_op.drop_column("meta")
