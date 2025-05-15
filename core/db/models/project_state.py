@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, UniqueConstraint, delete, inspect, select
+from sqlalchemy import ForeignKey, UniqueConstraint, and_, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.orm.attributes import flag_modified
@@ -561,3 +561,26 @@ class ProjectState(Base):
         :return: True if the current epic is a feature, False otherwise.
         """
         return self.epics and self.current_epic and self.current_epic.get("source") == "feature"
+
+    @staticmethod
+    async def get_state_for_redo_task(session: AsyncSession, project_state: "ProjectState") -> Optional["ProjectState"]:
+        states_result = await session.execute(
+            select(ProjectState).where(
+                and_(
+                    ProjectState.step_index <= project_state.step_index,
+                    ProjectState.branch_id == project_state.branch_id,
+                )
+            )
+        )
+
+        result = states_result.scalars().all()
+
+        result = sorted(result, key=lambda x: x.step_index, reverse=True)
+        for state in result:
+            if state.tasks:
+                for task in state.tasks:
+                    if task.get("id") == project_state.current_task.get("id") and task.get("instructions") is None:
+                        if task.get("status") == TaskStatus.TODO:
+                            return state
+
+        return None

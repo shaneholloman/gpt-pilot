@@ -72,12 +72,26 @@ class Orchestrator(BaseAgent, GitMixin):
         await self.set_favicon()
         await self.enable_debugger()
 
-        # TODO: consider refactoring this into two loop; the outer with one iteration per comitted step,
+        # TODO: consider refactoring this into two loop; the outer with one iteration per committed step,
         # and the inner which runs the agents for the current step until they're done. This would simplify
         # handle_done() and let us do other per-step processing (eg. describing files) in between agent runs.
         while True:
-            await self.update_stats()
+            # If the task is marked as "redo_human_instructions", we need to reload the project at the state before the current task breakdown
+            if (
+                self.current_state.current_task
+                and self.current_state.current_task.get("redo_human_instructions", None) is not None
+            ):
+                redo_human_instructions = self.current_state.current_task["redo_human_instructions"]
+                project_state = await self.state_manager.get_project_state_for_redo_task(self.current_state)
 
+                if project_state is not None:
+                    await self.state_manager.load_project(
+                        branch_id=project_state.branch_id, step_index=project_state.step_index
+                    )
+                    await self.state_manager.restore_files()
+                    self.next_state.current_task["redo_human_instructions"] = redo_human_instructions
+
+            await self.update_stats()
             agent = self.create_agent(response)
 
             # In case where agent is a list, run all agents in parallel.
@@ -434,12 +448,12 @@ class Orchestrator(BaseAgent, GitMixin):
 
         if not state.epics:
             return Wizard(self.state_manager, self.ui, process_manager=self.process_manager)
+        elif state.epics and not state.epics[0].get("description"):
+            # New project: ask the Spec Writer to refine and save the project specification
+            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager)
         elif state.current_epic and state.current_epic.get("source") == "frontend":
             # Build frontend
             return Frontend(self.state_manager, self.ui, process_manager=self.process_manager)
-        elif not state.specification.description:
-            # New project: ask the Spec Writer to refine and save the project specification
-            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager)
         elif not state.specification.architecture:
             # Ask the Architect to design the project architecture and determine dependencies
             return Architect(self.state_manager, self.ui, process_manager=self.process_manager)

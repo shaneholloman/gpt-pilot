@@ -165,40 +165,85 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             await self.ui.send_run_command(self.current_state.run_command)
 
         log.debug("Asking for new feature")
-        response = await self.ask_question(
-            "Do you have a new feature to add to the project? Just write it here:",
-            buttons={"continue": "continue", "end": "No, I'm done"},
-            allow_empty=False,
-            extra_info="restart_app",
-        )
 
-        if response.button == "end" or response.cancelled or not response.text:
-            await self.ui.send_message("Thank you for using Pythagora!", source=pythagora_source)
-            return AgentResponse.exit(self)
+        feature, user_desc = None, None
 
-        await self.ui.send_project_stage(
-            {
-                "stage": ProjectStage.STARTING_NEW_FEATURE,
-                "feature_number": len(self.current_state.epics),
-            }
-        )
-        feature_description = response.text
-        self.next_state.epics = self.current_state.epics + [
-            {
-                "id": uuid4().hex,
-                "name": f"Feature #{len(self.current_state.epics)}",
-                "test_instructions": None,
-                "source": "feature",
-                "description": feature_description,
-                "summary": None,
-                "completed": False,
-                "complexity": None,  # Determined and defined in SpecWriter
-                "sub_epics": [],
-            }
-        ]
-        # Orchestrator will rerun us to break down the new feature epic
-        self.next_state.action = TL_START_FEATURE.format(len(self.current_state.epics))
-        return AgentResponse.update_specification(self, feature_description)
+        while True:
+            response = await self.ask_question(
+                "Do you want to add a new feature or implement something quickly?",
+                buttons={"feature": "Feature", "task": "Quick implementation", "end": "No, I'm done"},
+                buttons_only=True,
+            )
+
+            if response.button == "end" or response.cancelled:
+                await self.ui.send_message("Thank you for using Pythagora!", source=pythagora_source)
+                return AgentResponse.exit(self)
+
+            feature = response.button == "feature"
+
+            response = await self.ask_question(
+                "What do you want to implement?",
+                buttons={"continue": "continue", "back": "Back"},
+                allow_empty=False,
+            )
+
+            if response.text:
+                user_desc = response.text
+                break
+
+        if feature:
+            await self.ui.send_project_stage(
+                {
+                    "stage": ProjectStage.STARTING_NEW_FEATURE,
+                    "feature_number": len(self.current_state.epics),
+                }
+            )
+            self.next_state.epics = self.current_state.epics + [
+                {
+                    "id": uuid4().hex,
+                    "name": f"Feature #{len(self.current_state.epics)}",
+                    "test_instructions": None,
+                    "source": "feature",
+                    "description": user_desc,
+                    "summary": None,
+                    "completed": False,
+                    "complexity": None,  # Determined and defined in SpecWriter
+                    "sub_epics": [],
+                }
+            ]
+            # Orchestrator will rerun us to break down the new feature epic
+            self.next_state.action = TL_START_FEATURE.format(len(self.current_state.epics))
+            return AgentResponse.update_specification(self, user_desc)
+        else:
+            # Quick implementation
+            # TODO send project stage?
+
+            # This gives us a new sub-epic, but an empty epic before the quick implementation which looks ugly
+            # self.next_state.epics[-1]["sub_epics"] = self.current_state.epics[-1]["sub_epics"] + [{
+            #         "id": self.current_state.epics[-1]["sub_epics"][-1]["id"] + 1,
+            #         "description": user_desc,
+            #     }]
+
+            self.next_state.tasks = [
+                {
+                    "id": uuid4().hex,
+                    "description": user_desc,
+                    "instructions": None,
+                    "pre_breakdown_testing_instructions": None,
+                    "status": TaskStatus.TODO,
+                    "sub_epic_id": 1,  # new_sub_epics[-1]["id"],
+                    "quick_implementation": True,
+                }
+            ]
+
+            self.next_state.epics[-1]["completed"] = False
+
+            await self.ui.send_epics_and_tasks(
+                self.next_state.current_epic.get("sub_epics", []),
+                self.next_state.tasks,
+            )
+
+            return AgentResponse.done(self)
 
     async def process_epic(self, sub_epic_number, sub_epic):
         epic_convo = (

@@ -48,6 +48,14 @@ We've broken the development of this {% if state.epics|length > 1 %}feature{% el
 You are currently working on task #{{ current_task_index + 1 }} with the following description:
 ```
 {{ task.description }}
+
+{% if redo_task_user_feedback is defined and redo_task_user_feedback %}
+You tried implementing this task before but you were unsuccessful. Here is what a human developer told you about what to watch out for while you're implementing this task so you don't make the same mistakes again:
+---START_OF_USER_FEEDBACK---
+{{ redo_task_user_feedback }}
+---END_OF_USER_FEEDBACK---
+{% endif %}
+
 ```
 {% if related_api_endpoints|length > 0 %}
 In this task, you need to focus on implementing the following endpoints:{% for api in related_api_endpoints %}{{ "`" ~ api.endpoint ~ "`" }}{% if not loop.last %},{% endif %}{% endfor %}
