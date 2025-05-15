@@ -17,6 +17,7 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     message_type: Mapped[str] = mapped_column()
     message: Mapped[str] = mapped_column()
+    user_input: Mapped[Optional[str]] = mapped_column()
     prev_message_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("chat_messages.id", ondelete="SET NULL"))
 
     # Relationships

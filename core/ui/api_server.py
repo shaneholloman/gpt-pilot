@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from core.agents.base import BaseAgent
+from core.agents.convo import AgentConvo
 from core.db.models.chat_convo import ChatConvo
 from core.db.models.chat_message import ChatMessage
 from core.llm.convo import Convo
@@ -158,7 +159,9 @@ class IPCServer:
         except (ConnectionResetError, BrokenPipeError) as err:
             log.error(f"Failed to send response: {err}")
 
-    async def _add_to_chat_history(self, project_state_id: uuid.UUID, message: Message, assistant_message: str):
+    async def _add_to_chat_history(
+        self, project_state_id: uuid.UUID, conversation: Convo, message: Message, assistant_message: str
+    ):
         """
         Add new messages to chat history.
 
@@ -177,16 +180,16 @@ class IPCServer:
             # Check if convo exists for this convo id
             query = select(ChatConvo).where(ChatConvo.convo_id == self.convo_id)
             result = await session.execute(query)
-            convo = result.scalar_one_or_none()
+            chat_convo = result.scalar_one_or_none()
 
             # Create new convo if needed
-            if not convo:
-                convo = ChatConvo(convo_id=self.convo_id, project_state_id=project_state_id)
-                session.add(convo)
+            if not chat_convo:
+                chat_convo = ChatConvo(convo_id=self.convo_id, project_state_id=project_state_id)
+                session.add(chat_convo)
                 await session.flush()
 
             # Check if any ChatMessages exists with the convo id
-            query = select(ChatMessage).where(ChatMessage.convo_id == convo.convo_id)
+            query = select(ChatMessage).where(ChatMessage.convo_id == chat_convo.convo_id)
             result = await session.execute(query)
             results = result.scalars().all()
             prev_message_id = None
@@ -196,13 +199,17 @@ class IPCServer:
 
             # Create new messages
             message_user = ChatMessage(
-                convo_id=convo.convo_id, message_type="user", message=user_message, prev_message_id=prev_message_id
+                convo_id=chat_convo.convo_id,
+                message_type="user",
+                message=conversation.messages[1]["content"],
+                user_input=user_message,
+                prev_message_id=prev_message_id,
             )
             session.add(message_user)
             await session.flush()
 
             message_assistant = ChatMessage(
-                convo_id=convo.convo_id,
+                convo_id=chat_convo.convo_id,
                 message_type="assistant",
                 message=assistant_message,
                 prev_message_id=message_user.id,
@@ -234,15 +241,86 @@ class IPCServer:
             async def stream_handler(self, content_chunk: str):
                 await send_stream_chunk(writer, message_type, content_chunk, request_id)
 
+            async def generate_prompt(self, user_msg: str) -> Convo:
+                bug_hunt_cycle_user_feedback = None
+                command_run = None
+                testing_instructions = None
+                human_intervention = None
+                task_description = None
+                initial_description = None
+
+                if self.current_state.epics and self.current_state.epics[0].get("description", None) is not None:
+                    initial_description = self.current_state.epics[0]["description"]
+
+                if (
+                    self.state_manager.current_state.current_task
+                    and self.state_manager.current_state.current_task.get("description", None) is not None
+                ):
+                    task_description = self.state_manager.current_state.current_task["description"]
+
+                if self.state_manager.current_state.iterations:
+                    bug_hunt_cycle_user_feedback = self.state_manager.current_state.iterations[-1].get(
+                        "user_feedback", None
+                    )
+
+                if self.current_state.current_task and self.current_state.current_task.get("test_instructions", None):
+                    testing_instructions = self.current_state.current_task.get("test_instructions")
+
+                if (
+                    self.state_manager.current_state.steps
+                    and self.state_manager.current_state.steps[-1].get("command", {}) != {}
+                    and self.state_manager.current_state.steps[-1].get("completed", False) is False
+                ):
+                    command_run = self.state_manager.current_state.steps[-1].get("command", {}).get("command", "")
+
+                if (
+                    self.state_manager.current_state.steps
+                    and self.state_manager.current_state.steps[-1].get("human_intervention_description", None)
+                    is not None
+                    and self.state_manager.current_state.steps[-1].get("completed", False) is False
+                ):
+                    human_intervention = self.state_manager.current_state.steps[-1].get(
+                        "human_intervention_description", None
+                    )
+
+                return AgentConvo(self).template(
+                    "chat",
+                    initial_description=initial_description,
+                    task_description=task_description,
+                    bug_hunt_cycle_user_feedback=bug_hunt_cycle_user_feedback,
+                    testing_instructions=testing_instructions,
+                    command_run=command_run,
+                    human_intervention=human_intervention,
+                    user_input=user_msg,
+                )
+
+            async def generate_convo(self, convo_id: uuid.UUID, chat_history: list) -> Convo:
+                # chat_history = await self.state_manager.get_chat_history(convo_id)
+                conversation = await self.generate_prompt(user_msg=message.content.get("message", ""))
+
+                for chat_msg in chat_history:
+                    if chat_msg.get("role", "") == "user":
+                        conversation = conversation.user(chat_msg.get("content", ""))
+                    if chat_msg.get("role", "") == "assistant":
+                        conversation = conversation.assistant(chat_msg.get("content", ""))
+
+                if len(conversation.messages) > 6:
+                    conversation.slice(2, 4)
+
+                return conversation
+
             async def run(self):
                 log.debug("Chat agent started.")
                 llm = self.get_llm(stream_output=True)
-                convo = Convo("you're a friendly assistant").user(message.content.get("message", ""))
-                return await llm(convo)
+
+                convo_id = uuid.UUID(message.content.get("convoId", ""))
+                chat_history = message.content.get("chatHistory", [])
+                conversation = await self.generate_convo(convo_id, chat_history)
+                return conversation, await llm(conversation)
 
         try:
-            response = await ChatAgent(state_manager=self.state_manager, ui=VirtualUI(inputs=[])).run()
-            await self._add_to_chat_history(project_state_id, message, str(response))
+            convo, response = await ChatAgent(state_manager=self.state_manager, ui=VirtualUI(inputs=[])).run()
+            await self._add_to_chat_history(project_state_id, convo, message, str(response))
 
             # Send final message
             await send_stream_chunk(writer, message_type, None, request_id)

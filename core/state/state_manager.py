@@ -10,7 +10,18 @@ from sqlalchemy import Row, inspect, select
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from core.config import FileSystemType, get_config
-from core.db.models import Branch, ExecLog, File, FileContent, LLMRequest, Project, ProjectState, UserInput
+from core.db.models import (
+    Branch,
+    ChatConvo,
+    ChatMessage,
+    ExecLog,
+    File,
+    FileContent,
+    LLMRequest,
+    Project,
+    ProjectState,
+    UserInput,
+)
 from core.db.models.specification import Complexity, Specification
 from core.db.session import SessionManager
 from core.disk.ignore import IgnoreMatcher
@@ -99,6 +110,9 @@ class StateManager:
 
     async def get_file_for_project(self, state_id: UUID, path: str):
         return await Project.get_file_for_project(self.current_session, state_id, path)
+
+    async def get_chat_history(self, convo_id) -> Optional[list["ChatMessage"]]:
+        return await ChatConvo.get_chat_history(self.current_session, convo_id)
 
     async def create_project(
         self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None

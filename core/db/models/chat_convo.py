@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -25,3 +26,10 @@ class ChatConvo(Base):
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="convo", cascade="all,delete-orphan", lazy="selectin"
     )
+
+    @staticmethod
+    async def get_chat_history(session: AsyncSession, convo_id) -> list["ChatMessage"]:
+        from core.db.models import ChatMessage
+
+        result = await session.execute(select(ChatMessage).where(ChatMessage.convo_id == convo_id))
+        return result.scalars().all()
