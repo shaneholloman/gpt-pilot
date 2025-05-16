@@ -653,18 +653,25 @@ class StateManager:
         apis = await self.get_apis()
 
         # Get the current state of pages and apis from knowledge_base
-        current_pages = self.next_state.knowledge_base.get("pages", None)
-        current_apis = self.next_state.knowledge_base.get("apis", None)
+        current_pages = self.next_state.knowledge_base.pages
+        current_apis = self.next_state.knowledge_base.apis
 
         # Check if pages or apis have changed
         if pages != current_pages or apis != current_apis:
             modified = True
 
         if modified:
-            self.next_state.knowledge_base["pages"] = pages
-            self.next_state.knowledge_base["apis"] = apis
+            self.next_state.knowledge_base.pages = pages
+            self.next_state.knowledge_base.apis = apis
             self.next_state.flag_knowledge_base_as_modified()
-            await self.ui.knowledge_base_update(self.next_state.knowledge_base)
+            await self.ui.knowledge_base_update(
+                {
+                    "pages": self.next_state.knowledge_base.pages,
+                    "apis": self.next_state.knowledge_base.apis,
+                    "user_options": self.next_state.knowledge_base.user_options,
+                    "utility_functions": self.next_state.knowledge_base.utility_functions,
+                }
+            )
 
     async def update_utility_functions(self, utility_function: dict):
         """
@@ -673,7 +680,7 @@ class StateManager:
         :param utility_function: Utility function to update.
         """
         matched = False
-        for kb_util_func in self.next_state.knowledge_base.get("utility_functions", []):
+        for kb_util_func in self.next_state.knowledge_base.utility_functions:
             if (
                 utility_function["function_name"] == kb_util_func["function_name"]
                 and utility_function["file"] == kb_util_func["file"]
@@ -686,12 +693,17 @@ class StateManager:
                 break
 
         if not matched:
-            if "utility_functions" not in self.next_state.knowledge_base:
-                self.next_state.knowledge_base["utility_functions"] = []
-            self.next_state.knowledge_base["utility_functions"].append(utility_function)
+            self.next_state.knowledge_base.utility_functions.append(utility_function)
+            self.next_state.flag_knowledge_base_as_modified()
 
-        self.next_state.flag_knowledge_base_as_modified()
-        await self.ui.knowledge_base_update(self.next_state.knowledge_base)
+        await self.ui.knowledge_base_update(
+            {
+                "pages": self.next_state.knowledge_base.pages,
+                "apis": self.next_state.knowledge_base.apis,
+                "user_options": self.next_state.knowledge_base.user_options,
+                "utility_functions": self.next_state.knowledge_base.utility_functions,
+            }
+        )
 
     async def get_apis(self) -> list[dict]:
         """
@@ -776,7 +788,6 @@ class StateManager:
     async def update_apis(self, files_with_implemented_apis: list[dict] = []):
         """
         Update the list of APIs.
-
         """
         apis = await self.get_apis()
         for file in files_with_implemented_apis:
@@ -788,9 +799,16 @@ class StateManager:
                         "path": file["path"],
                         "line": file["line"],
                     }
-        self.next_state.knowledge_base["apis"] = apis
+        self.next_state.knowledge_base.apis = apis
         self.next_state.flag_knowledge_base_as_modified()
-        await self.ui.knowledge_base_update(self.next_state.knowledge_base)
+        await self.ui.knowledge_base_update(
+            {
+                "pages": self.next_state.knowledge_base.pages,
+                "apis": self.next_state.knowledge_base.apis,
+                "user_options": self.next_state.knowledge_base.user_options,
+                "utility_functions": self.next_state.knowledge_base.utility_functions,
+            }
+        )
 
     @staticmethod
     def get_input_required(content: str, file_path: str) -> list[int]:

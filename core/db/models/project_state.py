@@ -14,7 +14,7 @@ from core.db.models import Base, FileContent
 from core.log import get_logger
 
 if TYPE_CHECKING:
-    from core.db.models import Branch, ExecLog, File, FileContent, LLMRequest, Specification, UserInput
+    from core.db.models import Branch, ExecLog, File, FileContent, KnowledgeBase, LLMRequest, Specification, UserInput
 
 log = get_logger(__name__)
 
@@ -60,6 +60,7 @@ class ProjectState(Base):
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id", ondelete="CASCADE"))
     prev_state_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("project_states.id", ondelete="CASCADE"))
     specification_id: Mapped[int] = mapped_column(ForeignKey("specifications.id"))
+    knowledge_base_id: Mapped[int] = mapped_column(ForeignKey("knowledge_bases.id"))
 
     # Attributes
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -68,7 +69,6 @@ class ProjectState(Base):
     tasks: Mapped[list[dict]] = mapped_column(default=list)
     steps: Mapped[list[dict]] = mapped_column(default=list)
     iterations: Mapped[list[dict]] = mapped_column(default=list)
-    knowledge_base: Mapped[dict] = mapped_column(default=dict, server_default="{}")
     relevant_files: Mapped[Optional[list[str]]] = mapped_column(default=None)
     modified_files: Mapped[dict] = mapped_column(default=dict)
     docs: Mapped[Optional[list[dict]]] = mapped_column(default=None)
@@ -91,6 +91,7 @@ class ProjectState(Base):
         cascade="all,delete-orphan",
     )
     specification: Mapped["Specification"] = relationship(back_populates="project_states", lazy="selectin")
+    knowledge_base: Mapped["KnowledgeBase"] = relationship(back_populates="project_states", lazy="selectin")
     llm_requests: Mapped[list["LLMRequest"]] = relationship(back_populates="project_state", cascade="all", lazy="raise")
     user_inputs: Mapped[list["UserInput"]] = relationship(back_populates="project_state", cascade="all", lazy="raise")
     exec_logs: Mapped[list["ExecLog"]] = relationship(back_populates="project_state", cascade="all", lazy="raise")
@@ -207,11 +208,12 @@ class ProjectState(Base):
         :param branch: The branch to create the state for.
         :return: The new ProjectState object.
         """
-        from core.db.models import Specification
+        from core.db.models import KnowledgeBase, Specification
 
         return ProjectState(
             branch=branch,
             specification=Specification(),
+            knowledge_base=KnowledgeBase(),
             step_index=1,
             action="Initial project state",
         )
@@ -273,7 +275,7 @@ class ProjectState(Base):
             tasks=deepcopy(self.tasks),
             steps=deepcopy(self.steps),
             iterations=deepcopy(self.iterations),
-            knowledge_base=deepcopy(self.knowledge_base),
+            knowledge_base=self.knowledge_base,
             files=[],
             relevant_files=deepcopy(self.relevant_files),
             modified_files=deepcopy(self.modified_files),
@@ -378,13 +380,17 @@ class ProjectState(Base):
 
     def flag_knowledge_base_as_modified(self):
         """
-        Flag the knowledge base field as having been modified
+        Flag the knowledge base fields as having been modified
 
-        Used by Agents that perform modifications within the mutable knowledge base field,
+        Used by Agents that perform modifications within the mutable knowledge base fields,
         to tell the database that it was modified and should get saved (as SQLalchemy
         can't detect changes in mutable fields by itself).
+
+        This creates a new knowledge base instance to maintain immutability of previous states,
+        similar to how specification modifications are handled.
         """
-        flag_modified(self, "knowledge_base")
+        # Create a new knowledge base instance with the current data
+        self.knowledge_base = self.knowledge_base.clone()
 
     def set_current_task_status(self, status: str):
         """
@@ -473,8 +479,10 @@ class ProjectState(Base):
         - Related UserInput records (including those for the current state)
         - Related File records
         - Orphaned FileContent records
+        - Orphaned KnowledgeBase records
+        - Orphaned Specification records
         """
-        from core.db.models import FileContent, UserInput
+        from core.db.models import FileContent, KnowledgeBase, Specification, UserInput
 
         session: AsyncSession = inspect(self).async_session
 
@@ -500,9 +508,11 @@ class ProjectState(Base):
             # Delete project states
             await session.execute(delete(ProjectState).where(ProjectState.id.in_(state_ids)))
 
-        # Clean up orphaned file content and user inputs
+        # Clean up orphaned records
         await FileContent.delete_orphans(session)
         await UserInput.delete_orphans(session)
+        await KnowledgeBase.delete_orphans(session)
+        await Specification.delete_orphans(session)
 
     def get_last_iteration_steps(self) -> list:
         """
