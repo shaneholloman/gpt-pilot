@@ -121,6 +121,7 @@ jobs:
           npm install
           npm run compile:ts
           npm install -g @vscode/vsce
+          npm run build
           vsce package
           cd ..
 
