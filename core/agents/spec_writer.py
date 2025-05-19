@@ -92,6 +92,8 @@ class SpecWriter(BaseAgent):
             # if we do not set this and reload the project, we will load the "old" project description we entered before reload
             self.next_state.epics[0]["description"] = llm_assisted_description
 
+        self.next_state.specification.description = llm_assisted_description
+
         await self.ui.send_project_description(
             {
                 "project_description": llm_assisted_description,

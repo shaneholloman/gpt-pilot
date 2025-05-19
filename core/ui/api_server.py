@@ -55,6 +55,9 @@ class IPCServer:
         self.handlers[MessageType.CHAT_MESSAGE] = self._handle_chat_message
         self.handlers[MessageType.START_CHAT] = self._handle_start_chat
         self.handlers[MessageType.GET_CHAT_HISTORY] = self._handle_get_chat_history
+        self.handlers[MessageType.PROJECT_INFO] = self._handle_project_info
+        self.handlers[MessageType.KNOWLEDGE_BASE] = self._handle_knowledge_base
+        self.handlers[MessageType.PROJECT_SPECS] = self._handle_project_specs
 
     async def start(self) -> bool:
         """
@@ -412,6 +415,75 @@ class IPCServer:
 
         except Exception as err:
             log.error(f"Error handling epics and tasks request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_project_info(self, message: Message, writer: asyncio.StreamWriter):
+        try:
+            response = Message(
+                type=MessageType.PROJECT_INFO,
+                content={
+                    "name": self.state_manager.project.name,
+                    "id": self.state_manager.project.id,
+                    "folderName": self.state_manager.project.folder_name,
+                    "createdAt": self.state_manager.project.created_at,
+                },
+                request_id=message.request_id,
+            )
+            log.debug(f"Sending project name with request_id: {message.request_id}")
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling project info request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_knowledge_base(self, message: Message, writer: asyncio.StreamWriter):
+        try:
+            state = self.state_manager.current_state
+            if message.content and message.content.get("projectStateId", None) is not None:
+                state = await self.state_manager.get_project_state_by_id(
+                    uuid.UUID(message.content.get("projectStateId", ""))
+                )
+
+            if not state:
+                await self._send_error(writer, "Project state not found", message.request_id)
+                return
+
+            response = Message(
+                type=MessageType.KNOWLEDGE_BASE,
+                content={
+                    "projectStateId": state.id,
+                    "knowledgeBase": state.knowledge_base,
+                },
+                request_id=message.request_id,
+            )
+            log.debug(f"Sending knowledge base with request_id: {message.request_id}")
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling knowledge base request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_project_specs(self, message: Message, writer: asyncio.StreamWriter):
+        try:
+            state = self.state_manager.current_state
+
+            if not state:
+                await self._send_error(writer, "Project state not found", message.request_id)
+                return
+
+            response = Message(
+                type=MessageType.PROJECT_SPECS,
+                content={
+                    "projectStateId": state.id,
+                    "projectSpecification": state.specification.description,
+                },
+                request_id=message.request_id,
+            )
+            log.debug(f"Sending knowledge base with request_id: {message.request_id}")
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling knowledge base request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
 
     async def _handle_chat_message(self, message: Message, writer: asyncio.StreamWriter):
