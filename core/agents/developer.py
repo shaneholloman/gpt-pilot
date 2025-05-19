@@ -336,11 +336,12 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "task_index": task_index,
             }
         )
-        await self.send_message(f"Starting task #{task_index} with the description:\n\n" + description)
+        await self.send_message(f"Starting task #{task_index} with the description:\n\n{description}")
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
 
         if self.next_state.current_task.get("redo_human_instructions", None) is not None:
+            await self.send_message(f"Additional feedback: {self.next_state.current_task['redo_human_instructions']}")
             return True
 
         if self.current_state.current_task.get("quick_implementation", False):
