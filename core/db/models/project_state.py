@@ -292,6 +292,9 @@ class ProjectState(Base):
         for file in await self.awaitable_attrs.files:
             clone = file.clone()
             new_state.files.append(clone)
+            # Load content for the clone using the same content_id
+            result = await session.execute(select(FileContent).where(FileContent.id == file.content_id))
+            clone.content = result.scalar_one_or_none()
 
         return new_state
 
