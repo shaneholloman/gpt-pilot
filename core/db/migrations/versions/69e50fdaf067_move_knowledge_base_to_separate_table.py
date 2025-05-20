@@ -106,6 +106,9 @@ def upgrade() -> None:
         )
         batch_op.drop_column("knowledge_base")
 
+    # Clean up llm_requests table
+    op.execute("DELETE FROM llm_requests")
+
 
 def downgrade() -> None:
     # Add back the knowledge_base column
