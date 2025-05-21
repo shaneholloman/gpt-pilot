@@ -1,14 +1,17 @@
 import asyncio
 import uuid
 from typing import Awaitable, Callable, Dict, Optional
+from uuid import uuid4
 
 from pydantic import ValidationError
 from sqlalchemy import select
 
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
+from core.cli.helpers import insert_new_task
 from core.db.models.chat_convo import ChatConvo
 from core.db.models.chat_message import ChatMessage
+from core.db.models.project_state import TaskStatus
 from core.llm.convo import Convo
 from core.log import get_logger
 from core.state.state_manager import StateManager
@@ -58,6 +61,8 @@ class IPCServer:
         self.handlers[MessageType.PROJECT_INFO] = self._handle_project_info
         self.handlers[MessageType.KNOWLEDGE_BASE] = self._handle_knowledge_base
         self.handlers[MessageType.PROJECT_SPECS] = self._handle_project_specs
+        self.handlers[MessageType.TASK_CURRENT_STATUS] = self._handle_current_task_status
+        self.handlers[MessageType.TASK_ADD_NEW] = self._handle_add_new_task
 
     async def start(self) -> bool:
         """
@@ -484,6 +489,95 @@ class IPCServer:
 
         except Exception as err:
             log.error(f"Error handling knowledge base request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_current_task_status(self, message: Message, writer: asyncio.StreamWriter):
+        # extension needs to know whether the user is currently in the middle of implementing a task or not
+        # if the user is in the middle of implementing a task, the extension should ask the user whether he wants to
+        # mark current task as DONE or revert the current task progress ("question" is True)
+        # otherwise, the extension should just start a new task without asking the user anything ("question" is False)
+        try:
+            state = self.state_manager.current_state
+
+            if state.steps:
+                question = True
+            else:
+                question = False
+
+            response = Message(
+                type=MessageType.TASK_CURRENT_STATUS,
+                content={
+                    "projectStateId": state.id,
+                    "question": question,
+                    "currentTask": state.current_task,
+                },
+                request_id=message.request_id,
+            )
+            log.debug(f"Sending current task status with request_id: {message.request_id}")
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling current task status request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_add_new_task(self, message: Message, writer: asyncio.StreamWriter):
+        # if the extension sent "add", just add a new task in the tasks array before the first todo task
+        # if the extension sent "done", mark the current task as done and then do above^
+        # if the extension sent "revert", reload the project state like in "redo task" implementation", then do above ^^
+        try:
+            if not message.content or "action" not in message.content or "taskDescription" not in message.content:
+                await self._send_error(writer, "action and taskDescription are required", message.request_id)
+                return
+
+            action = message.content["action"]
+            log.debug(f"action: {action}")
+
+            current_state = self.state_manager.current_state
+            next_state = self.state_manager.next_state
+
+            # todo what if the project state changes between the get current task status and this request?
+            #  should we just undo the task progress?
+
+            if action == "done":
+                next_state.current_task["status"] = TaskStatus.DOCUMENTED
+
+            elif action == "revert":
+                project_state = await self.state_manager.get_project_state_for_redo_task(current_state)
+
+                if project_state is not None:
+                    await self.state_manager.load_project(
+                        branch_id=project_state.branch_id, step_index=project_state.step_index
+                    )
+                    await self.state_manager.restore_files()
+                current_state = self.state_manager.current_state
+                next_state = self.state_manager.next_state
+
+            insert_new_task(
+                next_state.tasks,
+                {
+                    "id": uuid4().hex,
+                    "description": message.content["taskDescription"],
+                    "instructions": None,
+                    "pre_breakdown_testing_instructions": None,
+                    "status": TaskStatus.TODO,
+                    "sub_epic_id": current_state.tasks[0].get("sub_epic_id", 1) if current_state.tasks else 1,
+                    "user_added_subsequently": True,  # this is how we know to skip the question if the user wants to start the task
+                },
+            )
+
+            response = Message(
+                type=MessageType.TASK_CURRENT_STATUS,
+                content={
+                    "projectStateId": self.state_manager.current_state.id,
+                    # "currentTask": next_state.current_task, #todo idk
+                },
+                request_id=message.request_id,
+            )
+            log.debug(f"Sending add new task response with request_id: {message.request_id}")
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling add new task request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
 
     async def _handle_chat_message(self, message: Message, writer: asyncio.StreamWriter):

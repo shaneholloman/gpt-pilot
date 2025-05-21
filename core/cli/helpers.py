@@ -34,6 +34,7 @@ from core.config.actions import (
 )
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
+from core.db.models.project_state import TaskStatus
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
 from core.log import get_logger, setup
@@ -290,6 +291,22 @@ async def list_projects_json(db: SessionManager):
         )
 
     print(json.dumps(projects_list, indent=2, default=str))
+
+
+def insert_new_task(tasks, new_task):
+    # Find the index of the first task with status "todo"
+    todo_index = -1
+    for i, task in enumerate(tasks):
+        if task.get("status") == TaskStatus.TODO:
+            todo_index = i
+            break
+
+    if todo_index != -1:
+        tasks.insert(todo_index, new_task)
+    else:
+        tasks.append(new_task)
+
+    return tasks
 
 
 def find_first_todo_task(tasks):
