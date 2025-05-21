@@ -71,6 +71,14 @@ class Orchestrator(BaseAgent, GitMixin):
         await self.set_vite_config()
         await self.set_favicon()
         await self.enable_debugger()
+        await self.ui.knowledge_base_update(
+            {
+                "pages": self.current_state.knowledge_base.pages,
+                "apis": self.current_state.knowledge_base.apis,
+                "user_options": self.current_state.knowledge_base.user_options,
+                "utility_functions": self.current_state.knowledge_base.utility_functions,
+            }
+        )
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per committed step,
         # and the inner which runs the agents for the current step until they're done. This would simplify
