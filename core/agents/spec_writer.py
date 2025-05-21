@@ -3,6 +3,7 @@ from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse, ResponseType
 from core.config import SPEC_WRITER_AGENT_NAME
 from core.config.actions import SPEC_CHANGE_FEATURE_STEP_NAME, SPEC_CHANGE_STEP_NAME, SPEC_CREATE_STEP_NAME
+from core.db.models import Complexity
 from core.db.models.project_state import IterationStatus
 from core.llm.parser import StringParser
 from core.log import get_logger
@@ -42,6 +43,7 @@ class SpecWriter(BaseAgent):
             full_screen=True,
         )
         description = user_description.text.strip()
+        complexity = await self.check_prompt_complexity(description)
 
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self).template(
@@ -92,7 +94,14 @@ class SpecWriter(BaseAgent):
             # if we do not set this and reload the project, we will load the "old" project description we entered before reload
             self.next_state.epics[0]["description"] = llm_assisted_description
 
+        self.next_state.specification = self.current_state.specification.clone()
+        self.next_state.specification.original_description = description
         self.next_state.specification.description = llm_assisted_description
+        self.next_state.specification.complexity = complexity
+
+        telemetry.set("initial_prompt", description)
+        telemetry.set("updated_prompt", llm_assisted_description)
+        telemetry.set("is_complex_app", complexity != Complexity.SIMPLE)
 
         await self.ui.send_project_description(
             {
@@ -104,6 +113,7 @@ class SpecWriter(BaseAgent):
         await telemetry.trace_code_event(
             "project-description",
             {
+                "complexity": complexity,
                 "initial_prompt": description,
                 "llm_assisted_prompt": llm_assisted_description,
             },
