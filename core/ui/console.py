@@ -183,7 +183,7 @@ class PlainConsoleUI(UIBase):
         pass
 
     async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
-        pass
+        await self.send_message(test_instructions)
 
     async def knowledge_base_update(self, knowledge_base: dict):
         pass

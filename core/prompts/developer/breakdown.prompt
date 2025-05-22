@@ -40,7 +40,8 @@ Always address code that needs to be changed by files and add labels <code file=
 We've broken the development of this {% if state.epics|length > 1 %}feature{% else %}app{% endif %} down to these tasks:
 ```
 {% for task in state.tasks %}
-{{ loop.index }}. {{ task.description }}{% if task.get("status") == "done" %} (completed){% endif %}
+{{ loop.index }}. {{ task.description }} {% if task.get("status") == "done" %} (completed) {% endif %}
+
 {% endfor %}
 ```
 ~~END_OF_DEVELOPMENT_PLAN~~

@@ -309,6 +309,31 @@ def insert_new_task(tasks, new_task):
     return tasks
 
 
+def find_task_by_id(tasks, task_id):
+    """
+    Find a task by its ID from a list of tasks.
+
+    :param tasks: List of task objects
+    :param task_id: Task ID to search for
+    :return: Task object if found, None otherwise
+    """
+    for task in tasks:
+        if task.get("id") == task_id:
+            return task
+
+    return None
+
+
+def change_order_of_task(tasks, task_to_move, new_position):
+    # Remove the task from its current position
+    tasks.remove(task_to_move)
+
+    # Insert the task at the new position
+    tasks.insert(new_position, task_to_move)
+
+    return tasks
+
+
 def find_first_todo_task(tasks):
     """
     Find the first task with status 'todo' from a list of tasks.
@@ -324,6 +349,13 @@ def find_first_todo_task(tasks):
             return task
 
     return None
+
+
+def find_first_todo_task_index(tasks):
+    for i, task in enumerate(tasks):
+        if task["status"] == TaskStatus.TODO:
+            return i
+    return -1
 
 
 def trim_logs(logs: str) -> str:

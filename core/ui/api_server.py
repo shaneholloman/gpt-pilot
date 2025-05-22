@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
-from core.cli.helpers import insert_new_task
+from core.cli.helpers import change_order_of_task, find_first_todo_task_index, find_task_by_id, insert_new_task
 from core.db.models.chat_convo import ChatConvo
 from core.db.models.chat_message import ChatMessage
 from core.db.models.project_state import TaskStatus
@@ -63,6 +63,7 @@ class IPCServer:
         self.handlers[MessageType.PROJECT_SPECS] = self._handle_project_specs
         self.handlers[MessageType.TASK_CURRENT_STATUS] = self._handle_current_task_status
         self.handlers[MessageType.TASK_ADD_NEW] = self._handle_add_new_task
+        self.handlers[MessageType.TASK_START_OTHER] = self._handle_start_another_task
 
     async def start(self) -> bool:
         """
@@ -579,6 +580,45 @@ class IPCServer:
         except Exception as err:
             log.error(f"Error handling add new task request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_start_another_task(self, message: Message, writer: asyncio.StreamWriter):
+        # receive task id to start before the current one?
+        current_state = self.state_manager.current_state
+        next_state = self.state_manager.next_state
+
+        try:
+            if not message.content or "taskId" not in message.content:
+                await self._send_error(writer, "taskId required", message.request_id)
+                return
+
+            task_to_insert = find_task_by_id(current_state.tasks, message.content["taskId"])
+
+            if not task_to_insert:
+                await self._send_error(writer, f"Task with taskId {message.request_id} not found")
+                return
+
+            # try to reshuffle the tasks so that the task with the given id is the first one in order
+            index = find_first_todo_task_index(current_state.tasks)
+
+            if index == -1 or len(current_state.tasks) == 0:
+                await self._send_error(writer, "No tasks available", message.request_id)
+                return
+
+            change_order_of_task(next_state.tasks, task_to_insert, index)
+
+            response = Message(
+                type=MessageType.TASK_START_OTHER,
+                content={
+                    "projectStateId": self.state_manager.current_state.id,
+                },
+                request_id=message.request_id,
+            )
+            log.debug(f"Sending add new task response with request_id: {message.request_id}")
+            await self._send_response(writer, response)
+
+        except Exception as e:
+            log.error(f"Error handling start another task request: {e}")
+            await self._send_error(writer, f"Internal server error: {str(e)}", message.request_id)
 
     async def _handle_chat_message(self, message: Message, writer: asyncio.StreamWriter):
         """

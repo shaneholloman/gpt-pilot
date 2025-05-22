@@ -57,6 +57,7 @@ class MessageType(str, Enum):
     PROJECT_SPECS = "getProjectSpecs"
     TASK_CURRENT_STATUS = "getCurrentTaskStatus"
     TASK_ADD_NEW = "addNewTask"
+    TASK_START_OTHER = "startOtherTask"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"
