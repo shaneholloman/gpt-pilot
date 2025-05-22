@@ -395,7 +395,8 @@ class Orchestrator(BaseAgent, GitMixin):
 
             log.info("Offline changes check done.")
         except UserInterruptError:
-            log.debug("User interrupted the offline changes check.")
+            await self.state_manager.restore_files()
+            log.debug("User interrupted the offline changes check, restoring files.")
             return
 
     async def handle_done(self, agent: BaseAgent, response: AgentResponse) -> AgentResponse:
