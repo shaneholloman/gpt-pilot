@@ -49,7 +49,7 @@ class SpecWriter(BaseAgent):
         convo = AgentConvo(self).template(
             "build_full_specification",
             initial_prompt=description,
-            auth=(self.current_state.knowledge_base or {}).get("auth", False),
+            auth=self.current_state.knowledge_base.user_options.get("auth", False),
         )
 
         await self.ui.start_important_stream()
@@ -83,7 +83,7 @@ class SpecWriter(BaseAgent):
             llm_assisted_description = await llm(convo)
             convo = convo.template(
                 "build_full_specification",
-                auth=(self.current_state.knowledge_base or {}).get("auth", False),
+                auth=self.current_state.knowledge_base.user_options.get("auth", False),
                 initial_prompt=llm_assisted_description.strip(),
             )
 

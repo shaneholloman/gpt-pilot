@@ -6,12 +6,14 @@ from uuid import uuid4
 
 import httpx
 import yaml
+from sqlalchemy import inspect
 
 from core.agents.base import BaseAgent
 from core.agents.response import AgentResponse
 from core.cli.helpers import capture_exception
 from core.config import SWAGGER_EMBEDDINGS_API
 from core.config.actions import FE_INIT
+from core.db.models import KnowledgeBase
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.templates.registry import PROJECT_TEMPLATES
@@ -166,7 +168,11 @@ class Wizard(BaseAgent):
         options["jwt_secret"] = secrets.token_hex(32)
         options["refresh_token_secret"] = secrets.token_hex(32)
 
-        self.next_state.knowledge_base["user_options"] = options
+        # Create a new knowledge base instance for the project state
+        knowledge_base = KnowledgeBase(pages=[], apis=[], user_options=options, utility_functions=[])
+        session = inspect(self.next_state).async_session
+        session.add(knowledge_base)
+        self.next_state.knowledge_base = knowledge_base
         self.state_manager.user_options = options
 
         if not self.state_manager.async_tasks:

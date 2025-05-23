@@ -23,7 +23,6 @@ class File(Base):
 
     # Attributes
     path: Mapped[str] = mapped_column()
-    meta: Mapped[dict] = mapped_column(default=dict, server_default="{}")
 
     # Relationships
     project_state: Mapped[Optional["ProjectState"]] = relationship(back_populates="files", lazy="raise")
@@ -41,7 +40,6 @@ class File(Base):
             project_state=None,
             content_id=self.content_id,
             path=self.path,
-            meta=self.meta,
         )
 
     @staticmethod

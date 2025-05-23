@@ -64,7 +64,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             else self.next_state.epics[0]["description"],
             user_feedback=None,
             first_time_build=True,
-            api_model_definitions=self.current_state.knowledge_base.get("docs", {}).get("definitions", None),
         )
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
         response_blocks = response.blocks
@@ -209,7 +208,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             user_feedback=answer.text,
             relevant_api_documentation=relevant_api_documentation,
             first_time_build=False,
-            api_model_definitions=self.current_state.knowledge_base.get("docs", {}).get("definitions", None),
         )
 
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
