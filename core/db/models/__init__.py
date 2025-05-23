@@ -10,6 +10,7 @@ from .chat_message import ChatMessage
 from .exec_log import ExecLog
 from .file import File
 from .file_content import FileContent
+from .knowledge_base import KnowledgeBase
 from .llm_request import LLMRequest
 from .project import Project
 from .project_state import ProjectState
@@ -23,6 +24,7 @@ __all__ = [
     "ExecLog",
     "File",
     "FileContent",
+    "KnowledgeBase",
     "LLMRequest",
     "Project",
     "ProjectState",

@@ -71,6 +71,14 @@ class Orchestrator(BaseAgent, GitMixin):
         await self.set_vite_config()
         await self.set_favicon()
         await self.enable_debugger()
+        await self.ui.knowledge_base_update(
+            {
+                "pages": self.current_state.knowledge_base.pages,
+                "apis": self.current_state.knowledge_base.apis,
+                "user_options": self.current_state.knowledge_base.user_options,
+                "utility_functions": self.current_state.knowledge_base.utility_functions,
+            }
+        )
 
         # TODO: consider refactoring this into two loop; the outer with one iteration per committed step,
         # and the inner which runs the agents for the current step until they're done. This would simplify
@@ -423,7 +431,9 @@ class Orchestrator(BaseAgent, GitMixin):
         import_files_response = await self.import_files()
 
         # If any of the files are missing metadata/descriptions, those need to be filled-in
-        missing_descriptions = [file.path for file in self.current_state.files if not file.meta.get("description")]
+        missing_descriptions = [
+            file.path for file in self.current_state.files if not file.content.meta.get("description")
+        ]
         if missing_descriptions:
             log.debug(f"Some files are missing descriptions: {', '.join(missing_descriptions)}, requesting analysis")
             return AgentResponse.describe_files(self)

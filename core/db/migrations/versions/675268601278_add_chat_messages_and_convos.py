@@ -1,7 +1,7 @@
 """Add chat messages and convos
 
 Revision ID: 675268601278
-Revises: 3968d770dced
+Revises: 0173e14719ab
 Create Date: 2025-05-14 10:38:19.130649
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy import func
 
 # revision identifiers, used by Alembic.
 revision: str = "675268601278"
-down_revision: Union[str, None] = "3968d770dced"
+down_revision: Union[str, None] = "0173e14719ab"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
