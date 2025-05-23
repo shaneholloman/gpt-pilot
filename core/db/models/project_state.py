@@ -594,3 +594,15 @@ class ProjectState(Base):
                             return state
 
         return None
+
+    @staticmethod
+    async def get_by_id(session: AsyncSession, project_state_id: UUID) -> Optional["ProjectState"]:
+        """
+        Get a project state by its ID.
+
+        :param session: The SQLAlchemy session.
+        :param project_state_id: The ID of the project state.
+        :return: The project state object, or None if not found.
+        """
+        result = await session.execute(select(ProjectState).where(ProjectState.id == project_state_id))
+        return result.scalar_one_or_none()
