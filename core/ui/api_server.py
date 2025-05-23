@@ -398,16 +398,12 @@ class IPCServer:
         """
         try:
             # Get current state
-            current_state = self.state_manager.current_state
-
-            # Extract epics and tasks
-            epics = current_state.epics if current_state.epics else []
-            tasks = current_state.tasks if current_state.tasks else []
+            epics_and_tasks = await self.state_manager.get_all_epics_and_tasks(self.state_manager.branch.id)
 
             # Send response with the same request_id from the incoming message
             response = Message(
                 type=MessageType.EPICS_AND_TASKS,
-                content={"epics": epics, "tasks": tasks},
+                content={"epicsAndTasks": epics_and_tasks},
                 request_id=message.request_id,  # Include the request_id from the incoming message
             )
             log.debug(f"Sending epics and tasks response with request_id: {message.request_id}")
