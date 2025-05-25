@@ -52,7 +52,7 @@ class MessageType(str, Enum):
     CHAT_MESSAGE = "chatMessage"
     START_CHAT = "startChat"
     GET_CHAT_HISTORY = "getChatHistory"
-    PROJECT_INFO = "getProjectName"
+    PROJECT_INFO = "getProjectInfo"
     KNOWLEDGE_BASE = "getKnowledgeBase"
     PROJECT_SPECS = "getProjectSpecs"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"

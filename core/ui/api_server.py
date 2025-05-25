@@ -448,11 +448,19 @@ class IPCServer:
                 await self._send_error(writer, "Project state not found", message.request_id)
                 return
 
+            # Convert KnowledgeBase object to dictionary for JSON serialization
+            knowledge_base_dict = {
+                "pages": state.knowledge_base.pages,
+                "apis": state.knowledge_base.apis,
+                "user_options": state.knowledge_base.user_options,
+                "utility_functions": state.knowledge_base.utility_functions,
+            }
+
             response = Message(
                 type=MessageType.KNOWLEDGE_BASE,
                 content={
                     "projectStateId": state.id,
-                    "knowledgeBase": state.knowledge_base,
+                    "knowledgeBase": knowledge_base_dict,
                 },
                 request_id=message.request_id,
             )
