@@ -200,6 +200,13 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--email", help="User's email address", required=False)
     parser.add_argument("--extension-version", help="Version of the VSCode extension", required=False)
     parser.add_argument("--use-git", help="Use Git for version control", action="store_true", required=False)
+    parser.add_argument(
+        "--no-auto-confirm-breakdown",
+        help="Disable auto confirm when LLM requests user input",
+        action="store_false",
+        dest="auto_confirm_breakdown",
+        required=False,
+    )
     parser.add_argument("--access-token", help="Access token", required=False)
     return parser.parse_args()
 
