@@ -76,6 +76,7 @@ class Message(BaseModel):
     * `placeholder`: Placeholder for user input, optional
     * `access_token`: Access token for user input, optional
     * `request_id`: Unique identifier for request-response matching, optional
+    * `route`: Route information for message routing, optional
     """
 
     type: MessageType
@@ -87,6 +88,7 @@ class Message(BaseModel):
     placeholder: Optional[str] = None
     accessToken: Optional[str] = None
     request_id: Optional[str] = None
+    route: Optional[str] = None
 
     def to_bytes(self) -> bytes:
         """
@@ -203,7 +205,12 @@ class IPCClientUI(UIBase):
         self.reader = None
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if not self.writer:
             return
@@ -216,6 +223,7 @@ class IPCClientUI(UIBase):
             content=chunk,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
+            route=route,
         )
 
     async def send_user_input_history(

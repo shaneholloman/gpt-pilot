@@ -45,7 +45,7 @@ class SpecWriter(BaseAgent):
         description = user_description.text.strip()
         complexity = await self.check_prompt_complexity(description)
 
-        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True)
+        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
         convo = AgentConvo(self).template(
             "build_full_specification",
             initial_prompt=description,
@@ -144,7 +144,7 @@ class SpecWriter(BaseAgent):
         await self.send_message(
             f"Making the following changes to project specification:\n\n{feature_description}\n\nUpdated project specification:"
         )
-        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True)
+        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
         convo = AgentConvo(self).template("add_new_feature", feature_description=feature_description)
         llm_response: str = await llm(convo, temperature=0, parser=StringParser())
         updated_spec = llm_response.strip()

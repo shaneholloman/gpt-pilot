@@ -131,8 +131,10 @@ class BaseAgent:
 
         :param content: Response content.
         """
-
-        await self.ui.send_stream_chunk(content, source=self.ui_source, project_state_id=str(self.current_state.id))
+        route = getattr(self, "_current_route", None)
+        await self.ui.send_stream_chunk(
+            content, source=self.ui_source, project_state_id=str(self.current_state.id), route=route
+        )
 
         if content is None:
             await self.ui.send_message("", source=self.ui_source, project_state_id=str(self.current_state.id))
@@ -170,7 +172,7 @@ class BaseAgent:
 
         return False
 
-    def get_llm(self, name=None, stream_output=False) -> Callable:
+    def get_llm(self, name=None, stream_output=False, route=None) -> Callable:
         """
         Get a new instance of the agent-specific LLM client.
 
@@ -180,6 +182,8 @@ class BaseAgent:
         model configuration.
 
         :param name: Name of the agent for configuration (default: class name).
+        :param stream_output: Whether to enable streaming output.
+        :param route: Route information for message routing.
         :return: LLM client for the agent.
         """
 
@@ -206,9 +210,15 @@ class BaseAgent:
             For details on optional arguments to pass to the LLM client,
             see `pythagora.llm.openai_client.OpenAIClient()`.
             """
-            response, request_log = await llm_client(convo, **kwargs)
-            await self.state_manager.log_llm_request(request_log, agent=self)
-            return response
+            # Set the route for this LLM request
+            self._current_route = route
+            try:
+                response, request_log = await llm_client(convo, **kwargs)
+                await self.state_manager.log_llm_request(request_log, agent=self)
+                return response
+            finally:
+                # Clear the route after the request
+                self._current_route = None
 
         return client
 

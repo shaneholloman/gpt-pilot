@@ -22,7 +22,12 @@ class VirtualUI(UIBase):
         log.debug("Stopping test UI")
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if chunk is None:
             # end of stream

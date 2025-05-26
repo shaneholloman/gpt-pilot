@@ -112,13 +112,20 @@ class UIBase:
         raise NotImplementedError()
 
     async def send_stream_chunk(
-        self, chunk: str, *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: str,
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         """
         Send a chunk of the stream to the UI.
 
         :param chunk: Chunk of the stream.
         :param source: Source of the stream (if any).
+        :param project_state_id: Current project state id.
+        :param route: Route information for message routing.
         """
         raise NotImplementedError()
 
