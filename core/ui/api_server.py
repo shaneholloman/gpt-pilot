@@ -419,17 +419,13 @@ class IPCServer:
 
     async def _handle_project_info(self, message: Message, writer: asyncio.StreamWriter):
         try:
+            project_details = self.state_manager.get_project_info()
             response = Message(
                 type=MessageType.PROJECT_INFO,
-                content={
-                    "name": self.state_manager.project.name,
-                    "id": self.state_manager.project.id,
-                    "folderName": self.state_manager.project.folder_name,
-                    "createdAt": self.state_manager.project.created_at,
-                },
+                content=project_details,
                 request_id=message.request_id,
             )
-            log.debug(f"Sending project name with request_id: {message.request_id}")
+            log.debug(f"Sending project info with request_id: {message.request_id}")
             await self._send_response(writer, response)
 
         except Exception as err:

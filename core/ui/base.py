@@ -349,11 +349,14 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         """
-        Tell UI component about the project root path.
+        Send project details to the UI.
 
-        :param path: Project root path.
+        :param name: Project name.
+        :param project_id: Project ID.
+        :param folder_name: Project folder name.
+        :param created_at: Project creation date.
         """
         raise NotImplementedError()
 

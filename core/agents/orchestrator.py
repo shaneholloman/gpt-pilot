@@ -578,7 +578,10 @@ class Orchestrator(BaseAgent, GitMixin):
         return None
 
     async def init_ui(self):
-        await self.ui.send_project_root(self.state_manager.get_full_project_root())
+        project_details = self.state_manager.get_project_info()
+        await self.ui.send_project_info(
+            project_details["name"], project_details["id"], project_details["folderName"], project_details["createdAt"]
+        )
         await self.ui.loading_finished()
 
         if self.current_state.epics:

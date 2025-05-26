@@ -1,7 +1,6 @@
 import asyncio
 import json
 from enum import Enum
-from os.path import basename
 from typing import Optional, Union
 
 from pydantic import BaseModel, ValidationError
@@ -33,7 +32,6 @@ class MessageType(str, Enum):
     RUN_COMMAND = "run_command"
     APP_LINK = "appLink"
     OPEN_FILE = "openFile"
-    PROJECT_FOLDER_NAME = "project_folder_name"
     PROJECT_STATS = "projectStats"
     HINT = "hint"
     KEY_EXPIRED = "keyExpired"
@@ -52,7 +50,7 @@ class MessageType(str, Enum):
     CHAT_MESSAGE = "chatMessage"
     START_CHAT = "startChat"
     GET_CHAT_HISTORY = "getChatHistory"
-    PROJECT_INFO = "getProjectInfo"
+    PROJECT_INFO = "projectInfo"
     KNOWLEDGE_BASE = "getKnowledgeBase"
     PROJECT_SPECS = "getProjectSpecs"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
@@ -496,10 +494,15 @@ class IPCClientUI(UIBase):
             },
         )
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         await self._send(
-            MessageType.PROJECT_FOLDER_NAME,
-            content=basename(path),
+            MessageType.PROJECT_INFO,
+            content={
+                "name": name,
+                "id": project_id,
+                "folderName": folder_name,
+                "createdAt": created_at,
+            },
         )
 
     async def start_important_stream(self):

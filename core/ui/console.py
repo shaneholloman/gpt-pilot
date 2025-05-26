@@ -174,7 +174,7 @@ class PlainConsoleUI(UIBase):
     async def open_editor(self, file: str, line: Optional[int] = None):
         pass
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         pass
 
     async def send_project_stats(self, stats: dict):

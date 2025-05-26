@@ -525,6 +525,22 @@ class StateManager:
             raise ValueError("No project loaded")
         return os.path.join(config.fs.workspace_root, self.project.folder_name)
 
+    def get_project_info(self) -> dict:
+        """
+        Get project info in the same format as _handle_project_info.
+
+        :return: Dictionary containing project info.
+        """
+        if self.project is None:
+            raise ValueError("No project loaded")
+
+        return {
+            "name": self.project.name,
+            "id": str(self.project.id),
+            "folderName": self.project.folder_name,
+            "createdAt": self.project.created_at.isoformat() if self.project.created_at else None,
+        }
+
     async def import_files(self) -> tuple[list[File], list[File]]:
         """
         Scan the file system, import new/modified files, delete removed files.
