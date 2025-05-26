@@ -103,6 +103,15 @@ class StateManager:
     async def get_file_for_project(self, state_id: UUID, path: str):
         return await Project.get_file_for_project(self.current_session, state_id, path)
 
+    async def get_project_state_by_id(self, state_id: UUID) -> Optional[ProjectState]:
+        """
+        Get a project state by its ID.
+
+        :param state_id: The ID of the project state.
+        :return: The ProjectState object if found, None otherwise.
+        """
+        return await ProjectState.get_by_id(self.current_session, state_id)
+
     async def create_project(
         self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
     ) -> Project:

@@ -218,25 +218,22 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             # Quick implementation
             # TODO send project stage?
 
-            # This gives us a new sub-epic, but an empty epic before the quick implementation which looks ugly
-            # self.next_state.epics[-1]["sub_epics"] = self.current_state.epics[-1]["sub_epics"] + [{
-            #         "id": self.current_state.epics[-1]["sub_epics"][-1]["id"] + 1,
-            #         "description": user_desc,
-            #     }]
+            # load the previous state, because in this state we have deleted tasks due to epic being completed!
+            wanted_project_state = await self.state_manager.get_project_state_by_id(self.current_state.prev_state_id)
 
-            self.next_state.tasks = [
+            self.next_state.epics = wanted_project_state.epics
+
+            self.next_state.tasks = wanted_project_state.tasks + [
                 {
                     "id": uuid4().hex,
                     "description": user_desc,
                     "instructions": None,
                     "pre_breakdown_testing_instructions": None,
                     "status": TaskStatus.TODO,
-                    "sub_epic_id": 1,  # new_sub_epics[-1]["id"],
+                    "sub_epic_id": self.next_state.epics[-1]["sub_epics"][-1]["id"],
                     "quick_implementation": True,
                 }
             ]
-
-            self.next_state.epics[-1]["completed"] = False
 
             await self.ui.send_epics_and_tasks(
                 self.next_state.current_epic.get("sub_epics", []),
