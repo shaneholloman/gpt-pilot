@@ -103,7 +103,7 @@ class Orchestrator(BaseAgent, GitMixin):
 
             await self.update_stats()
             agent = self.create_agent(response)
-
+            await self.temp_logs_for_development()
             # In case where agent is a list, run all agents in parallel.
             # Only one agent type can be run in parallel at a time (for now). See handle_parallel_responses().
             if isinstance(agent, list):
@@ -152,6 +152,63 @@ class Orchestrator(BaseAgent, GitMixin):
 
         # TODO: rollback changes to "next" so they aren't accidentally committed?
         return True
+
+    async def temp_logs_for_development(self):
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "1",
+                    "title": "Almost there",
+                    "project_state_id": "id1",
+                    "labels": ["start", "background", "done"],
+                    "convo": [
+                        {"role": "assistant", "content": "Hey guys, how is styling coming along?"},
+                        {"role": "user", "content": "Great, we're almost done!"},
+                        {"role": "assistant", "content": "That's what I'm talking about! Keep it up!"},
+                    ],
+                }
+            ]
+        )
+
+        await asyncio.sleep(2)
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "2",
+                    "title": "Building Pythagora V2!",
+                    "project_state_id": "id2",
+                    "labels": ["e1/t1", "working"],
+                }
+            ]
+        )
+        await self.ui.send_front_logs(
+            "id4",
+            ["e1/t1", "working"],
+            "Building Pythagora V2!",
+        )
+
+        await asyncio.sleep(2)
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "2",
+                    "title": "Building Pythagora V2!",
+                    "project_state_id": "id2",
+                    "labels": ["e1/t1", "done"],
+                }
+            ]
+        )
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "3",
+                    "title": "Building Pythagora V2! Part 2",
+                    "project_state_id": "id3",
+                    "labels": ["e2/t1", "working"],
+                }
+            ]
+        )
+        await self.ui.send_front_logs("id5", ["e1/t1", "working"], "Building Pythagora V2!")
 
     async def install_dependencies(self):
         # First check if package.json exists

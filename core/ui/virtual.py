@@ -222,5 +222,19 @@ class VirtualUI(UIBase):
     async def import_project(self, project_dir: str):
         pass
 
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        pass
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
+        pass
+
 
 __all__ = ["VirtualUI"]
