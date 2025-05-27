@@ -30,12 +30,12 @@
     },
     "BugHunter.check_logs": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.5
     },
     "CodeMonkey": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.0
     },
     "CodeMonkey.code_review": {
@@ -55,7 +55,7 @@
     },
     "Frontend": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.0
     },
     "get_relevant_files": {
@@ -70,12 +70,12 @@
     },
     "SpecWriter": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.0
     },
     "Developer.breakdown_current_task": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.5
     },
     "TechLead.plan_epic": {
@@ -90,12 +90,12 @@
     },
     "Troubleshooter.generate_bug_report": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.5
     },
     "Troubleshooter.get_run_command": {
       "provider": "openai",
-      "model": "claude-3-7-sonnet-20250219",
+      "model": "claude-sonnet-4-20250514",
       "temperature": 0.0
     }
   },
