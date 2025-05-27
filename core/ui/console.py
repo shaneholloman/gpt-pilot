@@ -232,5 +232,19 @@ class PlainConsoleUI(UIBase):
     async def start_breakdown_stream(self):
         pass
 
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        pass
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
+        pass
+
 
 __all__ = ["PlainConsoleUI"]

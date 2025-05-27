@@ -497,6 +497,36 @@ class UIBase:
         """
         raise NotImplementedError()
 
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        """
+        Send background conversation data to the UI.
+
+        :param items: List of conversation objects, each containing:
+                      - project_state_id: string
+                      - labels: array of strings
+                      - title: string
+                      - convo: array of objects
+        """
+        raise NotImplementedError()
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
+        """
+        Send front conversation data to the UI.
+
+        :param project_state_id: Project state ID.
+        :param labels: Array of label strings.
+        :param title: Conversation title.
+        """
+        raise NotImplementedError()
+
 
 pythagora_source = UISource("Pythagora", "pythagora")
 success_source = UISource("Congratulations", "success")

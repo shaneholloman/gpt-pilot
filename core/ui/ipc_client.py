@@ -62,6 +62,8 @@ class MessageType(str, Enum):
     STOP_APP = "stopApp"
     TOKEN_EXPIRED = "tokenExpired"
     USER_INPUT_HISTORY = "userInputHistory"
+    BACK_LOGS = "backLogs"
+    FRONT_LOGS = "frontLogs"
 
 
 class Message(BaseModel):
@@ -623,6 +625,44 @@ class IPCClientUI(UIBase):
 
     async def import_project(self, project_dir: str):
         await self._send(MessageType.IMPORT_PROJECT, content={"project_dir": project_dir})
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        """
+        Send background conversation data to the UI.
+
+        :param items: List of conversation objects, each containing:
+                      - id: string
+                      - project_state_id: string
+                      - labels: array of strings
+                      - title: string
+                      - convo: array of objects
+        """
+        await self._send(MessageType.BACK_LOGS, content={"items": items})
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
+        """
+        Send front conversation data to the UI.
+
+        :param project_state_id: Project state ID.
+        :param labels: Array of label strings.
+        :param title: Conversation title.
+        """
+        await self._send(
+            MessageType.FRONT_LOGS,
+            content={
+                "project_state_id": project_state_id,
+                "labels": labels,
+                "title": title,
+            },
+        )
 
 
 __all__ = ["IPCClientUI"]
