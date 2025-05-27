@@ -151,13 +151,9 @@ class Orchestrator(BaseAgent, GitMixin):
                 log.debug(f"Agent {agent.__class__.__name__} returned")
                 if agent.agent_type == "spec-writer":
                     await self.ui.send_project_root(self.state_manager.get_full_project_root())
-                    # self.executor = Executor(self.state_manager, self.ui)
                 continue
 
-            if (
-                response.type == ResponseType.CREATE_SPECIFICATION
-                or response.type == ResponseType.DONE_WITH_SPECIFICATION
-            ):
+            if response.type == ResponseType.CREATE_SPECIFICATION:
                 continue
 
         # TODO: rollback changes to "next" so they aren't accidentally committed?

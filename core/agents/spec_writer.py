@@ -63,7 +63,6 @@ class SpecWriter(BaseAgent):
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
 
-        # if self.state_manager.user_options is not None and not self.state_manager.user_options.get("project_description", ""):
         user_description = await self.ask_question(
             "Please describe the app you want to build.",
             allow_empty=False,
@@ -99,7 +98,6 @@ class SpecWriter(BaseAgent):
 
         self.next_state.knowledge_base.user_options["original_description"] = description
         self.next_state.knowledge_base.user_options["project_description"] = llm_assisted_description
-        # await self.state_manager.commit()
         return AgentResponse.done(self)
 
     async def change_spec(self) -> AgentResponse:

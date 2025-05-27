@@ -110,9 +110,7 @@ class StateManager:
 
         project = await Project.rename(self.current_session, id, project_name, new_dir_name)
 
-        # self.project.name = project.name
-        # self.project.folder_name = project.folder_name
-        self.project = project  # ???
+        self.project = project
 
     def get_unique_folder_name(self, current_dir: str, folder_name: str) -> str:
         """
