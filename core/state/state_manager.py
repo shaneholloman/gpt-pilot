@@ -103,6 +103,44 @@ class StateManager:
     async def get_file_for_project(self, state_id: UUID, path: str):
         return await Project.get_file_for_project(self.current_session, state_id, path)
 
+    async def rename_project(self, id: UUID, project_name: str):
+        log.debug("Renaming project %s", project_name)
+
+        new_dir_name = self.get_unique_folder_name(self.get_full_parent_project_root(), project_name)
+
+        project = await Project.rename(self.current_session, id, project_name, new_dir_name)
+
+        # self.project.name = project.name
+        # self.project.folder_name = project.folder_name
+        self.project = project  # ???
+
+    def get_unique_folder_name(self, current_dir: str, folder_name: str) -> str:
+        """
+        Generate a unique folder name based on the given name.
+
+        If the folder already exists in the current directory, append a unique
+        identifier (7 characters from UUID) to ensure uniqueness.
+
+        :param folder_name: Base folder name to check
+        :param current_dir: Current directory path (defaults to current working directory)
+        :return: A unique folder name that doesn't exist yet
+        """
+        # Use current working directory if not specified
+        base_path = current_dir if current_dir else os.getcwd()
+
+        # Full path to check
+        full_path = os.path.join(base_path, folder_name)
+
+        # If the path doesn't exist, return the original folder name
+        if not os.path.exists(full_path):
+            return folder_name
+
+        # Generate a unique name with UUID
+        unique_id = uuid4().hex[:7]
+        unique_folder_name = f"{folder_name}-{unique_id}"
+
+        return unique_folder_name
+
     async def get_project_state_by_id(self, state_id: UUID) -> Optional[ProjectState]:
         """
         Get a project state by its ID.
@@ -113,7 +151,11 @@ class StateManager:
         return await ProjectState.get_by_id(self.current_session, state_id)
 
     async def create_project(
-        self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
+        self,
+        name: Optional[str] = "temp-project",
+        project_type: Optional[str] = "node",
+        folder_name: Optional[str] = None,
+        create_dir: Optional[bool] = True,
     ) -> Project:
         """
         Create a new project and set it as the current one.
@@ -145,7 +187,7 @@ class StateManager:
         self.next_state = state
         self.project = project
         self.branch = branch
-        self.file_system = await self.init_file_system(load_existing=False)
+        self.file_system = await self.init_file_system(load_existing=False, create_dir=create_dir)
         return project
 
     async def delete_project(self, project_id: UUID) -> bool:
@@ -464,7 +506,7 @@ class StateManager:
             delta_lines = len(content.splitlines()) - len(original_content.splitlines())
             telemetry.inc("created_lines", delta_lines)
 
-    async def init_file_system(self, load_existing: bool) -> VirtualFileSystem:
+    async def init_file_system(self, load_existing: bool, create_dir: bool = True) -> VirtualFileSystem:
         """
         Initialize file system interface for the new or loaded project.
 
@@ -477,6 +519,7 @@ class StateManager:
         ignored as configured.
 
         :param load_existing: Whether to load existing files from the file system.
+        :param create_dir: Whether to create the project directory if it doesn't exist.
         :return: The file system interface.
         """
         config = get_config()
@@ -496,7 +539,9 @@ class StateManager:
             )
 
             try:
-                return LocalDiskVFS(root, allow_existing=load_existing, ignore_matcher=ignore_matcher)
+                return LocalDiskVFS(
+                    root, allow_existing=load_existing, ignore_matcher=ignore_matcher, create=create_dir
+                )
             except FileExistsError:
                 self.project.folder_name = self.project.folder_name + "-" + uuid4().hex[:7]
                 log.warning(f"Directory {root} already exists, changing project folder to {self.project.folder_name}")
@@ -513,6 +558,13 @@ class StateManager:
         if self.project is None:
             raise ValueError("No project loaded")
         return os.path.join(config.fs.workspace_root, self.project.folder_name)
+
+    def get_full_parent_project_root(self) -> str:
+        config = get_config()
+
+        if self.project is None:
+            raise ValueError("No project loaded")
+        return config.fs.workspace_root
 
     async def import_files(self) -> tuple[list[File], list[File]]:
         """
@@ -535,7 +587,6 @@ class StateManager:
 
             if saved_file and saved_file.content.content == content:
                 continue
-
             # TODO: unify this with self.save_file() / refactor that whole bit
             hash = self.file_system.hash_string(content)
             log.debug(f"Importing file {path} (hash={hash}, size={len(content)} bytes)")

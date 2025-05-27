@@ -59,9 +59,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             summary=self.state_manager.template["template"].get_summary()
             if self.state_manager.template is not None
             else self.current_state.specification.template_summary,
-            description=self.state_manager.template["description"]
-            if self.state_manager.template is not None
-            else self.next_state.epics[0]["description"],
+            description=self.next_state.epics[0]["description"],
             user_feedback=None,
             first_time_build=True,
         )

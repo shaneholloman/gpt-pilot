@@ -5,9 +5,6 @@ You need to build full specification for an app that a human described like this
 
 Here are the rules that you **MUST** follow while writing the specs:
 **IMPORTANT**
-{% if not auth %}
-DO NOT mention any kind of authentication like registration, login, logout, forgot password etc. because the human does not want it.
-{% endif %}
 DO NOT mention any kind of testing, either manual or automated - no unit, integration, regression, end to end or any other kind of testing.
 DO NOT mention any kind of deployment instructions, CICD pipeline or anything that's not related to the actual development of the app or user interactions
 DO NOT mention any kind of stack - it will be written in React+ShadCN and Nodejs for backend

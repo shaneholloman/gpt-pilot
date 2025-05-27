@@ -1,5 +1,4 @@
 import json
-import secrets
 from json import JSONDecodeError
 from urllib.parse import urljoin
 from uuid import uuid4
@@ -16,7 +15,6 @@ from core.config.actions import FE_INIT
 from core.db.models import KnowledgeBase
 from core.log import get_logger
 from core.telemetry import telemetry
-from core.templates.registry import PROJECT_TEMPLATES
 
 log = get_logger(__name__)
 
@@ -57,7 +55,7 @@ class Wizard(BaseAgent):
         success = await self.init_template()
         if not success:
             return AgentResponse.exit(self)
-        return AgentResponse.done(self)
+        return AgentResponse.create_specification(self)
 
     async def init_template(self) -> bool:
         """
@@ -154,30 +152,12 @@ class Wizard(BaseAgent):
         else:
             options["auth_type"] = "login"
 
-        auth_needed = await self.ask_question(
-            "Do you need authentication in your app (login, register, etc.)?",
-            buttons={
-                "yes": "Yes",
-                "no": "No",
-            },
-            buttons_only=True,
-            default="no",
-        )
-
-        options["auth"] = auth_needed.button == "yes"
-        options["jwt_secret"] = secrets.token_hex(32)
-        options["refresh_token_secret"] = secrets.token_hex(32)
-
         # Create a new knowledge base instance for the project state
         knowledge_base = KnowledgeBase(pages=[], apis=[], user_options=options, utility_functions=[])
         session = inspect(self.next_state).async_session
         session.add(knowledge_base)
         self.next_state.knowledge_base = knowledge_base
-        self.state_manager.user_options = options
-
-        if not self.state_manager.async_tasks:
-            self.state_manager.async_tasks = []
-            await self.apply_template(options)
+        self.next_state.knowledge_base.user_options = options
 
         self.next_state.epics = [
             {
@@ -234,29 +214,3 @@ class Wizard(BaseAgent):
             f"An error occurred while uploading the docs. Error: {error if error else 'unknown'}",
         )
         return False
-
-    async def apply_template(self, options: dict = {}):
-        """
-        Applies a template to the frontend.
-        """
-        if options["auth_type"] == "api_key" or options["auth_type"] == "none":
-            template_name = "vite_react_swagger"
-        else:
-            template_name = "vite_react"
-        template_class = PROJECT_TEMPLATES.get(template_name)
-        if not template_class:
-            log.error(f"Project template not found: {template_name}")
-            return
-
-        template = template_class(
-            options,
-            self.state_manager,
-            self.process_manager,
-        )
-        self.state_manager.template["template"] = template
-        log.info(f"Applying project template: {template.name}")
-        summary = await template.apply()
-
-        self.next_state.relevant_files = template.relevant_files
-        self.next_state.modified_files = {}
-        self.next_state.specification.template_summary = summary
