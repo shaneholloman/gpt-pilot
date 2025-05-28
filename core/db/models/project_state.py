@@ -703,3 +703,62 @@ class ProjectState(Base):
             return []
 
         return epics_and_tasks
+
+    @staticmethod
+    async def get_task_conversation_project_states(
+        session: "AsyncSession", branch_id: UUID, task_id: UUID
+    ) -> Optional[list["ProjectState"]]:
+        """
+        Retrieve the conversation for the task in the project state.
+
+        :param session: The SQLAlchemy async session.
+        :param state_id: The UUID of the project state.
+        :return: List of conversation messages if found, None otherwise.
+        """
+
+        query = select(ProjectState).where(
+            and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
+        )
+        result = await session.execute(query)
+        states = result.scalars().all()
+
+        log.debug(f"Found {len(states)} states with task start action")
+
+        start = -1
+        end = -1
+
+        for i, state in enumerate(states):
+            if start != -1 and end != -1:
+                break
+            if (
+                start == -1
+                and state.current_task
+                and UUID(state.current_task["id"]) == task_id
+                and state.current_task["status"] == TaskStatus.TODO
+            ):
+                start = i
+            if end == -1:
+                for task in state.tasks:
+                    if UUID(task["id"]) == task_id and task.get("status") in [
+                        TaskStatus.SKIPPED,
+                        TaskStatus.DOCUMENTED,
+                        TaskStatus.DONE,
+                    ]:
+                        end = i
+                        break
+
+        if start == -1 or end == -1:
+            return []
+
+        # find all project states between start and end
+        query = select(ProjectState).where(
+            and_(
+                ProjectState.branch_id == branch_id,
+                ProjectState.step_index >= states[start].step_index,
+                ProjectState.step_index < states[end].step_index,
+            )
+        )
+        result = await session.execute(query)
+        results = result.scalars().all()
+
+        return results

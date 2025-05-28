@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
+from core.cli.helpers import load_convo
 from core.db.models.chat_convo import ChatConvo
 from core.db.models.chat_message import ChatMessage
 from core.llm.convo import Convo
@@ -58,6 +59,7 @@ class IPCServer:
         self.handlers[MessageType.PROJECT_INFO] = self._handle_project_info
         self.handlers[MessageType.KNOWLEDGE_BASE] = self._handle_knowledge_base
         self.handlers[MessageType.PROJECT_SPECS] = self._handle_project_specs
+        self.handlers[MessageType.TASK_CONVO] = self._handle_task_convo
 
     async def start(self) -> bool:
         """
@@ -506,4 +508,33 @@ class IPCServer:
 
         except Exception as err:
             log.error(f"Error handling chat message request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_task_convo(self, message: Message, writer: asyncio.StreamWriter):
+        """
+        Handle task conversation request.
+
+        :param message: Request message.
+        :param writer: Stream writer to send response.
+        """
+        try:
+            task_id = uuid.UUID(message.content.get("taskId", ""))
+            branch_id = uuid.UUID(message.content.get("branchId", ""))
+
+            if not task_id or not branch_id:
+                await self._send_error(writer, "taskId and branchId are required", message.request_id)
+                return
+
+            project_states = await self.state_manager.get_task_conversation_project_states(branch_id, task_id)
+            convo = await load_convo(sm=self.state_manager, branch_id=branch_id, project_states=project_states)
+
+            response = Message(
+                type=MessageType.TASK_CONVO,
+                content={"taskConvo": convo},
+                request_id=message.request_id,
+            )
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling task convo request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)

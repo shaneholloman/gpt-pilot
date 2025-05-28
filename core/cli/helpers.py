@@ -438,6 +438,7 @@ async def load_convo(
     sm: StateManager,
     project_id: Optional[UUID] = None,
     branch_id: Optional[UUID] = None,
+    project_states: Optional[list] = None,
 ) -> list:
     """
     Loads the conversation from an existing project.
@@ -445,13 +446,8 @@ async def load_convo(
     """
     convo = []
 
-    if branch_id is None and project_id is not None:
-        branches = await sm.get_branches_for_project_id(project_id)
-        if not branches:
-            return convo
-        branch_id = branches[0].id
-
-    project_states = await sm.get_project_states(project_id, branch_id)
+    if not project_states:
+        project_states = await sm.get_project_states(project_id, branch_id)
 
     task_counter = 1
 
