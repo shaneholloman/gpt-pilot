@@ -54,6 +54,7 @@ class MessageType(str, Enum):
     KNOWLEDGE_BASE = "getKnowledgeBase"
     PROJECT_SPECS = "getProjectSpecs"
     TASK_CONVO = "getTaskConvo"
+    EDIT_SPECS = "editSpecs"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"

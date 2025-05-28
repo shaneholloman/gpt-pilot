@@ -446,6 +446,9 @@ async def load_convo(
     """
     convo = []
 
+    if not branch_id:
+        branch_id = sm.current_state.branch_id
+
     if not project_states:
         project_states = await sm.get_project_states(project_id, branch_id)
 

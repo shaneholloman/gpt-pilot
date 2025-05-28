@@ -60,6 +60,7 @@ class IPCServer:
         self.handlers[MessageType.KNOWLEDGE_BASE] = self._handle_knowledge_base
         self.handlers[MessageType.PROJECT_SPECS] = self._handle_project_specs
         self.handlers[MessageType.TASK_CONVO] = self._handle_task_convo
+        self.handlers[MessageType.EDIT_SPECS] = self._handle_edit_specs
 
     async def start(self) -> bool:
         """
@@ -519,14 +520,13 @@ class IPCServer:
         """
         try:
             task_id = uuid.UUID(message.content.get("taskId", ""))
-            branch_id = uuid.UUID(message.content.get("branchId", ""))
 
-            if not task_id or not branch_id:
-                await self._send_error(writer, "taskId and branchId are required", message.request_id)
+            if not task_id:
+                await self._send_error(writer, "taskId is required", message.request_id)
                 return
 
-            project_states = await self.state_manager.get_task_conversation_project_states(branch_id, task_id)
-            convo = await load_convo(sm=self.state_manager, branch_id=branch_id, project_states=project_states)
+            project_states = await self.state_manager.get_task_conversation_project_states(task_id)
+            convo = await load_convo(sm=self.state_manager, project_states=project_states)
 
             response = Message(
                 type=MessageType.TASK_CONVO,
@@ -537,4 +537,37 @@ class IPCServer:
 
         except Exception as err:
             log.error(f"Error handling task convo request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_edit_specs(self, message: Message, writer: asyncio.StreamWriter):
+        """
+        Handle request to edit project specifications.
+
+        :param message: Request message.
+        :param writer: Stream writer to send response.
+        """
+        current_state = self.state_manager.current_state
+        next_state = self.state_manager.next_state
+
+        try:
+            new_spec_desc = message.content.get("specification", "")
+            if not new_spec_desc:
+                await self._send_error(writer, "specification is required", message.request_id)
+                return
+
+            next_state.specification = current_state.specification.clone()
+            next_state.specification.description = new_spec_desc
+
+            response = Message(
+                type=MessageType.EDIT_SPECS,
+                content={
+                    "projectStateId": current_state.id,
+                    "specification": next_state.specification.description,
+                },
+                request_id=message.request_id,
+            )
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling edit specs request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
