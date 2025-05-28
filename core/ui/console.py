@@ -3,7 +3,7 @@ from typing import Optional
 from prompt_toolkit.shortcuts import PromptSession
 
 from core.log import get_logger
-from core.ui.base import UIBase, UIClosedError, UISource, UserInput
+from core.ui.base import UIBase, UIClosedError, UISource, UserInput, UserInterruptError
 
 log = get_logger(__name__)
 
@@ -114,6 +114,8 @@ class PlainConsoleUI(UIBase):
             try:
                 choice = await session.prompt_async(default=initial_text or "")
                 choice = choice.strip()
+                if choice == "interrupt":
+                    raise UserInterruptError()
             except KeyboardInterrupt:
                 raise UIClosedError()
             if not choice and default:
@@ -186,7 +188,7 @@ class PlainConsoleUI(UIBase):
         pass
 
     async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
-        pass
+        await self.send_message(test_instructions)
 
     async def knowledge_base_update(self, knowledge_base: dict):
         pass

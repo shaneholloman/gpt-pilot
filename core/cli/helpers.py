@@ -34,6 +34,7 @@ from core.config.actions import (
 )
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
+from core.db.models.project_state import TaskStatus
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
 from core.log import get_logger, setup
@@ -292,6 +293,47 @@ async def list_projects_json(db: SessionManager):
     print(json.dumps(projects_list, indent=2, default=str))
 
 
+def insert_new_task(tasks, new_task):
+    # Find the index of the first task with status "todo"
+    todo_index = -1
+    for i, task in enumerate(tasks):
+        if task.get("status") == TaskStatus.TODO:
+            todo_index = i
+            break
+
+    if todo_index != -1:
+        tasks.insert(todo_index, new_task)
+    else:
+        tasks.append(new_task)
+
+    return tasks
+
+
+def find_task_by_id(tasks, task_id):
+    """
+    Find a task by its ID from a list of tasks.
+
+    :param tasks: List of task objects
+    :param task_id: Task ID to search for
+    :return: Task object if found, None otherwise
+    """
+    for task in tasks:
+        if task.get("id") == task_id:
+            return task
+
+    return None
+
+
+def change_order_of_task(tasks, task_to_move, new_position):
+    # Remove the task from its current position
+    tasks.remove(task_to_move)
+
+    # Insert the task at the new position
+    tasks.insert(new_position, task_to_move)
+
+    return tasks
+
+
 def find_first_todo_task(tasks):
     """
     Find the first task with status 'todo' from a list of tasks.
@@ -307,6 +349,13 @@ def find_first_todo_task(tasks):
             return task
 
     return None
+
+
+def find_first_todo_task_index(tasks):
+    for i, task in enumerate(tasks):
+        if task["status"] == TaskStatus.TODO:
+            return i
+    return -1
 
 
 def trim_logs(logs: str) -> str:

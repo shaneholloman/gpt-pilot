@@ -28,6 +28,7 @@ from core.agents.wizard import Wizard
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.log import get_logger
 from core.telemetry import telemetry
+from core.ui.base import UserInterruptError
 
 log = get_logger(__name__)
 
@@ -140,7 +141,11 @@ class Orchestrator(BaseAgent, GitMixin):
 
             else:
                 log.debug(f"Running agent {agent.__class__.__name__} (step {self.current_state.step_index})")
-                response = await agent.run()
+                try:
+                    response = await agent.run()
+                except UserInterruptError:
+                    log.debug("User interrupted the agent!")
+                    response = AgentResponse.done(self)
 
             if response.type == ResponseType.EXIT:
                 log.debug(f"Agent {agent.__class__.__name__} requested exit")
@@ -419,40 +424,45 @@ class Orchestrator(BaseAgent, GitMixin):
         import if needed.
         """
 
-        log.info("Checking for offline changes.")
-        modified_files = await self.state_manager.get_modified_files_with_content()
+        try:
+            log.info("Checking for offline changes.")
+            modified_files = await self.state_manager.get_modified_files_with_content()
 
-        if self.state_manager.workspace_is_empty():
-            # NOTE: this will currently get triggered on a new project, but will do
-            # nothing as there's no files in the database.
-            log.info("Detected empty workspace, restoring state from the database.")
-            await self.state_manager.restore_files()
-        elif modified_files:
-            await self.send_message(f"We found {len(modified_files)} new and/or modified files.")
-            await self.ui.send_modified_files(modified_files)
-            hint = "".join(
-                [
-                    "If you would like Pythagora to import those changes, click 'Yes'.\n",
-                    "Clicking 'No' means Pythagora will restore (overwrite) all files to the last stored state.\n",
-                ]
-            )
-            use_changes = await self.ask_question(
-                question="Would you like to keep your changes?",
-                buttons={
-                    "yes": "Yes, keep my changes",
-                    "no": "No, restore last Pythagora state",
-                },
-                buttons_only=True,
-                hint=hint,
-            )
-            if use_changes.button == "yes":
-                log.debug("Importing offline changes into Pythagora.")
-                await self.import_files()
-            else:
-                log.debug("Restoring last stored state.")
+            if self.state_manager.workspace_is_empty():
+                # NOTE: this will currently get triggered on a new project, but will do
+                # nothing as there's no files in the database.
+                log.info("Detected empty workspace, restoring state from the database.")
                 await self.state_manager.restore_files()
+            elif modified_files:
+                await self.send_message(f"We found {len(modified_files)} new and/or modified files.")
+                await self.ui.send_modified_files(modified_files)
+                hint = "".join(
+                    [
+                        "If you would like Pythagora to import those changes, click 'Yes'.\n",
+                        "Clicking 'No' means Pythagora will restore (overwrite) all files to the last stored state.\n",
+                    ]
+                )
+                use_changes = await self.ask_question(
+                    question="Would you like to keep your changes?",
+                    buttons={
+                        "yes": "Yes, keep my changes",
+                        "no": "No, restore last Pythagora state",
+                    },
+                    buttons_only=True,
+                    hint=hint,
+                )
+                if use_changes.button == "yes":
+                    log.debug("Importing offline changes into Pythagora.")
+                    await self.import_files()
+                else:
+                    log.debug("Restoring last stored state.")
+                    await self.state_manager.restore_files()
 
-        log.info("Offline changes check done.")
+            log.info("Offline changes check done.")
+        except UserInterruptError:
+            await self.state_manager.restore_files()
+            log.debug("User interrupted the offline changes check, restoring files.")
+            return
 
     async def handle_done(self, agent: BaseAgent, response: AgentResponse) -> AgentResponse:
         """
