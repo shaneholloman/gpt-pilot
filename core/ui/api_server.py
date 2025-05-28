@@ -7,7 +7,8 @@ from sqlalchemy import select
 
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
-from core.cli.helpers import load_convo
+from core.cli.helpers import calculate_pr_changes, load_convo
+from core.config.actions import CM_UPDATE_FILES
 from core.db.models.chat_convo import ChatConvo
 from core.db.models.chat_message import ChatMessage
 from core.llm.convo import Convo
@@ -61,6 +62,7 @@ class IPCServer:
         self.handlers[MessageType.PROJECT_SPECS] = self._handle_project_specs
         self.handlers[MessageType.TASK_CONVO] = self._handle_task_convo
         self.handlers[MessageType.EDIT_SPECS] = self._handle_edit_specs
+        self.handlers[MessageType.FILE_DIFF] = self._handle_file_diff
 
     async def start(self) -> bool:
         """
@@ -570,4 +572,43 @@ class IPCServer:
 
         except Exception as err:
             log.error(f"Error handling edit specs request: {err}", exc_info=True)
+            await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
+
+    async def _handle_file_diff(self, message: Message, writer: asyncio.StreamWriter):
+        try:
+            task_id = uuid.UUID(message.content.get("taskId", ""))
+            type = message.content.get("type", "")
+
+            if not task_id or not type:
+                await self._send_error(writer, "taskId and type are required", message.request_id)
+                return
+
+            project_states = await self.state_manager.get_task_conversation_project_states(task_id)
+            convo = await load_convo(sm=self.state_manager, project_states=project_states)
+
+            if type == "task":
+                filtered = list(filter(lambda x: x.get("action", "") == CM_UPDATE_FILES, convo))
+            elif type == "bugHunter":
+                filtered = list(
+                    filter(
+                        lambda x: x.get("action", "") == CM_UPDATE_FILES
+                        and x.get("bh_testing_instructions", None) is not None,
+                        convo,
+                    )
+                )
+            else:
+                await self._send_error(writer, "Invalid type. Must be 'task' or 'bugHunter'", message.request_id)
+                return
+
+            file_diff = calculate_pr_changes(filtered)
+
+            response = Message(
+                type=MessageType.FILE_DIFF,
+                content={"fileDiff": file_diff},
+                request_id=message.request_id,
+            )
+            await self._send_response(writer, response)
+
+        except Exception as err:
+            log.error(f"Error handling file diff for task request: {err}", exc_info=True)
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
