@@ -612,23 +612,6 @@ class ProjectState(Base):
                 .where(and_(ProjectState.branch_id == branch_id, ProjectState.action.isnot(None)))
             )
 
-            # query = (
-            #     select(ProjectState)
-            #     .options(load_only(
-            #         ProjectState.epics,
-            #         ProjectState.tasks,
-            #     ))
-            #     .where(ProjectState.branch_id == branch_id)
-            #     .where(text("json_array_length(tasks) > 0"))
-            #     .where(text("""
-            #         NOT EXISTS (
-            #             SELECT 1
-            #             FROM json_each(project_states.tasks)
-            #             WHERE json_extract(json_each.value, '$.status') NOT IN ('documented', 'done')
-            #         )
-            #     """))
-            # )
-
             result = await session.execute(query)
             project_states = result.scalars().all()
 
