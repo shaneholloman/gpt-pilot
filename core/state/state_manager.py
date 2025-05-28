@@ -53,6 +53,7 @@ class StateManager:
         self.blockDb = False
         self.git_available = False
         self.git_used = False
+        self.auto_confirm_breakdown = True
         self.options = {}
         self.access_token = None
         self.async_tasks = None

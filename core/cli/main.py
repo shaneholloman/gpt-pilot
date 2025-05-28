@@ -253,6 +253,8 @@ async def async_main(
     sm = StateManager(db, ui)
     if args.access_token:
         sm.update_access_token(args.access_token)
+    if not args.auto_confirm_breakdown:
+        sm.auto_confirm_breakdown = False
     ui_started = await ui.start()
     if not ui_started:
         return False
