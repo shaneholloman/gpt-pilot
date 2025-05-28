@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 from core.config import LocalIPCConfig
 from core.log import get_logger
-from core.ui.base import UIBase, UIClosedError, UISource, UserInput
+from core.ui.base import UIBase, UIClosedError, UISource, UserInput, UserInterruptError
 
 VSCODE_EXTENSION_HOST = "localhost"
 VSCODE_EXTENSION_PORT = 8125
@@ -56,6 +56,9 @@ class MessageType(str, Enum):
     TASK_CONVO = "getTaskConvo"
     EDIT_SPECS = "editSpecs"
     FILE_DIFF = "getFileDiff"
+    TASK_CURRENT_STATUS = "getCurrentTaskStatus"
+    TASK_ADD_NEW = "addNewTask"
+    TASK_START_OTHER = "startOtherTask"
     CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"
@@ -387,6 +390,8 @@ class IPCClientUI(UIBase):
         answer = response.content.strip()
         if answer == "exitPythagoraCore":
             raise KeyboardInterrupt()
+        if answer == "interrupt":
+            raise UserInterruptError()
 
         if not answer and default:
             answer = default

@@ -26,6 +26,10 @@ class UIClosedError(Exception):
     """The user interface has been closed (user stoped Pythagora)."""
 
 
+class UserInterruptError(Exception):
+    """The user interface has been interrupted (user stoped Pythagora)."""
+
+
 class UISource:
     """
     Source for UI messages.
