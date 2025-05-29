@@ -542,7 +542,7 @@ async def load_convo(
 
     for i, state in enumerate(project_states):
         convo_el = {}
-        convo_el["id"] = str(state.id)
+        convo_el["id"] = str(state.id) if state.step_index >= 3 else None
         user_inputs = await sm.find_user_input(state, branch_id)
 
         todo_task = find_first_todo_task(state.tasks)

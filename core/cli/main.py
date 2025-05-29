@@ -34,10 +34,8 @@ from core.state.state_manager import StateManager
 from core.telemetry import telemetry
 from core.ui.api_server import IPCServer
 from core.ui.base import (
-    ProjectStage,
     UIBase,
     UIClosedError,
-    UserInput,
     pythagora_source,
 )
 
@@ -155,30 +153,7 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         {"language": stack.button},
     )
 
-    while True:
-        try:
-            await ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
-            user_input = await ui.ask_question(
-                "What is the project name?",
-                allow_empty=False,
-                source=pythagora_source,
-                full_screen=True,
-            )
-        except (KeyboardInterrupt, UIClosedError):
-            user_input = UserInput(cancelled=True)
-
-        if user_input.cancelled:
-            return False
-
-        project_name = user_input.text.strip()
-        if not project_name:
-            await ui.send_message("Please choose a project name", source=pythagora_source)
-        elif len(project_name) > 100:
-            await ui.send_message("Please choose a shorter project name", source=pythagora_source)
-        else:
-            break
-
-    project_state = await sm.create_project(name=project_name, project_type=stack.button)
+    project_state = await sm.create_project(project_type=stack.button)
     return project_state is not None
 
 

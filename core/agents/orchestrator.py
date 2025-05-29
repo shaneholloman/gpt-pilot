@@ -153,6 +153,15 @@ class Orchestrator(BaseAgent, GitMixin):
 
             if response.type == ResponseType.DONE:
                 response = await self.handle_done(agent, response)
+                log.debug(f"Agent {agent.__class__.__name__} returned")
+                if agent.agent_type == "spec-writer":
+                    project_details = self.state_manager.get_project_info()
+                    await self.ui.send_project_info(
+                        project_details["name"],
+                        project_details["id"],
+                        project_details["folderName"],
+                        project_details["createdAt"],
+                    )
                 continue
 
         # TODO: rollback changes to "next" so they aren't accidentally committed?
@@ -473,23 +482,25 @@ class Orchestrator(BaseAgent, GitMixin):
         will trigger the HumanInput agent to ask the user to provide the required input.
 
         """
-        n_epics = len(self.next_state.epics)
-        n_finished_epics = n_epics - len(self.next_state.unfinished_epics)
-        n_tasks = len(self.next_state.tasks)
-        n_finished_tasks = n_tasks - len(self.next_state.unfinished_tasks)
-        n_iterations = len(self.next_state.iterations)
-        n_finished_iterations = n_iterations - len(self.next_state.unfinished_iterations)
-        n_steps = len(self.next_state.steps)
-        n_finished_steps = n_steps - len(self.next_state.unfinished_steps)
+        if self.next_state and self.next_state.tasks:
+            n_epics = len(self.next_state.epics)
+            n_finished_epics = n_epics - len(self.next_state.unfinished_epics)
+            n_tasks = len(self.next_state.tasks)
+            n_finished_tasks = n_tasks - len(self.next_state.unfinished_tasks)
+            n_iterations = len(self.next_state.iterations)
+            n_finished_iterations = n_iterations - len(self.next_state.unfinished_iterations)
+            n_steps = len(self.next_state.steps)
+            n_finished_steps = n_steps - len(self.next_state.unfinished_steps)
 
-        log.debug(
-            f"Agent {agent.__class__.__name__} is done, "
-            f"committing state for step {self.current_state.step_index}: "
-            f"{n_finished_epics}/{n_epics} epics, "
-            f"{n_finished_tasks}/{n_tasks} tasks, "
-            f"{n_finished_iterations}/{n_iterations} iterations, "
-            f"{n_finished_steps}/{n_steps} dev steps."
-        )
+            log.debug(
+                f"Agent {agent.__class__.__name__} is done, "
+                f"committing state for step {self.current_state.step_index}: "
+                f"{n_finished_epics}/{n_epics} epics, "
+                f"{n_finished_tasks}/{n_tasks} tasks, "
+                f"{n_finished_iterations}/{n_iterations} iterations, "
+                f"{n_finished_steps}/{n_steps} dev steps."
+            )
+
         await self.state_manager.commit()
 
         # If there are any new or modified files changed outside Pythagora,

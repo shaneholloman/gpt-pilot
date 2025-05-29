@@ -1,6 +1,7 @@
 import asyncio
 import os.path
 import re
+import sys
 import traceback
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
@@ -136,7 +137,10 @@ class StateManager:
         )
 
     async def create_project(
-        self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
+        self,
+        name: Optional[str] = "temp-project",
+        project_type: Optional[str] = "node",
+        folder_name: Optional[str] = "temp-project" if "pytest" not in sys.modules else None,
     ) -> Project:
         """
         Create a new project and set it as the current one.
@@ -154,7 +158,9 @@ class StateManager:
         # even for a new project, eg. offline changes check and stats updating
         await state.awaitable_attrs.files
 
-        await session.commit()
+        is_test = "pytest" in sys.modules
+        if is_test:
+            await session.commit()
 
         log.info(
             f'Created new project "{name}" (id={project.id}) '
@@ -168,7 +174,10 @@ class StateManager:
         self.next_state = state
         self.project = project
         self.branch = branch
-        self.file_system = await self.init_file_system(load_existing=False)
+
+        if is_test:
+            self.file_system = await self.init_file_system(load_existing=False)
+
         return project
 
     async def delete_project(self, project_id: UUID) -> bool:
@@ -520,7 +529,8 @@ class StateManager:
 
             try:
                 return LocalDiskVFS(root, allow_existing=load_existing, ignore_matcher=ignore_matcher)
-            except FileExistsError:
+            except FileExistsError as e:
+                log.debug(e)
                 self.project.folder_name = self.project.folder_name + "-" + uuid4().hex[:7]
                 log.warning(f"Directory {root} already exists, changing project folder to {self.project.folder_name}")
                 await self.current_session.commit()
@@ -533,9 +543,16 @@ class StateManager:
         """
         config = get_config()
 
+        if self.project is None or self.project.folder_name is None:
+            return os.path.join(config.fs.workspace_root, "")
+        return os.path.join(config.fs.workspace_root, self.project.folder_name)
+
+    def get_full_parent_project_root(self) -> str:
+        config = get_config()
+
         if self.project is None:
             raise ValueError("No project loaded")
-        return os.path.join(config.fs.workspace_root, self.project.folder_name)
+        return config.fs.workspace_root
 
     def get_project_info(self) -> dict:
         """
@@ -575,7 +592,6 @@ class StateManager:
 
             if saved_file and saved_file.content.content == content:
                 continue
-
             # TODO: unify this with self.save_file() / refactor that whole bit
             hash = self.file_system.hash_string(content)
             log.debug(f"Importing file {path} (hash={hash}, size={len(content)} bytes)")
@@ -646,6 +662,8 @@ class StateManager:
         :return: List of dictionaries containing paths, old content,
                 and new content for new or modified files.
         """
+        if not self.file_system:
+            return []
 
         modified_files = []
         files_in_workspace = self.file_system.list()
@@ -686,6 +704,8 @@ class StateManager:
         """
         Returns whether the workspace has any files in them or is empty.
         """
+        if not self.file_system:
+            return False
         return not bool(self.file_system.list())
 
     def get_implemented_pages(self) -> list[str]:

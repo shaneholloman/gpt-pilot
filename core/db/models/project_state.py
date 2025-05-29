@@ -137,6 +137,8 @@ class ProjectState(Base):
 
         :return: List of unfinished iterations.
         """
+        if not self.iterations:
+            return []
         return [
             iteration for iteration in self.iterations if iteration.get("status") not in (None, IterationStatus.DONE)
         ]
@@ -160,6 +162,8 @@ class ProjectState(Base):
 
         :return: List of unfinished tasks.
         """
+        if not self.tasks:
+            return []
         return [task for task in self.tasks if task.get("status") != TaskStatus.DONE]
 
     @property

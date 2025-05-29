@@ -47,6 +47,31 @@ class Project(Base):
         result = await session.execute(select(Project).where(Project.id == project_id))
         return result.scalar_one_or_none()
 
+    @staticmethod
+    async def rename(session: "AsyncSession", id: UUID, name: str, dir_name: str) -> Optional["Project"]:
+        """
+        Rename a project and update its folder name.
+
+        :param session: The SQLAlchemy session.
+        :param id: The project ID.
+        :param name: The new project name.
+        :param dir_name: The new folder name for the project.
+        :return: The updated Project object if found, None otherwise.
+        """
+        # Get the project by ID
+        query = select(Project).where(Project.id == id)
+        result = await session.execute(query)
+        project = result.scalar_one_or_none()
+
+        if project is None:
+            return None
+
+        # Update project name and dir name
+        project.name = name
+        project.folder_name = dir_name
+
+        return project
+
     async def get_branch(self, name: Optional[str] = None) -> Optional["Branch"]:
         """
         Get a project branch by name.
