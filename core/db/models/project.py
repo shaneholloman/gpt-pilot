@@ -70,9 +70,6 @@ class Project(Base):
         project.name = name
         project.folder_name = dir_name
 
-        # Commit changes
-        # await session.commit()
-
         return project
 
     async def get_branch(self, name: Optional[str] = None) -> Optional["Branch"]:

@@ -152,7 +152,7 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         {"language": stack.button},
     )
 
-    project_state = await sm.create_project(project_type=stack.button, create_dir=False)
+    project_state = await sm.create_project(project_type=stack.button)
     return project_state is not None
 
 

@@ -157,7 +157,6 @@ class Wizard(BaseAgent):
         session = inspect(self.next_state).async_session
         session.add(knowledge_base)
         self.next_state.knowledge_base = knowledge_base
-        self.next_state.knowledge_base.user_options = options
 
         self.next_state.epics = [
             {

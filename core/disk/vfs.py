@@ -123,6 +123,8 @@ class LocalDiskVFS(VirtualFileSystem):
         if not os.path.isdir(root):
             if create:
                 os.makedirs(root)
+            else:
+                raise ValueError(f"Root directory does not exist: {root}")
         else:
             if not allow_existing:
                 raise FileExistsError(f"Root directory already exists: {root}")

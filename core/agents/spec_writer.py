@@ -3,7 +3,7 @@ import secrets
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.response import AgentResponse, ResponseType
-from core.config import DESCRIBE_FILES_AGENT_NAME, SPEC_WRITER_AGENT_NAME
+from core.config import DEFAULT_AGENT_NAME, SPEC_WRITER_AGENT_NAME
 from core.config.actions import SPEC_CHANGE_FEATURE_STEP_NAME, SPEC_CHANGE_STEP_NAME, SPEC_CREATE_STEP_NAME
 from core.db.models import Complexity
 from core.db.models.project_state import IterationStatus
@@ -50,6 +50,8 @@ class SpecWriter(BaseAgent):
             self.state_manager,
             self.process_manager,
         )
+        if not self.state_manager.template:
+            self.state_manager.template = {}
         self.state_manager.template["template"] = template
         log.info(f"Applying project template: {template.name}")
         summary = await template.apply()
@@ -81,19 +83,19 @@ class SpecWriter(BaseAgent):
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
 
-        llm = self.get_llm(DESCRIBE_FILES_AGENT_NAME)
+        llm = self.get_llm(DEFAULT_AGENT_NAME)
         convo = AgentConvo(self).template(
             "project_name",
             description=llm_assisted_description,
         )
         llm_response: str = await llm(convo, temperature=0)
-        project_name = llm_response.strip().replace(" ", "_").replace("-", "_")
+        project_name = llm_response.strip()
 
-        await self.state_manager.rename_project(self.state_manager.project.id, project_name)
-        self.state_manager.file_system.root = (
-            self.state_manager.get_full_parent_project_root() + "/" + self.state_manager.project.folder_name
-        )
-        self.state_manager.file_system.ignore_matcher.root_path = self.state_manager.file_system.root
+        self.state_manager.project.name = project_name
+        self.state_manager.project.folder_name = project_name.replace(" ", "_").replace("-", "_")
+
+        self.state_manager.file_system = await self.state_manager.init_file_system(load_existing=False)
+
         self.process_manager.root_dir = self.state_manager.file_system.root
 
         self.next_state.knowledge_base.user_options["original_description"] = description
@@ -105,6 +107,11 @@ class SpecWriter(BaseAgent):
 
         llm_assisted_description = self.current_state.knowledge_base.user_options["project_description"]
         description = self.current_state.knowledge_base.user_options["original_description"]
+
+        convo = AgentConvo(self).template(
+            "build_full_specification",
+            initial_prompt=llm_assisted_description.strip(),
+        )
 
         while True:
             user_done_with_description = await self.ask_question(
@@ -125,18 +132,15 @@ class SpecWriter(BaseAgent):
                 allow_empty=False,
             )
 
-            convo = (
-                AgentConvo(self).template(
-                    "build_full_specification",
-                    initial_prompt=llm_assisted_description.strip(),
-                )
-            ).template("add_to_specification", user_message=user_add_to_spec.text.strip())
+            convo = convo.template("add_to_specification", user_message=user_add_to_spec.text.strip())
 
             if len(convo.messages) > 6:
                 convo.slice(1, 4)
 
             await self.ui.start_important_stream()
             llm_assisted_description = await llm(convo)
+
+            convo = convo.assistant(llm_assisted_description)
 
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME)
         convo = AgentConvo(self).template(
@@ -162,7 +166,7 @@ class SpecWriter(BaseAgent):
         self.next_state.specification.original_description = description
         self.next_state.specification.description = llm_assisted_description
 
-        complexity = await self.check_prompt_complexity(description)
+        complexity = await self.check_prompt_complexity(llm_assisted_description)
         self.next_state.specification.complexity = complexity
 
         telemetry.set("initial_prompt", description)
