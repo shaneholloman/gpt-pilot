@@ -200,6 +200,7 @@ class StateManager:
         project_id: Optional[UUID] = None,
         branch_id: Optional[UUID] = None,
         step_index: Optional[int] = None,
+        project_state_id: Optional[UUID] = None,
     ) -> Optional[ProjectState]:
         """
         Load project state from the database.
@@ -210,6 +211,8 @@ class StateManager:
 
         If `step_index' is provided, load the state at the given step
         of the branch instead of the last one.
+
+        If `project_state_id` is provided, load the specific project state
 
         The returned ProjectState will have branch and branch.project
         relationships preloaded. All other relationships must be
@@ -226,33 +229,44 @@ class StateManager:
             log.info("Current session exists, rolling back changes.")
             await self.rollback()
 
+        branch = None
         state = None
         session = await self.session_manager.start()
 
         if branch_id is not None:
             branch = await Branch.get_by_id(session, branch_id)
-            if branch is not None:
-                if step_index:
-                    state = await branch.get_state_at_step(step_index)
-                else:
-                    state = await branch.get_last_state()
-
         elif project_id is not None:
             project = await Project.get_by_id(session, project_id)
             if project is not None:
                 branch = await project.get_branch()
-                if branch is not None:
-                    if step_index:
-                        state = await branch.get_state_at_step(step_index)
-                    else:
-                        state = await branch.get_last_state()
-        else:
-            raise ValueError("Project or branch ID must be provided.")
+
+        if branch is None:
+            await self.session_manager.close()
+            log.debug(f"Unable to find branch (project_id={project_id}, branch_id={branch_id})")
+            return None
+
+        # Load state based on the provided parameters
+        if step_index is not None:
+            state = await branch.get_state_at_step(step_index)
+        elif project_state_id is not None:
+            state = await ProjectState.get_by_id(session, project_state_id)
+            # Verify that the state belongs to the branch
+            if state and state.branch_id != branch.id:
+                log.warning(
+                    f"Project state {project_state_id} does not belong to branch {branch.id}, "
+                    "loading last state instead."
+                )
+                state = None
+
+        # If no specific state was requested or found, get the last state
+        if state is None:
+            state = await branch.get_last_state()
 
         if state is None:
             await self.session_manager.close()
             log.debug(
-                f"Unable to load project state (project_id={project_id}, branch_id={branch_id}, step_index={step_index})"
+                f"Unable to load project state (project_id={project_id}, branch_id={branch_id}, "
+                f"step_index={step_index}, project_state_id={project_state_id})"
             )
             return None
 
