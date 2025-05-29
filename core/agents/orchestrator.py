@@ -155,7 +155,13 @@ class Orchestrator(BaseAgent, GitMixin):
                 response = await self.handle_done(agent, response)
                 log.debug(f"Agent {agent.__class__.__name__} returned")
                 if agent.agent_type == "spec-writer":
-                    await self.ui.send_project_root(self.state_manager.get_full_project_root())
+                    project_details = self.state_manager.get_project_info()
+                    await self.ui.send_project_info(
+                        project_details["name"],
+                        project_details["id"],
+                        project_details["folderName"],
+                        project_details["createdAt"],
+                    )
                 continue
 
         # TODO: rollback changes to "next" so they aren't accidentally committed?
