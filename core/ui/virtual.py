@@ -22,7 +22,12 @@ class VirtualUI(UIBase):
         log.debug("Stopping test UI")
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if chunk is None:
             # end of stream
@@ -164,7 +169,7 @@ class VirtualUI(UIBase):
     async def open_editor(self, file: str, line: Optional[int] = None):
         pass
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         pass
 
     async def start_important_stream(self):
@@ -215,6 +220,20 @@ class VirtualUI(UIBase):
         pass
 
     async def import_project(self, project_dir: str):
+        pass
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        pass
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
         pass
 
 

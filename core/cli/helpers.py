@@ -34,6 +34,7 @@ from core.config.actions import (
 )
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
+from core.db.models.project_state import TaskStatus
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
 from core.log import get_logger, setup
@@ -108,6 +109,43 @@ def get_line_changes(old_content: str, new_content: str) -> tuple[int, int]:
             deleted_lines += 1
 
     return added_lines, deleted_lines
+
+
+def calculate_pr_changes(convo_entries):
+    """
+    Calculate file changes between initial and final versions, similar to a Git pull request.
+
+    This function tracks the initial (first seen) and final (last seen) versions of each file,
+    and calculates the diff between those two versions, ignoring intermediate changes.
+
+    :param convo_entries: List of conversation entries containing file changes
+    :return: List of file changes with initial and final versions
+    """
+    file_changes = {}
+
+    for entry in convo_entries:
+        if not entry.get("files"):
+            continue
+
+        for file_data in entry.get("files", []):
+            path = file_data.get("path")
+            if not path:
+                continue
+
+            if path not in file_changes:
+                file_changes[path] = {
+                    "path": path,
+                    "old_content": file_data.get("old_content", ""),
+                    "new_content": file_data.get("new_content", ""),
+                }
+            else:
+                file_changes[path]["new_content"] = file_data.get("new_content", "")
+
+    for path, file_info in file_changes.items():
+        file_info["diff"] = get_line_changes(old_content=file_info["old_content"], new_content=file_info["new_content"])
+
+    # Convert dict to list
+    return list(file_changes.values())
 
 
 def parse_llm_key(value: str) -> Optional[tuple[LLMProvider, str]]:
@@ -201,6 +239,24 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--extension-version", help="Version of the VSCode extension", required=False)
     parser.add_argument("--use-git", help="Use Git for version control", action="store_true", required=False)
     parser.add_argument("--access-token", help="Access token", required=False)
+    parser.add_argument(
+        "--enable-api-server",
+        action="store_true",
+        default=True,
+        help="Enable IPC server for external clients",
+    )
+    parser.add_argument(
+        "--local-api-server-host",
+        type=str,
+        default="localhost",
+        help="Host for the IPC server (default: localhost)",
+    )
+    parser.add_argument(
+        "--local-api-server-port",
+        type=int,
+        default=8222,
+        help="Port for the IPC server (default: 8222)",
+    )
     return parser.parse_args()
 
 
@@ -274,6 +330,47 @@ async def list_projects_json(db: SessionManager):
     print(json.dumps(projects_list, indent=2, default=str))
 
 
+def insert_new_task(tasks, new_task):
+    # Find the index of the first task with status "todo"
+    todo_index = -1
+    for i, task in enumerate(tasks):
+        if task.get("status") == TaskStatus.TODO:
+            todo_index = i
+            break
+
+    if todo_index != -1:
+        tasks.insert(todo_index, new_task)
+    else:
+        tasks.append(new_task)
+
+    return tasks
+
+
+def find_task_by_id(tasks, task_id):
+    """
+    Find a task by its ID from a list of tasks.
+
+    :param tasks: List of task objects
+    :param task_id: Task ID to search for
+    :return: Task object if found, None otherwise
+    """
+    for task in tasks:
+        if task.get("id") == task_id:
+            return task
+
+    return None
+
+
+def change_order_of_task(tasks, task_to_move, new_position):
+    # Remove the task from its current position
+    tasks.remove(task_to_move)
+
+    # Insert the task at the new position
+    tasks.insert(new_position, task_to_move)
+
+    return tasks
+
+
 def find_first_todo_task(tasks):
     """
     Find the first task with status 'todo' from a list of tasks.
@@ -289,6 +386,13 @@ def find_first_todo_task(tasks):
             return task
 
     return None
+
+
+def find_first_todo_task_index(tasks):
+    for i, task in enumerate(tasks):
+        if task["status"] == TaskStatus.TODO:
+            return i
+    return -1
 
 
 def trim_logs(logs: str) -> str:
@@ -420,6 +524,7 @@ async def load_convo(
     sm: StateManager,
     project_id: Optional[UUID] = None,
     branch_id: Optional[UUID] = None,
+    project_states: Optional[list] = None,
 ) -> list:
     """
     Loads the conversation from an existing project.
@@ -427,19 +532,15 @@ async def load_convo(
     """
     convo = []
 
-    if branch_id is None and project_id is not None:
-        branches = await sm.get_branches_for_project_id(project_id)
-        if not branches:
-            return convo
-        branch_id = branches[0].id
+    if not branch_id:
+        branch_id = sm.current_state.branch_id
 
-    project_states = await sm.get_project_states(project_id, branch_id)
+    if not project_states:
+        project_states = await sm.get_project_states(project_id, branch_id)
 
     task_counter = 1
 
     for i, state in enumerate(project_states):
-        prev_state = project_states[i - 1] if i > 0 else None
-
         convo_el = {}
         convo_el["id"] = str(state.id) if state.step_index >= 3 else None
         user_inputs = await sm.find_user_input(state, branch_id)
@@ -529,30 +630,36 @@ async def load_convo(
                     convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == CM_UPDATE_FILES:
-                files = []
+                files_dict = {}
                 for steps in state.steps:
-                    file = {}
                     if "save_file" in steps and "path" in steps["save_file"]:
                         path = steps["save_file"]["path"]
-                        file["path"] = path
 
                         current_file = await sm.get_file_for_project(state.id, path)
-                        prev_file = await sm.get_file_for_project(prev_state.id, path) if prev_state else None
+                        prev_file = (
+                            await sm.get_file_for_project(state.prev_state_id, path)
+                            if state.prev_state_id is not None
+                            else None
+                        )
 
                         old_content = prev_file.content.content if prev_file and prev_file.content else ""
                         new_content = current_file.content.content if current_file and current_file.content else ""
 
-                        file["diff"] = get_line_changes(
+                        diff = get_line_changes(
                             old_content=old_content,
                             new_content=new_content,
                         )
-                        file["old_content"] = old_content
-                        file["new_content"] = new_content
 
-                        if file["diff"] != (0, 0):
-                            files.append(file)
+                        # Only add file if it has changes
+                        if diff != (0, 0):
+                            files_dict[path] = {
+                                "path": path,
+                                "old_content": old_content,
+                                "new_content": new_content,
+                                "diff": diff,
+                            }
 
-                convo_el["files"] = files
+                convo_el["files"] = list(files_dict.values())
 
             if state.iterations is not None and len(state.iterations) > 0:
                 si = state.iterations[-1]

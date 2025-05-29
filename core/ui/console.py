@@ -3,7 +3,7 @@ from typing import Optional
 from prompt_toolkit.shortcuts import PromptSession
 
 from core.log import get_logger
-from core.ui.base import UIBase, UIClosedError, UISource, UserInput
+from core.ui.base import UIBase, UIClosedError, UISource, UserInput, UserInterruptError
 
 log = get_logger(__name__)
 
@@ -21,7 +21,12 @@ class PlainConsoleUI(UIBase):
         log.debug("Stopping console UI")
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if chunk is None:
             # end of stream
@@ -109,6 +114,8 @@ class PlainConsoleUI(UIBase):
             try:
                 choice = await session.prompt_async(default=initial_text or "")
                 choice = choice.strip()
+                if choice == "interrupt":
+                    raise UserInterruptError()
             except KeyboardInterrupt:
                 raise UIClosedError()
             if not choice and default:
@@ -174,14 +181,14 @@ class PlainConsoleUI(UIBase):
     async def open_editor(self, file: str, line: Optional[int] = None):
         pass
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         pass
 
     async def send_project_stats(self, stats: dict):
         pass
 
     async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
-        pass
+        await self.send_message(test_instructions)
 
     async def knowledge_base_update(self, knowledge_base: dict):
         pass
@@ -225,6 +232,20 @@ class PlainConsoleUI(UIBase):
         pass
 
     async def start_breakdown_stream(self):
+        pass
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        pass
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
         pass
 
 

@@ -26,6 +26,10 @@ class UIClosedError(Exception):
     """The user interface has been closed (user stoped Pythagora)."""
 
 
+class UserInterruptError(Exception):
+    """The user interface has been interrupted (user stoped Pythagora)."""
+
+
 class UISource:
     """
     Source for UI messages.
@@ -112,13 +116,20 @@ class UIBase:
         raise NotImplementedError()
 
     async def send_stream_chunk(
-        self, chunk: str, *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: str,
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         """
         Send a chunk of the stream to the UI.
 
         :param chunk: Chunk of the stream.
         :param source: Source of the stream (if any).
+        :param project_state_id: Current project state id.
+        :param route: Route information for message routing.
         """
         raise NotImplementedError()
 
@@ -349,11 +360,14 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         """
-        Tell UI component about the project root path.
+        Send project details to the UI.
 
-        :param path: Project root path.
+        :param name: Project name.
+        :param project_id: Project ID.
+        :param folder_name: Project folder name.
+        :param created_at: Project creation date.
         """
         raise NotImplementedError()
 
@@ -484,6 +498,36 @@ class UIBase:
         existing project, and recursively copy the files over.
 
         :param project_dir: Project directory.
+        """
+        raise NotImplementedError()
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        """
+        Send background conversation data to the UI.
+
+        :param items: List of conversation objects, each containing:
+                      - project_state_id: string
+                      - labels: array of strings
+                      - title: string
+                      - convo: array of objects
+        """
+        raise NotImplementedError()
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
+        """
+        Send front conversation data to the UI.
+
+        :param project_state_id: Project state ID.
+        :param labels: Array of label strings.
+        :param title: Conversation title.
         """
         raise NotImplementedError()
 

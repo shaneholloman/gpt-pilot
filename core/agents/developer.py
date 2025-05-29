@@ -268,6 +268,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         # There might be state leftovers from previous tasks that we need to clean here
         self.next_state.modified_files = {}
         self.set_next_steps(response, source)
+        self.next_state.current_task["status"] = TaskStatus.IN_PROGRESS
         self.next_state.action = DEV_TASK_START.format(current_task_index + 1)
         await telemetry.trace_code_event(
             "task-start",
@@ -345,6 +346,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             return True
 
         if self.current_state.current_task.get("quick_implementation", False):
+            return True
+
+        if self.current_state.current_task.get("user_added_subsequently", False):
             return True
 
         user_response = await self.ask_question(

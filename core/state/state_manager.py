@@ -11,7 +11,18 @@ from sqlalchemy import Row, inspect, select
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from core.config import FileSystemType, get_config
-from core.db.models import Branch, ExecLog, File, FileContent, LLMRequest, Project, ProjectState, UserInput
+from core.db.models import (
+    Branch,
+    ChatConvo,
+    ChatMessage,
+    ExecLog,
+    File,
+    FileContent,
+    LLMRequest,
+    Project,
+    ProjectState,
+    UserInput,
+)
 from core.db.models.specification import Complexity, Specification
 from core.db.session import SessionManager
 from core.disk.ignore import IgnoreMatcher
@@ -98,20 +109,32 @@ class StateManager:
     async def get_project_state_for_redo_task(self, project_state: ProjectState) -> Optional[ProjectState]:
         return await ProjectState.get_state_for_redo_task(self.current_session, project_state)
 
+    async def get_project_state_by_id(self, state_id: UUID) -> Optional[ProjectState]:
+        return await ProjectState.get_by_id(self.current_session, state_id)
+
+    async def get_all_epics_and_tasks(self, branch_id: UUID) -> list:
+        return await ProjectState.get_all_epics_and_tasks(self.current_session, branch_id)
+
     async def find_user_input(self, project_state, branch_id) -> Optional[list["UserInput"]]:
         return await UserInput.find_user_inputs(self.current_session, project_state, branch_id)
 
     async def get_file_for_project(self, state_id: UUID, path: str):
         return await Project.get_file_for_project(self.current_session, state_id, path)
 
-    async def get_project_state_by_id(self, state_id: UUID) -> Optional[ProjectState]:
-        """
-        Get a project state by its ID.
+    async def get_chat_history(self, convo_id) -> Optional[list["ChatMessage"]]:
+        return await ChatConvo.get_chat_history(self.current_session, convo_id)
 
-        :param state_id: The ID of the project state.
-        :return: The ProjectState object if found, None otherwise.
+    async def get_project_state_for_convo_id(self, convo_id) -> Optional["ProjectState"]:
+        return await ChatConvo.get_project_state_for_convo_id(self.current_session, convo_id)
+
+    async def get_task_conversation_project_states(self, task_id: UUID) -> Optional[list[ProjectState]]:
         """
-        return await ProjectState.get_by_id(self.current_session, state_id)
+        Get all project states for a specific task conversation.
+        This retrieves all project states that are associated with a specific task
+        """
+        return await ProjectState.get_task_conversation_project_states(
+            self.current_session, self.current_state.branch_id, task_id
+        )
 
     async def create_project(
         self,
@@ -530,6 +553,23 @@ class StateManager:
         if self.project is None:
             raise ValueError("No project loaded")
         return config.fs.workspace_root
+
+    def get_project_info(self) -> dict:
+        """
+        Get project info in the same format as _handle_project_info.
+
+        :return: Dictionary containing project info.
+        """
+        if self.project is None:
+            raise ValueError("No project loaded")
+
+        return {
+            "name": self.project.name,
+            "id": str(self.project.id),
+            "branchId": str(self.branch.id) if self.branch else None,
+            "folderName": self.project.folder_name,
+            "createdAt": self.project.created_at.isoformat() if self.project.created_at else None,
+        }
 
     async def import_files(self) -> tuple[list[File], list[File]]:
         """

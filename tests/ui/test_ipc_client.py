@@ -105,6 +105,8 @@ async def test_send_message():
             "extra_info": "test",
             "placeholder": None,
             "accessToken": None,
+            "request_id": None,
+            "route": None,
         },
         {
             "type": "exit",
@@ -115,6 +117,8 @@ async def test_send_message():
             "extra_info": None,
             "placeholder": None,
             "accessToken": None,
+            "request_id": None,
+            "route": None,
         },
     ]
 
@@ -145,6 +149,8 @@ async def test_stream():
             "extra_info": None,
             "placeholder": None,
             "accessToken": None,
+            "request_id": None,
+            "route": None,
         },
         {
             "type": "stream",
@@ -155,6 +161,8 @@ async def test_stream():
             "extra_info": None,
             "placeholder": None,
             "accessToken": None,
+            "request_id": None,
+            "route": None,
         },
         {
             "type": "exit",
@@ -165,6 +173,8 @@ async def test_stream():
             "extra_info": None,
             "placeholder": None,
             "accessToken": None,
+            "request_id": None,
+            "route": None,
         },
     ]
 

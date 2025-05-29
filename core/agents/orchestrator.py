@@ -28,6 +28,7 @@ from core.agents.wizard import Wizard
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.log import get_logger
 from core.telemetry import telemetry
+from core.ui.base import UserInterruptError
 
 log = get_logger(__name__)
 
@@ -103,7 +104,7 @@ class Orchestrator(BaseAgent, GitMixin):
 
             await self.update_stats()
             agent = self.create_agent(response)
-
+            await self.temp_logs_for_development()
             # In case where agent is a list, run all agents in parallel.
             # Only one agent type can be run in parallel at a time (for now). See handle_parallel_responses().
             if isinstance(agent, list):
@@ -140,7 +141,11 @@ class Orchestrator(BaseAgent, GitMixin):
 
             else:
                 log.debug(f"Running agent {agent.__class__.__name__} (step {self.current_state.step_index})")
-                response = await agent.run()
+                try:
+                    response = await agent.run()
+                except UserInterruptError:
+                    log.debug("User interrupted the agent!")
+                    response = AgentResponse.done(self)
 
             if response.type == ResponseType.EXIT:
                 log.debug(f"Agent {agent.__class__.__name__} requested exit")
@@ -155,6 +160,63 @@ class Orchestrator(BaseAgent, GitMixin):
 
         # TODO: rollback changes to "next" so they aren't accidentally committed?
         return True
+
+    async def temp_logs_for_development(self):
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "1",
+                    "title": "Almost there",
+                    "project_state_id": "id1",
+                    "labels": ["start", "background", "done"],
+                    "convo": [
+                        {"role": "assistant", "content": "Hey guys, how is styling coming along?"},
+                        {"role": "user", "content": "Great, we're almost done!"},
+                        {"role": "assistant", "content": "That's what I'm talking about! Keep it up!"},
+                    ],
+                }
+            ]
+        )
+
+        await asyncio.sleep(2)
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "2",
+                    "title": "Building Pythagora V2!",
+                    "project_state_id": "id2",
+                    "labels": ["e1/t1", "working"],
+                }
+            ]
+        )
+        await self.ui.send_front_logs(
+            "id4",
+            ["e1/t1", "working"],
+            "Building Pythagora V2!",
+        )
+
+        await asyncio.sleep(2)
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "2",
+                    "title": "Building Pythagora V2!",
+                    "project_state_id": "id2",
+                    "labels": ["e1/t1", "done"],
+                }
+            ]
+        )
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "3",
+                    "title": "Building Pythagora V2! Part 2",
+                    "project_state_id": "id3",
+                    "labels": ["e2/t1", "working"],
+                }
+            ]
+        )
+        await self.ui.send_front_logs("id5", ["e1/t1", "working"], "Building Pythagora V2!")
 
     async def install_dependencies(self):
         # First check if package.json exists
@@ -365,40 +427,45 @@ class Orchestrator(BaseAgent, GitMixin):
         import if needed.
         """
 
-        log.info("Checking for offline changes.")
-        modified_files = await self.state_manager.get_modified_files_with_content()
+        try:
+            log.info("Checking for offline changes.")
+            modified_files = await self.state_manager.get_modified_files_with_content()
 
-        if self.state_manager.workspace_is_empty():
-            # NOTE: this will currently get triggered on a new project, but will do
-            # nothing as there's no files in the database.
-            log.info("Detected empty workspace, restoring state from the database.")
-            await self.state_manager.restore_files()
-        elif modified_files:
-            await self.send_message(f"We found {len(modified_files)} new and/or modified files.")
-            await self.ui.send_modified_files(modified_files)
-            hint = "".join(
-                [
-                    "If you would like Pythagora to import those changes, click 'Yes'.\n",
-                    "Clicking 'No' means Pythagora will restore (overwrite) all files to the last stored state.\n",
-                ]
-            )
-            use_changes = await self.ask_question(
-                question="Would you like to keep your changes?",
-                buttons={
-                    "yes": "Yes, keep my changes",
-                    "no": "No, restore last Pythagora state",
-                },
-                buttons_only=True,
-                hint=hint,
-            )
-            if use_changes.button == "yes":
-                log.debug("Importing offline changes into Pythagora.")
-                await self.import_files()
-            else:
-                log.debug("Restoring last stored state.")
+            if self.state_manager.workspace_is_empty():
+                # NOTE: this will currently get triggered on a new project, but will do
+                # nothing as there's no files in the database.
+                log.info("Detected empty workspace, restoring state from the database.")
                 await self.state_manager.restore_files()
+            elif modified_files:
+                await self.send_message(f"We found {len(modified_files)} new and/or modified files.")
+                await self.ui.send_modified_files(modified_files)
+                hint = "".join(
+                    [
+                        "If you would like Pythagora to import those changes, click 'Yes'.\n",
+                        "Clicking 'No' means Pythagora will restore (overwrite) all files to the last stored state.\n",
+                    ]
+                )
+                use_changes = await self.ask_question(
+                    question="Would you like to keep your changes?",
+                    buttons={
+                        "yes": "Yes, keep my changes",
+                        "no": "No, restore last Pythagora state",
+                    },
+                    buttons_only=True,
+                    hint=hint,
+                )
+                if use_changes.button == "yes":
+                    log.debug("Importing offline changes into Pythagora.")
+                    await self.import_files()
+                else:
+                    log.debug("Restoring last stored state.")
+                    await self.state_manager.restore_files()
 
-        log.info("Offline changes check done.")
+            log.info("Offline changes check done.")
+        except UserInterruptError:
+            await self.state_manager.restore_files()
+            log.debug("User interrupted the offline changes check, restoring files.")
+            return
 
     async def handle_done(self, agent: BaseAgent, response: AgentResponse) -> AgentResponse:
         """
@@ -583,7 +650,10 @@ class Orchestrator(BaseAgent, GitMixin):
         return None
 
     async def init_ui(self):
-        await self.ui.send_project_root(self.state_manager.get_full_project_root())
+        project_details = self.state_manager.get_project_info()
+        await self.ui.send_project_info(
+            project_details["name"], project_details["id"], project_details["folderName"], project_details["createdAt"]
+        )
         await self.ui.loading_finished()
 
         if self.current_state.epics:

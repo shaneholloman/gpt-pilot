@@ -1,14 +1,13 @@
 import asyncio
 import json
 from enum import Enum
-from os.path import basename
 from typing import Optional, Union
 
 from pydantic import BaseModel, ValidationError
 
 from core.config import LocalIPCConfig
 from core.log import get_logger
-from core.ui.base import UIBase, UIClosedError, UISource, UserInput
+from core.ui.base import UIBase, UIClosedError, UISource, UserInput, UserInterruptError
 
 VSCODE_EXTENSION_HOST = "localhost"
 VSCODE_EXTENSION_PORT = 8125
@@ -33,7 +32,6 @@ class MessageType(str, Enum):
     RUN_COMMAND = "run_command"
     APP_LINK = "appLink"
     OPEN_FILE = "openFile"
-    PROJECT_FOLDER_NAME = "project_folder_name"
     PROJECT_STATS = "projectStats"
     HINT = "hint"
     KEY_EXPIRED = "keyExpired"
@@ -49,6 +47,19 @@ class MessageType(str, Enum):
     FILE_STATUS = "fileStatus"
     BUG_HUNTER_STATUS = "bugHunterStatus"
     EPICS_AND_TASKS = "epicsAndTasks"
+    CHAT_MESSAGE = "chatMessage"
+    START_CHAT = "startChat"
+    GET_CHAT_HISTORY = "getChatHistory"
+    PROJECT_INFO = "projectInfo"
+    KNOWLEDGE_BASE = "getKnowledgeBase"
+    PROJECT_SPECS = "getProjectSpecs"
+    TASK_CONVO = "getTaskConvo"
+    EDIT_SPECS = "editSpecs"
+    FILE_DIFF = "getFileDiff"
+    TASK_CURRENT_STATUS = "getCurrentTaskStatus"
+    TASK_ADD_NEW = "addNewTask"
+    TASK_START_OTHER = "startOtherTask"
+    CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"
     BREAKDOWN_STREAM = "breakdownStream"
@@ -57,6 +68,8 @@ class MessageType(str, Enum):
     STOP_APP = "stopApp"
     TOKEN_EXPIRED = "tokenExpired"
     USER_INPUT_HISTORY = "userInputHistory"
+    BACK_LOGS = "backLogs"
+    FRONT_LOGS = "frontLogs"
 
 
 class Message(BaseModel):
@@ -70,6 +83,8 @@ class Message(BaseModel):
     * `extra_info`: Additional information (eg. "This is a hint"), optional
     * `placeholder`: Placeholder for user input, optional
     * `access_token`: Access token for user input, optional
+    * `request_id`: Unique identifier for request-response matching, optional
+    * `route`: Route information for message routing, optional
     """
 
     type: MessageType
@@ -80,6 +95,8 @@ class Message(BaseModel):
     content: Union[str, dict, None] = None
     placeholder: Optional[str] = None
     accessToken: Optional[str] = None
+    request_id: Optional[str] = None
+    route: Optional[str] = None
 
     def to_bytes(self) -> bytes:
         """
@@ -196,7 +213,12 @@ class IPCClientUI(UIBase):
         self.reader = None
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if not self.writer:
             return
@@ -209,6 +231,7 @@ class IPCClientUI(UIBase):
             content=chunk,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
+            route=route,
         )
 
     async def send_user_input_history(
@@ -367,6 +390,8 @@ class IPCClientUI(UIBase):
         answer = response.content.strip()
         if answer == "exitPythagoraCore":
             raise KeyboardInterrupt()
+        if answer == "interrupt":
+            raise UserInterruptError()
 
         if not answer and default:
             answer = default
@@ -487,10 +512,15 @@ class IPCClientUI(UIBase):
             },
         )
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         await self._send(
-            MessageType.PROJECT_FOLDER_NAME,
-            content=basename(path),
+            MessageType.PROJECT_INFO,
+            content={
+                "name": name,
+                "id": project_id,
+                "folderName": folder_name,
+                "createdAt": created_at,
+            },
         )
 
     async def start_important_stream(self):
@@ -603,6 +633,44 @@ class IPCClientUI(UIBase):
 
     async def import_project(self, project_dir: str):
         await self._send(MessageType.IMPORT_PROJECT, content={"project_dir": project_dir})
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        """
+        Send background conversation data to the UI.
+
+        :param items: List of conversation objects, each containing:
+                      - id: string
+                      - project_state_id: string
+                      - labels: array of strings
+                      - title: string
+                      - convo: array of objects
+        """
+        await self._send(MessageType.BACK_LOGS, content={"items": items})
+
+    async def send_front_logs(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+    ):
+        """
+        Send front conversation data to the UI.
+
+        :param project_state_id: Project state ID.
+        :param labels: Array of label strings.
+        :param title: Conversation title.
+        """
+        await self._send(
+            MessageType.FRONT_LOGS,
+            content={
+                "project_state_id": project_state_id,
+                "labels": labels,
+                "title": title,
+            },
+        )
 
 
 __all__ = ["IPCClientUI"]
