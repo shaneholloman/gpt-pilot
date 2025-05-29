@@ -167,9 +167,9 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
     :return: True if the application ran successfully, False otherwise.
     """
 
-    if args.project or args.branch or args.step:
+    if args.project or args.branch or args.step or args.project_state_id:
         telemetry.set("is_continuation", True)
-        success = await load_project(sm, args.project, args.branch, args.step)
+        success = await load_project(sm, args.project, args.branch, args.step, args.project_state_id)
         if not success:
             return False
 

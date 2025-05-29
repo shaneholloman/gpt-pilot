@@ -215,6 +215,9 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--project", help="Load a specific project", type=UUID, required=False)
     parser.add_argument("--branch", help="Load a specific branch", type=UUID, required=False)
     parser.add_argument("--step", help="Load a specific step in a project/branch", type=int, required=False)
+    parser.add_argument(
+        "--project-state-id", help="Load a specific project state in a project/branch", type=UUID, required=False
+    )
     parser.add_argument("--delete", help="Delete a specific project", type=UUID, required=False)
     parser.add_argument(
         "--llm-endpoint",
@@ -743,6 +746,7 @@ async def load_project(
     project_id: Optional[UUID] = None,
     branch_id: Optional[UUID] = None,
     step_index: Optional[int] = None,
+    project_state_id: Optional[UUID] = None,
 ) -> bool:
     """
     Load a project from the database.
@@ -756,7 +760,9 @@ async def load_project(
     step_txt = f" step {step_index}" if step_index else ""
 
     if branch_id:
-        project_state = await sm.load_project(branch_id=branch_id, step_index=step_index)
+        project_state = await sm.load_project(
+            branch_id=branch_id, step_index=step_index, project_state_id=project_state_id
+        )
         if project_state:
             return True
         else:
@@ -764,7 +770,9 @@ async def load_project(
             return False
 
     elif project_id:
-        project_state = await sm.load_project(project_id=project_id, step_index=step_index)
+        project_state = await sm.load_project(
+            project_id=project_id, step_index=step_index, project_state_id=project_state_id
+        )
         if project_state:
             return True
         else:

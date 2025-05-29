@@ -54,6 +54,7 @@ def test_parse_arguments(mock_ArgumentParser):
         "--delete",
         "--branch",
         "--step",
+        "--project-state-id",
         "--llm-endpoint",
         "--llm-key",
         "--import-v0",
@@ -234,12 +235,14 @@ async def test_list_projects(mock_StateManager, capsys):
 @pytest.mark.parametrize(
     ("args", "kwargs", "retval"),
     [
-        (["abc", None, None], dict(project_id="abc", step_index=None), True),
-        (["abc", None, None], dict(project_id="abc", step_index=None), False),
-        (["abc", "def", None], dict(branch_id="def", step_index=None), True),
-        (["abc", "def", None], dict(branch_id="def", step_index=None), False),
-        (["abc", None, 123], dict(project_id="abc", step_index=123), True),
-        (["abc", "def", 123], dict(branch_id="def", step_index=123), False),
+        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), True),
+        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), False),
+        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), True),
+        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), False),
+        (["abc", None, 123, None], dict(project_id="abc", step_index=123, project_state_id=None), True),
+        (["abc", "def", 123, None], dict(branch_id="def", step_index=123, project_state_id=None), False),
+        (["abc", None, None, "xyz"], dict(project_id="abc", step_index=None, project_state_id="xyz"), True),
+        (["abc", "def", None, "xyz"], dict(branch_id="def", step_index=None, project_state_id="xyz"), False),
     ],
 )
 async def test_load_project(args, kwargs, retval, capsys):
@@ -279,6 +282,7 @@ def test_init(tmp_path):
         (["--project", "ca7a0cc9-767f-472a-aefb-0c8d3377c9bc"], False, False),
         (["--branch", "ca7a0cc9-767f-472a-aefb-0c8d3377c9bc"], False, False),
         (["--step", "123"], False, False),
+        (["--project-state", "ca7a0cc9-767f-472a-aefb-0c8d3377c9bc"], False, False),
         ([], True, True),
     ],
 )
