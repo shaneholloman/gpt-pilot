@@ -126,6 +126,15 @@ class StateManager:
     async def get_project_state_for_convo_id(self, convo_id) -> Optional["ProjectState"]:
         return await ChatConvo.get_project_state_for_convo_id(self.current_session, convo_id)
 
+    async def get_task_conversation_project_states(self, task_id: UUID) -> Optional[list[ProjectState]]:
+        """
+        Get all project states for a specific task conversation.
+        This retrieves all project states that are associated with a specific task
+        """
+        return await ProjectState.get_task_conversation_project_states(
+            self.current_session, self.current_state.branch_id, task_id
+        )
+
     async def create_project(
         self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
     ) -> Project:
@@ -540,6 +549,7 @@ class StateManager:
         return {
             "name": self.project.name,
             "id": str(self.project.id),
+            "branchId": str(self.branch.id) if self.branch else None,
             "folderName": self.project.folder_name,
             "createdAt": self.project.created_at.isoformat() if self.project.created_at else None,
         }
