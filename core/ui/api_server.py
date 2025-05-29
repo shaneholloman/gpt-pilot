@@ -8,8 +8,15 @@ from sqlalchemy import select
 
 from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
+from core.cli.helpers import (
+    calculate_pr_changes,
+    change_order_of_task,
+    find_first_todo_task_index,
+    find_task_by_id,
+    insert_new_task,
+    load_convo,
+)
 from core.config.actions import CM_UPDATE_FILES
-from core.cli.helpers import change_order_of_task, find_first_todo_task_index, find_task_by_id, insert_new_task, calculate_pr_changes, load_convo
 from core.db.models.chat_convo import ChatConvo
 from core.db.models.chat_message import ChatMessage
 from core.db.models.project_state import TaskStatus
@@ -475,17 +482,21 @@ class IPCServer:
 
     async def _handle_project_specs(self, message: Message, writer: asyncio.StreamWriter):
         try:
-            state = self.state_manager.current_state
+            current_state = self.state_manager.current_state
+            next_state = self.state_manager.next_state
 
-            if not state:
-                await self._send_error(writer, "Project state not found", message.request_id)
-                return
+            if next_state.specification and next_state.specification.description:
+                project_state_id = next_state.id
+                project_specification = next_state.specification.description
+            else:
+                project_state_id = current_state.id
+                project_specification = current_state.specification.description
 
             response = Message(
                 type=MessageType.PROJECT_SPECS,
                 content={
-                    "projectStateId": state.id,
-                    "projectSpecification": state.specification.description,
+                    "projectStateId": project_state_id,
+                    "projectSpecification": project_specification,
                 },
                 request_id=message.request_id,
             )
