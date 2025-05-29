@@ -154,7 +154,7 @@ class Orchestrator(BaseAgent, GitMixin):
             if response.type == ResponseType.DONE:
                 response = await self.handle_done(agent, response)
                 log.debug(f"Agent {agent.__class__.__name__} returned")
-                if agent.agent_type == "spec-writer":
+                if not isinstance(agent, list) and agent.agent_type == "spec-writer":
                     project_details = self.state_manager.get_project_info()
                     await self.ui.send_project_info(
                         project_details["name"],
