@@ -56,6 +56,9 @@ class ChatWithBreakdownMixin:
                 }
             )
 
+            if self.state_manager.auto_confirm_breakdown:
+                break
+
             chat = await self.ask_question(
                 MIX_BREAKDOWN_CHAT_PROMPT,
                 buttons={"yes": "Yes, looks good!"},

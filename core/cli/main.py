@@ -240,6 +240,8 @@ async def async_main(
         if not server_started:
             log.warning(f"Failed to start API server on {api_host}:{api_port}")
 
+    if not args.auto_confirm_breakdown:
+        sm.auto_confirm_breakdown = False
     ui_started = await ui.start()
     if not ui_started:
         if api_server:

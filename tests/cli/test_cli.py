@@ -61,6 +61,7 @@ def test_parse_arguments(mock_ArgumentParser):
         "--extension-version",
         "--use-git",
         "--access-token",
+        "--no-auto-confirm-breakdown",
     }
 
     parser.parse_args.assert_called_once_with()
