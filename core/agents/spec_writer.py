@@ -72,6 +72,21 @@ class SpecWriter(BaseAgent):
         )
         description = user_description.text.strip()
 
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "setup",
+                    "title": "",
+                    "project_state_id": "setup",
+                    "labels": [""],
+                    "convo": [
+                        {"role": "assistant", "content": "What do you want to build?"},
+                        {"role": "user", "content": description},
+                    ],
+                }
+            ]
+        )
+
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
         convo = AgentConvo(self).template(
             "build_full_specification",

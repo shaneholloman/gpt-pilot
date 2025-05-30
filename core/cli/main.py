@@ -134,6 +134,18 @@ async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
         full_screen=True,
     )
 
+    await ui.send_back_logs(
+        [
+            {
+                "id": "setup",
+                "title": "",
+                "project_state_id": "setup",
+                "labels": [""],
+                "convo": [{"role": "assistant", "content": "What do you want to build?"}],
+            }
+        ]
+    )
+
     if stack.button == "other":
         language = await ui.ask_question(
             "What language you want to use?",
