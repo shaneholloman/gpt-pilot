@@ -394,7 +394,7 @@ class StateManager:
         :param request_log: The request log to log.
         """
         # removed logging of LLM requests
-        if self.save_llm_requests:
+        if self.session_manager.save_llm_requests:
             async with self.db_blocker():
                 try:
                     telemetry.record_llm_request(

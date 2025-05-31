@@ -31,7 +31,7 @@ class SessionManager:
         self.SessionClass = async_sessionmaker(self.engine, expire_on_commit=False)
         self.session = None
         self.recursion_depth = 0
-
+        self.save_llm_requests = config.save_llm_requests
         event.listen(self.engine.sync_engine, "connect", self._on_connect)
 
     def _on_connect(self, dbapi_connection, _):
