@@ -242,6 +242,8 @@ async def async_main(
 
     if not args.auto_confirm_breakdown:
         sm.auto_confirm_breakdown = False
+    if args.save_llm_req:
+        sm.save_llm_requests = True
     ui_started = await ui.start()
     if not ui_started:
         if api_server:

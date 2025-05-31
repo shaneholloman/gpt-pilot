@@ -248,6 +248,12 @@ def parse_arguments() -> Namespace:
         dest="auto_confirm_breakdown",
         required=False,
     )
+    parser.add_argument(
+        "--save-llm-req",
+        action="store_true",
+        default=False,
+        help="Enable saving LLM requests to the database",
+    )
     parser.add_argument("--access-token", help="Access token", required=False)
     parser.add_argument(
         "--enable-api-server",
