@@ -531,6 +531,12 @@ class UIBase:
         """
         raise NotImplementedError()
 
+    async def clear_main_logs(self):
+        """
+        Send message to clear main logs.
+        """
+        raise NotImplementedError()
+
 
 pythagora_source = UISource("Pythagora", "pythagora")
 success_source = UISource("Congratulations", "success")
