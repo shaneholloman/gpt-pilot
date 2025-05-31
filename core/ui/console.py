@@ -240,7 +240,7 @@ class PlainConsoleUI(UIBase):
     ):
         pass
 
-    async def send_front_logs(
+    async def send_front_logs_headers(
         self,
         project_state_id: str,
         labels: list[str],

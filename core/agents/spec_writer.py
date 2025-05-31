@@ -69,6 +69,7 @@ class SpecWriter(BaseAgent):
             "Please describe the app you want to build.",
             allow_empty=False,
             full_screen=True,
+            verbose=True,
         )
         description = user_description.text.strip()
 
@@ -98,6 +99,11 @@ class SpecWriter(BaseAgent):
                 }
             ]
         )
+
+        await self.ui.send_front_logs_headers("setup", ["E1 / T1", "Writing Specification", "working"], "")
+
+        await self.ui.clear_main_logs()
+        await self.ui.send_message("Write specification", source=self.ui_source, extra_info="spec_writer")
 
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
         convo = AgentConvo(self).template(

@@ -104,7 +104,7 @@ class Orchestrator(BaseAgent, GitMixin):
 
             await self.update_stats()
             agent = self.create_agent(response)
-            await self.temp_logs_for_development()
+            # await self.temp_logs_for_development()
             # In case where agent is a list, run all agents in parallel.
             # Only one agent type can be run in parallel at a time (for now). See handle_parallel_responses().
             if isinstance(agent, list):
@@ -195,7 +195,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 }
             ]
         )
-        await self.ui.send_front_logs(
+        await self.ui.send_front_logs_headers (
             "id4",
             ["e1/t1", "working"],
             "Building Pythagora V2!",
@@ -222,7 +222,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 }
             ]
         )
-        await self.ui.send_front_logs("id5", ["e1/t1", "working"], "Building Pythagora V2!")
+        await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
 
     async def install_dependencies(self):
         # First check if package.json exists

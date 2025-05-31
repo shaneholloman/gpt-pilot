@@ -69,7 +69,8 @@ class MessageType(str, Enum):
     TOKEN_EXPIRED = "tokenExpired"
     USER_INPUT_HISTORY = "userInputHistory"
     BACK_LOGS = "backLogs"
-    FRONT_LOGS = "frontLogs"
+    LOAD_FRONT_LOGS = "loadFrontLogs"
+    FRONT_LOGS_HEADERS = "frontLogsHeaders"
     CLEAR_MAIN_LOGS = "clearMainLogs"
 
 
@@ -641,14 +642,14 @@ class IPCClientUI(UIBase):
     ):
         await self._send(MessageType.BACK_LOGS, content={"items": items})
 
-    async def send_front_logs(
+    async def send_front_logs_headers(
         self,
         project_state_id: str,
         labels: list[str],
         title: str,
     ):
         await self._send(
-            MessageType.FRONT_LOGS,
+            MessageType.FRONT_LOGS_HEADERS,
             content={
                 "project_state_id": project_state_id,
                 "labels": labels,
@@ -660,6 +661,17 @@ class IPCClientUI(UIBase):
         await self._send(
             MessageType.CLEAR_MAIN_LOGS,
         )
+
+    async def load_front_logs(
+        self,
+        items: list[object],
+    ):
+        """
+        Load front conversation data to the UI.
+
+        :param items: Array of front logs.
+        """
+        await self._send(MessageType.LOAD_FRONT_LOGS, content={"items": items})
 
 
 __all__ = ["IPCClientUI"]
