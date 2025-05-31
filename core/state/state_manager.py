@@ -393,20 +393,27 @@ class StateManager:
 
         :param request_log: The request log to log.
         """
-        # removed logging of LLM requests
-        if self.session_manager.save_llm_requests:
-            async with self.db_blocker():
-                try:
-                    telemetry.record_llm_request(
-                        request_log.prompt_tokens + request_log.completion_tokens,
-                        request_log.duration,
-                        request_log.status != LLMRequestStatus.SUCCESS,
-                    )
-                    LLMRequest.from_request_log(self.current_state, agent, request_log)
+        # Always record telemetry regardless of save_llm_requests setting
+        try:
+            telemetry.record_llm_request(
+                request_log.prompt_tokens + request_log.completion_tokens,
+                request_log.duration,
+                request_log.status != LLMRequestStatus.SUCCESS,
+            )
+        except Exception as e:
+            if self.ui:
+                log.error(f"An error occurred recording telemetry: {e}")
 
-                except Exception as e:
-                    if self.ui:
-                        await self.ui.send_message(f"An error occurred: {e}")
+        # Only save to database if configured to do so
+        if not self.session_manager.save_llm_requests:
+            return
+
+        async with self.db_blocker():
+            try:
+                LLMRequest.from_request_log(self.current_state, agent, request_log)
+            except Exception as e:
+                if self.ui:
+                    await self.ui.send_message(f"An error occurred: {e}")
 
     async def log_user_input(self, question: str, response: UserInputData):
         """
