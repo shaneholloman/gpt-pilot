@@ -111,7 +111,8 @@
   },
   "db": {
     "url": "sqlite+aiosqlite:///data/database/pythagora.db",
-    "debug_sql": false
+    "debug_sql": false,
+    "save_llm_requests": false
   },
   "ui": {
     "type": "plain"

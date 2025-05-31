@@ -70,6 +70,7 @@ class MessageType(str, Enum):
     USER_INPUT_HISTORY = "userInputHistory"
     BACK_LOGS = "backLogs"
     FRONT_LOGS = "frontLogs"
+    CLEAR_MAIN_LOGS = "clearMainLogs"
 
 
 class Message(BaseModel):
@@ -638,16 +639,6 @@ class IPCClientUI(UIBase):
         self,
         items: list[dict],
     ):
-        """
-        Send background conversation data to the UI.
-
-        :param items: List of conversation objects, each containing:
-                      - id: string
-                      - project_state_id: string
-                      - labels: array of strings
-                      - title: string
-                      - convo: array of objects
-        """
         await self._send(MessageType.BACK_LOGS, content={"items": items})
 
     async def send_front_logs(
@@ -656,13 +647,6 @@ class IPCClientUI(UIBase):
         labels: list[str],
         title: str,
     ):
-        """
-        Send front conversation data to the UI.
-
-        :param project_state_id: Project state ID.
-        :param labels: Array of label strings.
-        :param title: Conversation title.
-        """
         await self._send(
             MessageType.FRONT_LOGS,
             content={
@@ -670,6 +654,11 @@ class IPCClientUI(UIBase):
                 "labels": labels,
                 "title": title,
             },
+        )
+
+    async def clear_main_logs(self):
+        await self._send(
+            MessageType.CLEAR_MAIN_LOGS,
         )
 
 

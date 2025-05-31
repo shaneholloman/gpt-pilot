@@ -243,6 +243,7 @@ class DBConfig(_StrictModel):
         description="Database connection URL",
     )
     debug_sql: bool = Field(False, description="Log all SQL queries to the console")
+    save_llm_requests: bool = Field(False, description="Save LLM requests to db")
 
     @field_validator("url")
     @classmethod

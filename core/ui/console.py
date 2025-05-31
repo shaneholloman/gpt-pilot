@@ -248,5 +248,8 @@ class PlainConsoleUI(UIBase):
     ):
         pass
 
+    async def clear_main_logs(self):
+        pass
+
 
 __all__ = ["PlainConsoleUI"]
