@@ -65,6 +65,8 @@ class SpecWriter(BaseAgent):
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_DESCRIPTION})
 
+        await self.ui.clear_main_logs()
+
         user_description = await self.ask_question(
             "Please describe the app you want to build.",
             allow_empty=False,
@@ -103,7 +105,10 @@ class SpecWriter(BaseAgent):
         await self.ui.send_front_logs_headers("setup", ["E1 / T1", "Writing Specification", "working"], "")
 
         await self.ui.clear_main_logs()
-        await self.ui.send_message("Write specification", source=self.ui_source, extra_info="spec_writer")
+        await self.send_message(
+            "## Write specification\n\nPythagora is generating a detailed specification for app based on your input.",
+            # project_state_id="setup",
+        )
 
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
         convo = AgentConvo(self).template(
@@ -174,6 +179,30 @@ class SpecWriter(BaseAgent):
             llm_assisted_description = await llm(convo)
 
             convo = convo.assistant(llm_assisted_description)
+
+        await self.ui.clear_main_logs()
+        await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "working"], "Building frontend")
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "specs_0",
+                    "title": "Writing Specification",
+                    "project_state_id": "setup",
+                    "labels": ["E1 / T1", "Specs", "done"],
+                    "disallow_reload": True,
+                }
+            ]
+        )
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": "fe_0",
+                    "title": "Building frontend",
+                    "project_state_id": "fe_0",
+                    "labels": ["E2 / T1", "Frontend", "working"],
+                }
+            ]
+        )
 
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME)
         convo = AgentConvo(self).template(
