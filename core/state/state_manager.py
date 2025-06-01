@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Row, inspect, select
+from sqlalchemy.exc import PendingRollbackError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from core.config import FileSystemType, get_config
@@ -320,6 +321,14 @@ class StateManager:
     async def commit_with_retry(self):
         try:
             await self.current_session.commit()
+        except PendingRollbackError as e:
+            log.warning(f"Session in pending rollback state, rolling back and retrying: {str(e)}")
+            # When PendingRollbackError occurs, we need to rollback the session
+            # and re-add the next_state before retrying
+            await self.current_session.rollback()
+            if self.next_state:
+                self.current_session.add(self.next_state)
+            raise  # Re-raise to trigger retry
         except Exception as e:
             log.error(f"Commit failed: {str(e)}")
             raise
