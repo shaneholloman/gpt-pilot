@@ -348,7 +348,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         #     buttons={"done_editing": "I'm done editing, the plan looks good"},
         #     default="done_editing",
         #     buttons_only=True,
-        #     extra_info="edit_plan",
+        #     extra_info={"edit_plan": True},
         # )
         #
         # self.update_epics_and_tasks(response.text)

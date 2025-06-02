@@ -169,7 +169,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
             buttons={"done": "I am done testing"},
             buttons_only=True,
             default="continue",
-            extra_info="restart_app",
+            extra_info={"restart_app": True},
             hint="Instructions for testing:\n\n" + test_instructions,
         )
 
@@ -207,7 +207,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 BH_ADDITIONAL_FEEDBACK,
                 buttons=buttons,
                 default="continue",
-                extra_info="collect_logs",
+                extra_info={"collect_logs": True},
                 hint="Instructions for testing:\n\n" + test_instructions,
             )
 

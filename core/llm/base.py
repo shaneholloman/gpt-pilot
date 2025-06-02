@@ -305,7 +305,7 @@ class BaseLLMClient:
                                 "",
                                 buttons={},
                                 buttons_only=True,
-                                extra_info="not_enough_tokens",
+                                extra_info={"not_enough_tokens": True},
                                 source=pythagora_source,
                             )
                             sys.exit(0)
@@ -314,7 +314,7 @@ class BaseLLMClient:
                             #     'Not enough tokens left, please top up your account and press "Continue".',
                             #     buttons={"continue": "Continue", "exit": "Exit"},
                             #     buttons_only=True,
-                            #     extra_info="not_enough_tokens",
+                            #     extra_info={"not_enough_tokens": True},
                             #     source=pythagora_source,
                             # )
                             # if user_response.button == "continue":

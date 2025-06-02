@@ -273,7 +273,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         is_loop = False
         should_iterate = True
         should_redo = False
-        extra_info = "restart_app" if not self.current_state.iterations else None
+        extra_info = {"restart_app": True} if not self.current_state.iterations else None
 
         while True:
             await self.ui.send_project_stage({"stage": ProjectStage.GET_USER_FEEDBACK})
@@ -326,7 +326,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 await self.ui.send_project_stage({"stage": ProjectStage.DESCRIBE_ISSUE})
                 user_description = await self.ask_question(
                     TS_DESCRIBE_ISSUE,
-                    extra_info="collect_logs",
+                    extra_info={"collect_logs": True},
                     buttons={"back": "Back"},
                 )
                 if user_description.button == "back":

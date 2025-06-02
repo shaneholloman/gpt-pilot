@@ -22,8 +22,6 @@ class MessageType(str, Enum):
     EXIT = "exit"
     STREAM = "stream"
     VERBOSE = "verbose"
-    BUTTONS = "button"
-    BUTTONS_ONLY = "buttons-only"
     RESPONSE = "response"
     USER_INPUT_REQUEST = "user_input_request"
     INFO = "info"
@@ -33,9 +31,7 @@ class MessageType(str, Enum):
     APP_LINK = "appLink"
     OPEN_FILE = "openFile"
     PROJECT_STATS = "projectStats"
-    HINT = "hint"
     KEY_EXPIRED = "keyExpired"
-    INPUT_PREFILL = "inputPrefill"
     LOADING_FINISHED = "loadingFinished"
     PROJECT_DESCRIPTION = "projectDescription"
     FEATURES_LIST = "featuresList"
@@ -93,7 +89,7 @@ class Message(BaseModel):
     category: Optional[str] = None
     full_screen: Optional[bool] = False
     project_state_id: Optional[str] = None
-    extra_info: Optional[str] = None
+    extra_info: Optional[dict] = None
     content: Union[str, dict, None] = None
     placeholder: Optional[str] = None
     accessToken: Optional[str] = None
@@ -255,7 +251,7 @@ class IPCClientUI(UIBase):
         *,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
     ):
         if not self.writer:
             return
@@ -321,7 +317,7 @@ class IPCClientUI(UIBase):
         initial_text: Optional[str] = None,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
         placeholder: Optional[str] = None,
     ) -> UserInput:
         if not self.writer:
@@ -329,23 +325,26 @@ class IPCClientUI(UIBase):
 
         category = source.type_name if source else None
 
+        if not extra_info:
+            extra_info = {}
+
         if hint:
-            await self._send(
-                MessageType.HINT,
-                content=hint,
-                category=category,
-                project_state_id=project_state_id,
-                extra_info=extra_info,
-            )
+            extra_info["hint"] = hint
         elif verbose:
-            await self._send(
-                MessageType.VERBOSE,
-                content=question,
-                category=category,
-                project_state_id=project_state_id,
-                # DO NOT SEND extra_info HERE! It is enough to send it with user_input_request
-                # extra_info=extra_info,
-            )
+            extra_info["verbose"] = question
+
+        if buttons:
+            buttons_str = "/".join(buttons.values())
+            extra_info["buttons"] = buttons_str
+            extra_info["buttons_only"] = False
+            if buttons_only:
+                extra_info["buttons_only"] = True
+
+        if initial_text:
+            extra_info["initial_text"] = initial_text
+
+        if full_screen:
+            extra_info["full_screen"] = True
 
         await self._send(
             MessageType.USER_INPUT_REQUEST,
@@ -355,35 +354,6 @@ class IPCClientUI(UIBase):
             extra_info=extra_info,
             placeholder=placeholder,
         )
-        if buttons:
-            buttons_str = "/".join(buttons.values())
-            if buttons_only:
-                await self._send(
-                    MessageType.BUTTONS_ONLY,
-                    content=buttons_str,
-                    category=category,
-                    project_state_id=project_state_id,
-                    full_screen=full_screen,
-                    extra_info=extra_info,
-                )
-            else:
-                await self._send(
-                    MessageType.BUTTONS,
-                    content=buttons_str,
-                    category=category,
-                    project_state_id=project_state_id,
-                    full_screen=full_screen,
-                    extra_info=extra_info,
-                )
-        if initial_text:
-            # FIXME: add this to base and console and document it after merging with hint PR
-            await self._send(
-                MessageType.INPUT_PREFILL,
-                content=initial_text,
-                category=category,
-                project_state_id=project_state_id,
-                extra_info=extra_info,
-            )
 
         response = await self._receive()
 
