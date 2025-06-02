@@ -577,9 +577,9 @@ async def load_convo(
                             next_state = project_states[i + 1] if i + 1 < len(project_states) else None
                             if next_state is not None:
                                 task = find_first_todo_task(next_state.tasks)
-                                if task.get("test_instructions", None) is not None:
+                                if task and task.get("test_instructions", None) is not None:
                                     convo_el["test_instructions"] = task["test_instructions"]
-                                if task.get("instructions", None) is not None:
+                                if task and task.get("instructions", None) is not None:
                                     convo_el["task_breakdown"] = task["instructions"]
                         # skip parsing that questions and its answers due to the fact that we do not keep states inside breakdown convo
                         break
@@ -621,12 +621,13 @@ async def load_convo(
                             convo_el["description"] = si["description"]
 
             elif state.action == DEV_TASK_BREAKDOWN.format(task_counter):
-                task = state.tasks[task_counter - 1]
-                if task.get("description", None) is not None:
-                    convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
+                if state.tasks and len(state.tasks) >= task_counter:
+                    task = state.tasks[task_counter - 1]
+                    if task.get("description", None) is not None:
+                        convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
 
-                if task.get("instructions", None) is not None:
-                    convo_el["task_breakdown"] = task["instructions"]
+                    if task.get("instructions", None) is not None:
+                        convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == TC_TASK_DONE.format(task_counter):
                 if state.tasks:
@@ -635,9 +636,10 @@ async def load_convo(
                         convo_el["task_description"] = f"Task #{task_counter} - " + next_task["description"]
 
             elif state.action == DEV_TASK_START:
-                task = state.tasks[task_counter - 1]
-                if task.get("instructions", None) is not None:
-                    convo_el["task_breakdown"] = task["instructions"]
+                if state.tasks and len(state.tasks) >= task_counter:
+                    task = state.tasks[task_counter - 1]
+                    if task.get("instructions", None) is not None:
+                        convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == CM_UPDATE_FILES:
                 files_dict = {}
