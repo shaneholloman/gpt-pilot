@@ -189,6 +189,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         await print_convo(ui, convo)
 
     else:
+        await ui.send_message("Starting Pythagora ...", source=pythagora_source)
         success = await start_new_project(sm, ui)
         if not success:
             return False

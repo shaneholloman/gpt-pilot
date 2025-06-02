@@ -342,5 +342,5 @@ async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     success = await async_main(ui, db, args)
 
     assert success is False
-    ui.send_message.assert_called_once()
+    assert ui.send_message.call_count == 2
     assert "test error" in ui.send_message.call_args[0][0]
