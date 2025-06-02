@@ -153,6 +153,7 @@ class StateManager:
         """
         session = await self.session_manager.start()
         project = Project(name=name, project_type=project_type, folder_name=folder_name)
+        project.id = uuid4()
         branch = Branch(project=project)
         state = ProjectState.create_initial_state(branch)
         session.add(project)
