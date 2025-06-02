@@ -168,21 +168,21 @@ class Orchestrator(BaseAgent, GitMixin):
         return True
 
     async def temp_logs_for_development(self):
-        await self.ui.send_back_logs(
-            [
-                {
-                    "id": "1",
-                    "title": "Almost there",
-                    "project_state_id": "id1",
-                    "labels": ["start", "background", "done"],
-                    "convo": [
-                        {"role": "assistant", "content": "Hey guys, how is styling coming along?"},
-                        {"role": "user", "content": "Great, we're almost done!"},
-                        {"role": "assistant", "content": "That's what I'm talking about! Keep it up!"},
-                    ],
-                }
-            ]
-        )
+        await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
+        # await self.ui.send_back_logs(
+        #     [
+        #         {
+        #             "id": "1",
+        #             "title": "Almost there",
+        #             "project_state_id": "id1",
+        #             "labels": ["start", "background", "done"],
+        #             "convo": [
+        #                 {"role": "assistant", "content": "-----------------"},
+        #             ],
+        #         }
+        #     ]
+        # )
+        return
 
         await asyncio.sleep(2)
         await self.ui.send_back_logs(
@@ -195,7 +195,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 }
             ]
         )
-        await self.ui.send_front_logs(
+        await self.ui.send_front_logs_headers(
             "id4",
             ["e1/t1", "working"],
             "Building Pythagora V2!",
@@ -222,7 +222,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 }
             ]
         )
-        await self.ui.send_front_logs("id5", ["e1/t1", "working"], "Building Pythagora V2!")
+        await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
 
     async def install_dependencies(self):
         # First check if package.json exists
