@@ -42,6 +42,29 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.set_app_details()
             finished = await self.iterate_frontend()
             if finished is None:
+                await self.ui.clear_main_logs()
+                await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
+                await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
+                await self.ui.send_back_logs(
+                    [
+                        {
+                            "id": "fe_0",
+                            "title": "Building frontend",
+                            "project_state_id": "fe_0",
+                            "labels": ["E2 / T1", "Frontend", "done"],
+                        }
+                    ]
+                )
+                await self.ui.send_back_logs(
+                    [
+                        {
+                            "id": "be_0",
+                            "title": "Setting up backend",
+                            "project_state_id": self.next_state.id,
+                            "labels": ["E2 / T2", "Backend setup", "working"],
+                        }
+                    ]
+                )
                 return AgentResponse.exit(self)
 
         return await self.end_frontend_iteration(finished)
