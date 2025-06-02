@@ -12,7 +12,6 @@ from core.config import TECH_LEAD_EPIC_BREAKDOWN, TECH_LEAD_PLANNING
 from core.config.actions import (
     TL_CREATE_INITIAL_EPIC,
     TL_CREATE_PLAN,
-    TL_EDIT_DEV_PLAN,
     TL_INITIAL_PROJECT_NAME,
     TL_START_FEATURE,
 )
@@ -343,16 +342,16 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             self.next_state.tasks,
         )
 
-        await self.ui.send_project_stage({"stage": ProjectStage.OPEN_PLAN})
-        response = await self.ask_question(
-            TL_EDIT_DEV_PLAN,
-            buttons={"done_editing": "I'm done editing, the plan looks good"},
-            default="done_editing",
-            buttons_only=True,
-            extra_info="edit_plan",
-        )
-
-        self.update_epics_and_tasks(response.text)
+        # await self.ui.send_project_stage({"stage": ProjectStage.OPEN_PLAN})
+        # response = await self.ask_question(
+        #     TL_EDIT_DEV_PLAN,
+        #     buttons={"done_editing": "I'm done editing, the plan looks good"},
+        #     default="done_editing",
+        #     buttons_only=True,
+        #     extra_info="edit_plan",
+        # )
+        #
+        # self.update_epics_and_tasks(response.text)
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
