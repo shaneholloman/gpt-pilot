@@ -53,7 +53,7 @@ class BaseAgent:
         """Next state of the project (write-only)."""
         return self.state_manager.next_state
 
-    async def send_message(self, message: str, extra_info: Optional[str] = None):
+    async def send_message(self, message: str, extra_info: Optional[dict] = None):
         """
         Send a message to the user.
 
@@ -79,7 +79,7 @@ class BaseAgent:
         hint: Optional[str] = None,
         verbose: bool = True,
         initial_text: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
         placeholder: Optional[str] = None,
     ) -> UserInput:
         """

@@ -51,7 +51,7 @@ class PlainConsoleUI(UIBase):
         *,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
     ):
         if source:
             print(f"[{source}] {message}")
@@ -95,7 +95,7 @@ class PlainConsoleUI(UIBase):
         initial_text: Optional[str] = None,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
         placeholder: Optional[str] = None,
     ) -> UserInput:
         if source:
