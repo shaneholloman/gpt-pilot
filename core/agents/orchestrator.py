@@ -168,7 +168,7 @@ class Orchestrator(BaseAgent, GitMixin):
         return True
 
     async def temp_logs_for_development(self):
-        await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
+        # await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
         # await self.ui.send_back_logs(
         #     [
         #         {

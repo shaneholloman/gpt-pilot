@@ -72,6 +72,9 @@ class SpecWriter(BaseAgent):
             allow_empty=False,
             full_screen=True,
             verbose=True,
+            extra_info={
+                "chat_section_tip": "\"We highly recommend watching <a href='https://youtube.com'>Crash Course</a> on Pythagora.\""
+            }
         )
         description = user_description.text.strip()
 
@@ -116,7 +119,7 @@ class SpecWriter(BaseAgent):
             initial_prompt=description,
         )
 
-        await self.ui.start_important_stream()
+        # await self.ui.start_important_stream()
         llm_assisted_description = await llm(convo)
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
@@ -170,12 +173,16 @@ class SpecWriter(BaseAgent):
                 allow_empty=False,
             )
 
+            await self.send_message(
+                "## Refining specification\n\nPythagora is refining the specs based on your input.",
+                # project_state_id="setup",
+            )
             convo = convo.template("add_to_specification", user_message=user_add_to_spec.text.strip())
 
             if len(convo.messages) > 6:
                 convo.slice(1, 4)
 
-            await self.ui.start_important_stream()
+            # await self.ui.start_important_stream()
             llm_assisted_description = await llm(convo)
 
             convo = convo.assistant(llm_assisted_description)
