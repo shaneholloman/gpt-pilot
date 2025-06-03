@@ -1,7 +1,6 @@
 import asyncio
 import os.path
 import re
-import sys
 import traceback
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
@@ -143,7 +142,7 @@ class StateManager:
         self,
         name: Optional[str] = "temp-project",
         project_type: Optional[str] = "node",
-        folder_name: Optional[str] = "temp-project" if "pytest" not in sys.modules else None,
+        folder_name: Optional[str] = "temp-project",
     ) -> Project:
         """
         Create a new project and set it as the current one.
@@ -162,10 +161,6 @@ class StateManager:
         # even for a new project, eg. offline changes check and stats updating
         await state.awaitable_attrs.files
 
-        is_test = "pytest" in sys.modules
-        if is_test:
-            await session.commit()
-
         log.info(
             f'Created new project "{name}" (id={project.id}) '
             f'with default branch "{branch.name}" (id={branch.id}) '
@@ -178,9 +173,6 @@ class StateManager:
         self.next_state = state
         self.project = project
         self.branch = branch
-
-        if is_test:
-            self.file_system = await self.init_file_system(load_existing=False)
 
         return project
 
