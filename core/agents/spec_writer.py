@@ -67,31 +67,49 @@ class SpecWriter(BaseAgent):
 
         await self.ui.clear_main_logs()
 
-        user_description = await self.ask_question(
-            "Please describe the app you want to build.",
-            allow_empty=False,
-            full_screen=True,
-            verbose=True,
-            extra_info={
-                "chat_section_tip": "\"We highly recommend watching <a href='https://youtube.com'>Crash Course</a> on Pythagora.\""
-            }
-        )
-        description = user_description.text.strip()
+        # Check if initialPrompt is provided in command line arguments
+        if self.args and hasattr(self.args, "initialPrompt") and self.args.initialPrompt:
+            description = self.args.initialPrompt.strip()
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "id": "setup",
+                        "title": "",
+                        "project_state_id": "setup",
+                        "labels": [""],
+                        "convo": [
+                            {"role": "assistant", "content": "Please describe the app you want to build."},
+                            {"role": "user", "content": description},
+                        ],
+                    }
+                ]
+            )
+        else:
+            user_description = await self.ask_question(
+                "Please describe the app you want to build.",
+                allow_empty=False,
+                full_screen=True,
+                verbose=True,
+                extra_info={
+                    "chat_section_tip": "\"Some text <a href='https://example.com'>link text</a> on how to build apps with Pythagora.\""
+                },
+            )
+            description = user_description.text.strip()
 
-        await self.ui.send_back_logs(
-            [
-                {
-                    "id": "setup",
-                    "title": "",
-                    "project_state_id": "setup",
-                    "labels": [""],
-                    "convo": [
-                        {"role": "assistant", "content": "What do you want to build?"},
-                        {"role": "user", "content": description},
-                    ],
-                }
-            ]
-        )
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "id": "setup",
+                        "title": "",
+                        "project_state_id": "setup",
+                        "labels": [""],
+                        "convo": [
+                            {"role": "assistant", "content": "Please describe the app you want to build."},
+                            {"role": "user", "content": description},
+                        ],
+                    }
+                ]
+            )
 
         await self.ui.send_back_logs(
             [
