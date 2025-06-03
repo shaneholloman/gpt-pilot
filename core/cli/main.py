@@ -209,7 +209,6 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
     else:
         # await ui.send_front_logs_headers("setup", ["E0 / T0", "Setup", "working"], "")
-        await ui.send_message("Starting Pythagora ...", source=pythagora_source)
         success = await start_new_project(sm, ui, args)
         if not success:
             return False
