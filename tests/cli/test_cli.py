@@ -63,6 +63,7 @@ def test_parse_arguments(mock_ArgumentParser):
         "--use-git",
         "--access-token",
         "--no-auto-confirm-breakdown",
+        "--initial-prompt",
     }
 
     parser.parse_args.assert_called_once_with()

@@ -168,7 +168,7 @@ class Orchestrator(BaseAgent, GitMixin):
         return True
 
     async def temp_logs_for_development(self):
-        await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
+        # await self.ui.send_front_logs_headers("id5", ["e1/t1", "working"], "Building Pythagora V2!")
         # await self.ui.send_back_logs(
         #     [
         #         {
@@ -534,13 +534,13 @@ class Orchestrator(BaseAgent, GitMixin):
             if prev_response.type == ResponseType.EXTERNAL_DOCS_REQUIRED:
                 return ExternalDocumentation(self.state_manager, self.ui, prev_response=prev_response)
             if prev_response.type == ResponseType.UPDATE_SPECIFICATION:
-                return SpecWriter(self.state_manager, self.ui, prev_response=prev_response)
+                return SpecWriter(self.state_manager, self.ui, prev_response=prev_response, args=self.args)
 
         if not state.epics:
             return Wizard(self.state_manager, self.ui, process_manager=self.process_manager)
         elif state.epics and not state.epics[0].get("description"):
             # New project: ask the Spec Writer to refine and save the project specification
-            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager)
+            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager, args=self.args)
         elif state.current_epic and state.current_epic.get("source") == "frontend":
             # Build frontend
             return Frontend(self.state_manager, self.ui, process_manager=self.process_manager)
@@ -604,7 +604,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 return ProblemSolver(self.state_manager, self.ui)
             elif current_iteration_status == IterationStatus.NEW_FEATURE_REQUESTED:
                 # Call Spec Writer to add the "change" requested by the user to project specification
-                return SpecWriter(self.state_manager, self.ui)
+                return SpecWriter(self.state_manager, self.ui, args=self.args)
 
         # We have just finished the task, call Troubleshooter to ask the user to review
         return Troubleshooter(self.state_manager, self.ui)

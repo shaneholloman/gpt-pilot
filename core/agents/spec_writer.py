@@ -67,28 +67,49 @@ class SpecWriter(BaseAgent):
 
         await self.ui.clear_main_logs()
 
-        user_description = await self.ask_question(
-            "Please describe the app you want to build.",
-            allow_empty=False,
-            full_screen=True,
-            verbose=True,
-        )
-        description = user_description.text.strip()
+        # Check if initial_prompt is provided in command line arguments
+        if self.args and self.args.initial_prompt:
+            description = self.args.initial_prompt.strip()
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "id": "setup",
+                        "title": "",
+                        "project_state_id": "setup",
+                        "labels": [""],
+                        "convo": [
+                            {"role": "assistant", "content": "Please describe the app you want to build."},
+                            {"role": "user", "content": description},
+                        ],
+                    }
+                ]
+            )
+        else:
+            user_description = await self.ask_question(
+                "Please describe the app you want to build.",
+                allow_empty=False,
+                full_screen=True,
+                verbose=True,
+                extra_info={
+                    "chat_section_tip": "\"Some text <a href='https://example.com'>link text</a> on how to build apps with Pythagora.\""
+                },
+            )
+            description = user_description.text.strip()
 
-        await self.ui.send_back_logs(
-            [
-                {
-                    "id": "setup",
-                    "title": "",
-                    "project_state_id": "setup",
-                    "labels": [""],
-                    "convo": [
-                        {"role": "assistant", "content": "What do you want to build?"},
-                        {"role": "user", "content": description},
-                    ],
-                }
-            ]
-        )
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "id": "setup",
+                        "title": "",
+                        "project_state_id": "setup",
+                        "labels": [""],
+                        "convo": [
+                            {"role": "assistant", "content": "Please describe the app you want to build."},
+                            {"role": "user", "content": description},
+                        ],
+                    }
+                ]
+            )
 
         await self.ui.send_back_logs(
             [
@@ -116,7 +137,7 @@ class SpecWriter(BaseAgent):
             initial_prompt=description,
         )
 
-        await self.ui.start_important_stream()
+        # await self.ui.start_important_stream()
         llm_assisted_description = await llm(convo)
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
@@ -170,12 +191,16 @@ class SpecWriter(BaseAgent):
                 allow_empty=False,
             )
 
+            await self.send_message(
+                "## Refining specification\n\nPythagora is refining the specs based on your input.",
+                # project_state_id="setup",
+            )
             convo = convo.template("add_to_specification", user_message=user_add_to_spec.text.strip())
 
             if len(convo.messages) > 6:
                 convo.slice(1, 4)
 
-            await self.ui.start_important_stream()
+            # await self.ui.start_important_stream()
             llm_assisted_description = await llm(convo)
 
             convo = convo.assistant(llm_assisted_description)

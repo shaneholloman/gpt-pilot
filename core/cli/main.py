@@ -113,59 +113,78 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
     return success
 
 
-async def start_new_project(sm: StateManager, ui: UIBase) -> bool:
+async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None) -> bool:
     """
     Start a new project.
 
     :param sm: State manager.
     :param ui: User interface.
+    :param args: Command-line arguments.
     :return: True if the project was created successfully, False otherwise.
     """
 
-    stack = await ui.ask_question(
-        "What do you want to build?",
-        allow_empty=False,
-        buttons={
-            "node": "Full stack app\n(easiest to get started)",
-            "swagger": "Frontend only\n(if you have backend with OpenAPI\\Swagger)",
-        },
-        buttons_only=True,
-        source=pythagora_source,
-        full_screen=True,
-    )
+    # Check if initial_prompt is provided, if so, automatically select "node"
+    if args and args.initial_prompt:
+        stack_button = "node"
 
-    await ui.send_back_logs(
-        [
-            {
-                "id": "setup",
-                "title": "",
-                "project_state_id": "setup",
-                "labels": [""],
-                "convo": [{"role": "assistant", "content": "What do you want to build?"}],
-            }
-        ]
-    )
-
-    if stack.button == "other":
-        language = await ui.ask_question(
-            "What language you want to use?",
+        await ui.send_back_logs(
+            [
+                {
+                    "id": "setup",
+                    "title": "",
+                    "project_state_id": "setup",
+                    "labels": [""],
+                    "convo": [{"role": "assistant", "content": "What do you want to build?"}],
+                }
+            ]
+        )
+    else:
+        stack = await ui.ask_question(
+            "What do you want to build?",
             allow_empty=False,
+            buttons={
+                "node": "Full stack app\n(easiest to get started)",
+                "swagger": "Frontend only\n(if you have backend with OpenAPI\\Swagger)",
+            },
+            buttons_only=True,
             source=pythagora_source,
             full_screen=True,
         )
-        await telemetry.trace_code_event(
-            "stack-choice-other",
-            {"language": language.text},
+
+        await ui.send_back_logs(
+            [
+                {
+                    "id": "setup",
+                    "title": "",
+                    "project_state_id": "setup",
+                    "labels": [""],
+                    "convo": [{"role": "assistant", "content": "What do you want to build?"}],
+                }
+            ]
         )
-        await ui.send_message("Thank you for submitting your request to support other languages.")
-        return False
+
+        if stack.button == "other":
+            language = await ui.ask_question(
+                "What language you want to use?",
+                allow_empty=False,
+                source=pythagora_source,
+                full_screen=True,
+            )
+            await telemetry.trace_code_event(
+                "stack-choice-other",
+                {"language": language.text},
+            )
+            await ui.send_message("Thank you for submitting your request to support other languages.")
+            return False
+
+        stack_button = stack.button
 
     await telemetry.trace_code_event(
         "stack-choice",
-        {"language": stack.button},
+        {"language": stack_button},
     )
 
-    project_state = await sm.create_project(project_type=stack.button)
+    project_state = await sm.create_project(project_type=stack_button)
     return project_state is not None
 
 
@@ -189,8 +208,9 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         await print_convo(ui, convo)
 
     else:
+        # await ui.send_front_logs_headers("setup", ["E0 / T0", "Setup", "working"], "")
         await ui.send_message("Starting Pythagora ...", source=pythagora_source)
-        success = await start_new_project(sm, ui)
+        success = await start_new_project(sm, ui, args)
         if not success:
             return False
 
