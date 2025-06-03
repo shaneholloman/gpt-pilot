@@ -413,4 +413,42 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                         }
                     )
 
+        if (
+            self.current_state.current_epic
+            and self.current_state.current_epic.get("source", "") == "app"
+            and self.current_state.knowledge_base.user_options.get("auth", False)
+        ):
+            log.debug("Adding auth task to the beginning of the task list")
+            updated_tasks.insert(
+                0,
+                {
+                    "id": uuid4().hex,
+                    "hardcoded": True,
+                    "description": "Implement and test Login and Register pages",
+                    "instructions": "",
+                    "pre_breakdown_testing_instructions": """Open /register page, add your data and click on the "Register" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the /login page\n2. On the /login page, add your data and click on the "Login" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the home page""",
+                    "status": TaskStatus.TODO,
+                    "sub_epic_id": 1,
+                    "related_api_endpoints": [
+                        {
+                            "description": "Register a new user",
+                            "method": "POST",
+                            "endpoint": "/api/auth/register",
+                            "request_body": {"email": "string", "password": "string"},
+                            "response_body": {
+                                "id": "integer",
+                                "email": "string",
+                            },
+                        },
+                        {
+                            "description": "Login user",
+                            "method": "POST",
+                            "endpoint": "/api/auth/login",
+                            "request_body": {"username": "string", "password": "string"},
+                            "response_body": {"token": "string"},
+                        },
+                    ],
+                },
+            )
+
         self.next_state.tasks = updated_tasks
