@@ -198,7 +198,7 @@ def parse_arguments() -> Namespace:
         --extension-version: Version of the VSCode extension, if used
         --use-git: Use Git for version control
         --access-token: Access token
-        --initialPrompt: Initial prompt to automatically start a new project with 'node' stack
+        --initial-prompt: Initial prompt to automatically start a new project with 'node' stack
     :return: Parsed arguments object.
     """
     version = get_version()
@@ -269,7 +269,7 @@ def parse_arguments() -> Namespace:
         help="Port for the IPC server (default: 8222)",
     )
     parser.add_argument(
-        "--initialPrompt",
+        "--initial-prompt",
         help="Initial prompt to automatically start a new project with 'node' stack",
         required=False,
     )

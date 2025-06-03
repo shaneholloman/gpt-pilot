@@ -123,8 +123,8 @@ async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None
     :return: True if the project was created successfully, False otherwise.
     """
 
-    # Check if initialPrompt is provided, if so, automatically select "node"
-    if args and hasattr(args, "initialPrompt") and args.initialPrompt:
+    # Check if initial_prompt is provided, if so, automatically select "node"
+    if args and args.initial_prompt:
         stack_button = "node"
 
         await ui.send_back_logs(

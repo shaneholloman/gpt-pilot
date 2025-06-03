@@ -67,9 +67,9 @@ class SpecWriter(BaseAgent):
 
         await self.ui.clear_main_logs()
 
-        # Check if initialPrompt is provided in command line arguments
-        if self.args and hasattr(self.args, "initialPrompt") and self.args.initialPrompt:
-            description = self.args.initialPrompt.strip()
+        # Check if initial_prompt is provided in command line arguments
+        if self.args and self.args.initial_prompt:
+            description = self.args.initial_prompt.strip()
             await self.ui.send_back_logs(
                 [
                     {
