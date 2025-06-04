@@ -206,8 +206,26 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         # initial two hardcoded messages
         if sm.current_state.specification and sm.current_state.specification.description:
-            await ui.send_message("What do you want to build?", source=pythagora_source)
-            await ui.send_user_input_history(sm.current_state.specification.description)
+            await ui.send_back_logs(
+                [
+                    {
+                        "id": "E1/T1",
+                        "title": "Writing Specification",
+                        "project_state_id": "",
+                        "labels": ["E1 / T1", "Spec", "done"],
+                        "convo": [
+                            {
+                                "role": "assistant",
+                                "content": "What do you want to build?",
+                            },
+                            {
+                                "role": "user",
+                                "content": sm.current_state.specification.description,
+                            },
+                        ],
+                    }
+                ]
+            )
 
         # frontend back logs
         fe_last_state = await sm.get_fe_last_state()
@@ -215,12 +233,25 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             await ui.send_back_logs(
                 [
                     {
+                        "id": "E2/T1",
                         "title": "Building Frontend",
                         "project_state_id": fe_last_state.id,
                         "labels": ["E2 / T1", "Frontend", "done"],
                     }
                 ]
             )
+        else:
+            await ui.send_back_logs(
+                [
+                    {
+                        "id": "E2/T1",
+                        "title": "Building Frontend",
+                        "project_state_id": fe_last_state.id,
+                        "labels": ["E2 / T1", "Frontend", "working"],
+                    }
+                ]
+            )
+            await ui.send_front_logs_headers("setup", ["E2 / T0", "Frontend", "working"], "")
 
         # backend back logs
         be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
