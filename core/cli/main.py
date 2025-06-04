@@ -211,7 +211,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     {
                         "id": "E1/T1",
                         "title": "Writing Specification",
-                        "project_state_id": "",
+                        "project_state_id": "e1/t1",
                         "labels": ["E1 / T1", "Spec", "done"],
                         "convo": [
                             {
@@ -229,7 +229,23 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         # frontend back logs
         fe_last_state = await sm.get_fe_last_state()
-        if fe_last_state:
+
+        # backend back logs
+        be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
+
+        if not be_back_logs and not first_working_task:
+            await ui.send_back_logs(
+                [
+                    {
+                        "id": "E2/T1",
+                        "title": "Building Frontend",
+                        "project_state_id": "e2/t1",
+                        "labels": ["E2 / T1", "Frontend", "working"],
+                    }
+                ]
+            )
+            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", "working"], "")
+        else:
             await ui.send_back_logs(
                 [
                     {
@@ -240,21 +256,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     }
                 ]
             )
-        else:
-            await ui.send_back_logs(
-                [
-                    {
-                        "id": "E2/T1",
-                        "title": "Building Frontend",
-                        "project_state_id": fe_last_state.id,
-                        "labels": ["E2 / T1", "Frontend", "working"],
-                    }
-                ]
-            )
-            await ui.send_front_logs_headers("setup", ["E2 / T0", "Frontend", "working"], "")
 
-        # backend back logs
-        be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
 

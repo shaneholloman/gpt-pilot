@@ -862,6 +862,7 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
+        isFrontend = False
         query = select(ProjectState).where(
             and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
         )
@@ -869,6 +870,12 @@ class ProjectState(Base):
         states = result.scalars().all()
 
         log.debug(f"Found {len(states)} states in branch")
+
+        if not states:
+            isFrontend = True
+            query = select(ProjectState).where(ProjectState.branch_id == branch_id)
+            result = await session.execute(query)
+            states = result.scalars().all()
 
         task_histories = {}
 
@@ -900,6 +907,9 @@ class ProjectState(Base):
                     "Working" if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] else "Done",
                 ]
         log.debug(task_histories)
+
+        if isFrontend:
+            return [], {}, states
 
         states_for_print = []
         first_working_task = {}
