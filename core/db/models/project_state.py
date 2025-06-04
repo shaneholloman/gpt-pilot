@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, load_only, mapped_column, relationship
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import func
 
-from core.config.actions import FE_CONTINUE, FE_ITERATION_DONE, FE_START, PS_EPIC_COMPLETE
+from core.config.actions import FE_CONTINUE, FE_ITERATION, FE_ITERATION_DONE, FE_START, PS_EPIC_COMPLETE
 from core.db.models import Base, FileContent
 from core.log import get_logger
 
@@ -835,7 +835,7 @@ class ProjectState(Base):
 
             # iterate over states backwards to find the last FE_ITERATION_DONE or FE_CONTINUE action
             for state in states:
-                if state.action in [FE_ITERATION_DONE, FE_CONTINUE]:
+                if state.action in [FE_ITERATION, FE_CONTINUE]:
                     return state
 
             return states[-1]
