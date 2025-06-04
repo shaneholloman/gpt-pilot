@@ -353,6 +353,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         if self.current_state.current_task.get("quick_implementation", False):
             return True
 
+        if self.current_state.current_task.get("hardcoded", False):
+            return True
+
         user_response = await self.ask_question(
             DEV_EXECUTE_TASK,
             buttons=buttons,
