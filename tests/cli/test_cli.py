@@ -234,29 +234,36 @@ async def test_list_projects(mock_StateManager, capsys):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("args", "kwargs", "retval"),
+    ("args", "kwargs", "retval", "should_succeed"),
     [
-        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), True),
-        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), False),
-        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), True),
-        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), False),
-        (["abc", None, 123, None], dict(project_id="abc", step_index=123, project_state_id=None), True),
-        (["abc", "def", 123, None], dict(branch_id="def", step_index=123, project_state_id=None), False),
-        (["abc", None, None, "xyz"], dict(project_id="abc", step_index=None, project_state_id="xyz"), True),
-        (["abc", "def", None, "xyz"], dict(branch_id="def", step_index=None, project_state_id="xyz"), False),
+        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), MagicMock(), True),
+        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), None, False),
+        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), MagicMock(), True),
+        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), None, False),
+        (["abc", None, 123, None], dict(project_id="abc", step_index=123, project_state_id=None), MagicMock(), True),
+        (["abc", "def", 123, None], dict(branch_id="def", step_index=123, project_state_id=None), None, False),
+        (
+            ["abc", None, None, "xyz"],
+            dict(project_id="abc", step_index=None, project_state_id="xyz"),
+            MagicMock(),
+            True,
+        ),
+        (["abc", "def", None, "xyz"], dict(branch_id="def", step_index=None, project_state_id="xyz"), None, False),
     ],
 )
-async def test_load_project(args, kwargs, retval, capsys):
+async def test_load_project(args, kwargs, retval, should_succeed, capsys):
     sm = MagicMock(load_project=AsyncMock(return_value=retval))
 
-    success = await load_project(sm, *args)
+    result = await load_project(sm, *args)
 
-    assert success is retval
-    sm.load_project.assert_awaited_once_with(**kwargs)
-
-    if not success:
+    if should_succeed:
+        assert result is not None
+    else:
+        assert result is None
         data = capsys.readouterr().err
         assert "not found" in data
+
+    sm.load_project.assert_awaited_once_with(**kwargs)
 
 
 def test_init(tmp_path):

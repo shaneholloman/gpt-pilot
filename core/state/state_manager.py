@@ -138,6 +138,20 @@ class StateManager:
             self.current_session, self.current_state.branch_id, task_id
         )
 
+    async def get_fe_last_state(self) -> Optional[ProjectState]:
+        """
+        Get all frontend and backend logs for the current project state.
+        This retrieves all logs that are associated with the current project state.
+        """
+        return await ProjectState.get_fe_last_state(self.current_session, self.current_state.branch_id)
+
+    async def get_be_back_logs(self):
+        """
+        Get all project states for a specific branch.
+        This retrieves all project states that are associated with a specific branch
+        """
+        return await ProjectState.get_be_back_logs(self.current_session, self.current_state.branch_id)
+
     async def create_project(
         self,
         name: Optional[str] = "temp-project",

@@ -200,12 +200,74 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
     if args.project or args.branch or args.step or args.project_state_id:
         telemetry.set("is_continuation", True)
-        success = await load_project(sm, args.project, args.branch, args.step, args.project_state_id)
-        if not success:
+        project_state = await load_project(sm, args.project, args.branch, args.step, args.project_state_id)
+        if not project_state:
             return False
 
-        convo = await load_convo(sm, args.project, args.branch)
-        await print_convo(ui, convo)
+        # initial two hardcoded messages
+        if sm.current_state.specification and sm.current_state.specification.description:
+            await ui.send_back_logs(
+                [
+                    {
+                        "id": "E1/T1",
+                        "title": "Writing Specification",
+                        "project_state_id": "e1/t1",
+                        "labels": ["E1 / T1", "Spec", "done"],
+                        "convo": [
+                            {
+                                "role": "assistant",
+                                "content": "What do you want to build?",
+                            },
+                            {
+                                "role": "user",
+                                "content": sm.current_state.specification.description,
+                            },
+                        ],
+                    }
+                ]
+            )
+
+        # frontend back logs
+        fe_last_state = await sm.get_fe_last_state()
+
+        # backend back logs
+        be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
+
+        if not be_back_logs and not first_working_task:
+            await ui.send_back_logs(
+                [
+                    {
+                        "id": "E2/T1",
+                        "title": "Building Frontend",
+                        "project_state_id": "e2/t1",
+                        "labels": ["E2 / T1", "Frontend", "working"],
+                    }
+                ]
+            )
+            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", "working"], "")
+        else:
+            await ui.send_back_logs(
+                [
+                    {
+                        "id": "E2/T1",
+                        "title": "Building Frontend",
+                        "project_state_id": fe_last_state.id,
+                        "labels": ["E2 / T1", "Frontend", "done"],
+                    }
+                ]
+            )
+
+        if be_back_logs:
+            await ui.send_back_logs(be_back_logs)
+
+            if any(label.lower() == "working" for label in first_working_task["labels"]):
+                await ui.send_front_logs_headers(
+                    str(states_for_history[-1].id), first_working_task["labels"], first_working_task["title"]
+                )
+
+        if states_for_history:
+            convo = await load_convo(sm, args.project, args.branch, states_for_history)
+            await print_convo(ui, convo)
 
     else:
         # await ui.send_front_logs_headers("setup", ["E0 / T0", "Setup", "working"], "")

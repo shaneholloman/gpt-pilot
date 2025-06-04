@@ -125,7 +125,6 @@ class SpecWriter(BaseAgent):
 
         await self.ui.send_front_logs_headers("setup", ["E1 / T1", "Writing Specification", "working"], "")
 
-        await self.ui.clear_main_logs()
         await self.send_message(
             "## Write specification\n\nPythagora is generating a detailed specification for app based on your input.",
             # project_state_id="setup",
