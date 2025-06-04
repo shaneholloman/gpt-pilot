@@ -200,11 +200,39 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
     if args.project or args.branch or args.step or args.project_state_id:
         telemetry.set("is_continuation", True)
-        success = await load_project(sm, args.project, args.branch, args.step, args.project_state_id)
-        if not success:
+        project_state = await load_project(sm, args.project, args.branch, args.step, args.project_state_id)
+        if not project_state:
             return False
 
-        convo = await load_convo(sm, args.project, args.branch)
+        # initial two hardcoded messages
+        if sm.current_state.specification and sm.current_state.specification.description:
+            await ui.send_message("What do you want to build?", source=pythagora_source)
+            await ui.send_user_input_history(sm.current_state.specification.description)
+
+        # frontend back logs
+        fe_last_state = await sm.get_fe_last_state()
+        if fe_last_state:
+            await ui.send_back_logs(
+                [
+                    {
+                        "title": "Building Frontend",
+                        "project_state_id": fe_last_state.id,
+                        "labels": ["E2 / T1", "Frontend", "done"],
+                    }
+                ]
+            )
+
+        # backend back logs
+        be_back_logs, states_for_history = await sm.get_be_back_logs()
+        if be_back_logs:
+            await ui.send_back_logs(be_back_logs)
+
+            if any(label.lower() == "working" for label in be_back_logs[-1]["labels"]):
+                await ui.send_front_logs_headers(
+                    str(states_for_history[-1].id), be_back_logs[-1]["labels"], be_back_logs[-1]["title"]
+                )
+
+        convo = await load_convo(sm, args.project, args.branch, states_for_history)
         await print_convo(ui, convo)
 
     else:

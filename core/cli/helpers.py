@@ -34,6 +34,7 @@ from core.config.actions import (
 )
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
+from core.db.models import ProjectState
 from core.db.models.project_state import TaskStatus
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
@@ -755,7 +756,7 @@ async def load_project(
     branch_id: Optional[UUID] = None,
     step_index: Optional[int] = None,
     project_state_id: Optional[UUID] = None,
-) -> bool:
+) -> ProjectState | None:
     """
     Load a project from the database.
 
@@ -772,22 +773,22 @@ async def load_project(
             branch_id=branch_id, step_index=step_index, project_state_id=project_state_id
         )
         if project_state:
-            return True
+            return project_state
         else:
             print(f"Branch {branch_id}{step_txt} not found; use --list to list all projects", file=sys.stderr)
-            return False
+            return None
 
     elif project_id:
         project_state = await sm.load_project(
             project_id=project_id, step_index=step_index, project_state_id=project_state_id
         )
         if project_state:
-            return True
+            return project_state
         else:
             print(f"Project {project_id}{step_txt} not found; use --list to list all projects", file=sys.stderr)
-            return False
+            return None
 
-    return False
+    return None
 
 
 async def delete_project(db: SessionManager, project_id: UUID) -> bool:
