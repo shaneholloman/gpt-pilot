@@ -232,8 +232,9 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     str(states_for_history[-1].id), first_working_task["labels"], first_working_task["title"]
                 )
 
-        convo = await load_convo(sm, args.project, args.branch, states_for_history)
-        await print_convo(ui, convo)
+        if states_for_history:
+            convo = await load_convo(sm, args.project, args.branch, states_for_history)
+            await print_convo(ui, convo)
 
     else:
         # await ui.send_front_logs_headers("setup", ["E0 / T0", "Setup", "working"], "")

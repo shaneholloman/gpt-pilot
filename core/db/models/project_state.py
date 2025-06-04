@@ -814,8 +814,20 @@ class ProjectState(Base):
         result = await session.execute(query)
         fe_end = result.scalars().one_or_none()
 
-        if not fe_start or not fe_end:
+        if not fe_start:
             return None
+
+        if not fe_end:
+            query = (
+                select(ProjectState)
+                .where(
+                    and_(
+                        ProjectState.branch_id == branch_id,
+                        ProjectState.step_index >= fe_start.step_index,
+                    )
+                )
+                .order_by(ProjectState.step_index.desc())
+            )
         else:
             # return project state with last FE_ITERATION_DONE action or FE_CONTINUE action, whichever is last
             query = (
@@ -828,17 +840,17 @@ class ProjectState(Base):
                     )
                 )
                 .order_by(ProjectState.step_index.desc())
-                .limit(1)
             )
-            result = await session.execute(query)
-            states = result.scalars().all()
 
-            # iterate over states backwards to find the last FE_ITERATION_DONE or FE_CONTINUE action
-            for state in states:
-                if state.action in [FE_ITERATION, FE_CONTINUE]:
-                    return state
+        result = await session.execute(query)
+        states = result.scalars().all()
 
-            return states[-1]
+        # iterate over states backwards to find the last FE_ITERATION_DONE or FE_CONTINUE action
+        for state in states:
+            if state.action in [FE_ITERATION, FE_CONTINUE]:
+                return state
+
+        return states[-1]
 
     @staticmethod
     async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], dict, list["ProjectState"]):
