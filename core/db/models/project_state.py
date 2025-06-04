@@ -916,8 +916,10 @@ class ProjectState(Base):
                 break
 
         # additionally, find states for which we need to print the history convo
-        states_for_print = await ProjectState.get_task_conversation_project_states(
-            session, branch_id, UUID(conversations[-1]["taskId"]), True
-        )
+        states_for_print = []
+        if conversations:
+            states_for_print = await ProjectState.get_task_conversation_project_states(
+                session, branch_id, UUID(conversations[-1]["taskId"]), True
+            )
 
         return conversations, states_for_print
