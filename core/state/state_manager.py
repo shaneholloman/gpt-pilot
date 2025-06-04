@@ -145,7 +145,7 @@ class StateManager:
         """
         return await ProjectState.get_fe_last_state(self.current_session, self.current_state.branch_id)
 
-    async def get_be_back_logs(self) -> Optional[list[dict]]:
+    async def get_be_back_logs(self):
         """
         Get all project states for a specific branch.
         This retrieves all project states that are associated with a specific branch

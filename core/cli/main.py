@@ -223,13 +223,13 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             )
 
         # backend back logs
-        be_back_logs, states_for_history = await sm.get_be_back_logs()
+        be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
 
-            if any(label.lower() == "working" for label in be_back_logs[-1]["labels"]):
+            if any(label.lower() == "working" for label in first_working_task["labels"]):
                 await ui.send_front_logs_headers(
-                    str(states_for_history[-1].id), be_back_logs[-1]["labels"], be_back_logs[-1]["title"]
+                    str(states_for_history[-1].id), first_working_task["labels"], first_working_task["title"]
                 )
 
         convo = await load_convo(sm, args.project, args.branch, states_for_history)

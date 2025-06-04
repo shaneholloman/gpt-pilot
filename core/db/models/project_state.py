@@ -841,7 +841,7 @@ class ProjectState(Base):
             return states[-1]
 
     @staticmethod
-    async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], list["ProjectState"]):
+    async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], dict, list["ProjectState"]):
         """
         For each FINISHED task in the branch, find all project states where the task status changes. Additionally, the last task that will be returned is the one that is currently being worked on.
         Returns data formatted for the UI + the project states for history convo.
@@ -858,68 +858,49 @@ class ProjectState(Base):
 
         log.debug(f"Found {len(states)} states in branch")
 
-        # Track tasks by ID and their status history
-        task_histories = {}  # {task_id: [(state, task), ...]}
+        task_histories = {}
 
-        # First pass: collect all tasks and their status changes
         for state in states:
             for task in state.tasks or []:
                 task_id = task.get("id")
                 if not task_id:
                     continue
 
-                task_key = (task_id, task.get("sub_epic_id"))
-
-                if task_key not in task_histories:
-                    task_histories[task_key] = []
+                if task_id not in task_histories:
+                    task_histories[task_id] = {}
+                    task_histories[task_id]["taskId"] = task_id
+                    task_histories[task_id]["title"] = task.get("description")
+                    task_histories[task_id]["labels"] = []
 
                 if task.get("status") == TaskStatus.TODO:
-                    # Always keep only the last TODO occurrence (overwrite any previous TODO)
-                    # Remove any previous TODO entry
-                    task_histories[task_key] = [
-                        entry for entry in task_histories[task_key] if entry[1].get("status") != TaskStatus.TODO
-                    ]
-                    task_histories[task_key].append((state, task))
-                else:
-                    # For non-TODO, keep only the first occurrence
-                    if not any(entry[1].get("status") == task.get("status") for entry in task_histories[task_key]):
-                        task_histories[task_key].append((state, task))
+                    task_histories[task_id]["status"] = TaskStatus.TODO
+                    task_histories[task_id]["startId"] = state.id
+                    task_histories[task_id]["endId"] = state.id
+                elif task.get("status") != task_histories[task_id]["status"]:
+                    task_histories[task_id]["endId"] = state.id
+                    task_histories[task_id]["status"] = task.get("status")
 
-        # Second pass: organize results in the requested UI format
-        conversations = []
-        for _, history in task_histories.items():
-            if not history:
-                continue
+                epic_num = task.get("sub_epic_id", "1")
+                task_num = int(m.group(1)) if (m := re.search(r"Task #(\d+)", state.action)) else 1
+                task_histories[task_id]["labels"] = [
+                    f"E{epic_num} / T{task_num}",
+                    "Backend",
+                    "Working" if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] else "Done",
+                ]
+        log.debug(task_histories)
 
-            last_state, last_task = history[-1]
-            first_state, _ = history[0]
+        states_for_print = []
+        first_working_task = {}
 
-            epic_num = last_task.get("sub_epic_id", "1")
-            task_num = int(m.group(1)) if (m := re.search(r"Task #(\d+)", last_state.action)) else 1
-
-            conversations.append(
-                {
-                    "taskId": str(UUID(last_task.get("id"))),
-                    "title": last_task.get("description", ""),
-                    "labels": [
-                        f"E{epic_num} / T{task_num}",
-                        "Backend",
-                        "Working" if last_task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] else "Done",
-                    ],
-                    "convo": [],
-                }
-            )
-
-            if last_task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]:
-                conversations[-1]["stateId"] = first_state.id
-                conversations[-1]["stepIndex"] = first_state.step_index
+        # separate all elements from task_histories that have same startId and endId
+        for th in task_histories:
+            if task_histories[th].get("startId") == task_histories[th].get("endId"):
+                states_for_print = await ProjectState.get_task_conversation_project_states(
+                    session, branch_id, UUID(task_histories[th]["taskId"]), True
+                )
+                first_working_task = task_histories[th]
                 break
 
-        # additionally, find states for which we need to print the history convo
-        states_for_print = []
-        if conversations:
-            states_for_print = await ProjectState.get_task_conversation_project_states(
-                session, branch_id, UUID(conversations[-1]["taskId"]), True
-            )
+        task_histories = {k: v for k, v in task_histories.items() if v.get("startId") != v.get("endId")}
 
-        return conversations, states_for_print
+        return task_histories, first_working_task, states_for_print
