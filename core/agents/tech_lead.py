@@ -452,3 +452,4 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             )
 
         self.next_state.tasks = updated_tasks
+        self.next_state.flag_epics_as_modified()
