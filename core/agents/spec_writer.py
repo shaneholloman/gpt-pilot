@@ -335,7 +335,7 @@ class SpecWriter(BaseAgent):
 
     async def check_prompt_complexity(self, prompt: str) -> str:
         is_feature = self.current_state.epics and len(self.current_state.epics) > 2
-        await self.send_message("Checking the complexity of the prompt ...")
+        await self.send_message("Checking the complexity of the prompt...\n")
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME)
         convo = AgentConvo(self).template(
             "prompt_complexity",

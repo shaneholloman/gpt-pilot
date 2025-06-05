@@ -74,7 +74,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         Starts the frontend of the app.
         """
         self.next_state.action = FE_START
-        await self.send_message("Building the frontend... This may take a couple of minutes")
+        await self.send_message("## Building the frontend\n\nThis may take a couple of minutes.")
 
         llm = self.get_llm(FRONTEND_AGENT_NAME)
         convo = AgentConvo(self).template(
@@ -166,6 +166,29 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 buttons_only=True,
                 default="yes",
             )
+            await self.ui.clear_main_logs()
+            await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "id": "fe_0",
+                        "title": "Building frontend",
+                        "project_state_id": "fe_0",
+                        "labels": ["E2 / T1", "Frontend", "done"],
+                    }
+                ]
+            )
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "id": "be_0",
+                        "title": "Setting up backend",
+                        "project_state_id": self.next_state.id,
+                        "labels": ["E2 / T2", "Backend setup", "working"],
+                    }
+                ]
+            )
+            await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
 
             if answer.button == "yes":
                 return True
