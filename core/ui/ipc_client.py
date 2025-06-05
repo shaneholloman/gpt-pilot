@@ -493,6 +493,7 @@ class IPCClientUI(UIBase):
                 "folderName": folder_name,
                 "createdAt": created_at,
             },
+            route="broadcast",
         )
 
     async def start_important_stream(self):
