@@ -853,6 +853,26 @@ class ProjectState(Base):
         return states[-1]
 
     @staticmethod
+    def get_task_num_regex(task_action: str) -> Optional[int]:
+        """
+        Get the task number from the action string using regex.
+
+        :param task_id: The task ID to search for.
+        :return: The task number if found, None otherwise.
+        """
+        task_num = 1
+        try:
+            if task_action:
+                m = re.search(r"Task #(\d+)", task_action)
+                if m:
+                    task_num = int(m.group(1))
+            else:
+                log.warning("Task action is empty, returning default task number 1")
+        except Exception as e:
+            log.error(f"Error extracting task number from action '{task_action}': {e}")
+        return task_num
+
+    @staticmethod
     async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], dict, list["ProjectState"]):
         """
         For each FINISHED task in the branch, find all project states where the task status changes. Additionally, the last task that will be returned is the one that is currently being worked on.
@@ -862,7 +882,7 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
-        isFrontend = False
+        is_frontend = False
         query = select(ProjectState).where(
             and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
         )
@@ -872,7 +892,7 @@ class ProjectState(Base):
         log.debug(f"Found {len(states)} states in branch")
 
         if not states:
-            isFrontend = True
+            is_frontend = True
             query = select(ProjectState).where(ProjectState.branch_id == branch_id)
             result = await session.execute(query)
             states = result.scalars().all()
@@ -890,6 +910,7 @@ class ProjectState(Base):
                     task_histories[task_id]["taskId"] = task_id
                     task_histories[task_id]["title"] = task.get("description")
                     task_histories[task_id]["labels"] = []
+                    task_histories[task_id]["status"] = task["status"]
 
                 if task.get("status") == TaskStatus.TODO:
                     task_histories[task_id]["status"] = TaskStatus.TODO
@@ -900,7 +921,7 @@ class ProjectState(Base):
                     task_histories[task_id]["status"] = task.get("status")
 
                 epic_num = task.get("sub_epic_id", "1")
-                task_num = int(m.group(1)) if (m := re.search(r"Task #(\d+)", state.action)) else 1
+                task_num = ProjectState.get_task_num_regex(state.action)
                 task_histories[task_id]["labels"] = [
                     f"E{epic_num} / T{task_num}",
                     "Backend",
@@ -908,7 +929,7 @@ class ProjectState(Base):
                 ]
         log.debug(task_histories)
 
-        if isFrontend:
+        if is_frontend:
             return [], {}, states
 
         states_for_print = []
