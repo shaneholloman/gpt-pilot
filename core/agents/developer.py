@@ -337,6 +337,20 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "task_index": task_index,
             }
         )
+        await self.ui.clear_main_logs()
+        await self.ui.send_front_logs_headers(
+            f"be_{task_index}_{task_index + 1}", [f"E{task_index} / T{task_index + 1}", "working"], description
+        )
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": f"be_{task_index}_{task_index + 1}",
+                    "title": description,
+                    "project_state_id": f"be_{task_index}_{task_index + 1}",
+                    "labels": [f"E{task_index} / T{task_index + 1}", "working"],
+                }
+            ]
+        )
         await self.send_message(f"Starting task #{task_index} with the description:\n\n## {description}")
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
