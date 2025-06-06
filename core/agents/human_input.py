@@ -36,12 +36,5 @@ class HumanInput(BaseAgent):
             # figure out where its local files are and how to open it.
             full_path = self.state_manager.file_system.get_full_path(file)
 
-            await self.send_message(f"Input required on {file}:{line}")
-            await self.ui.open_editor(full_path, line)
-            await self.ask_question(
-                f"Please open {file} and modify line {line} according to the instructions.",
-                buttons={"continue": "Continue"},
-                default="continue",
-                buttons_only=True,
-            )
+            await self.ui.open_editor(full_path, line, True)
         return AgentResponse.done(self)
