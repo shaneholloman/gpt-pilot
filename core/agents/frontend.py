@@ -213,6 +213,18 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
 
         await self.process_response(response.blocks)
+        convo.assistant(response.original_response)
+
+        # Store the conversation in the epic messages for potential continuation
+        self.next_state.epics[-1]["messages"] = convo.messages
+
+        # Set fe_iteration_done flag based on response completion
+        # If response is cut off (doesn't end with "done" and conversation isn't too long),
+        # set fe_iteration_done to False so continue_frontend will be called
+        self.next_state.epics[-1]["fe_iteration_done"] = (
+            "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
+        )
+        self.next_state.flag_epics_as_modified()
 
         return False
 
