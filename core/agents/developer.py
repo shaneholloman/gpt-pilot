@@ -220,6 +220,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.send_message("Thinking about how to implement this task ...")
 
         await self.ui.start_breakdown_stream()
+        await self.ui.start_important_stream()
         related_api_endpoints = current_task.get("related_api_endpoints", [])
         llm = self.get_llm(TASK_BREAKDOWN_AGENT_NAME, stream_output=True)
         # TODO: Temp fix for old projects
