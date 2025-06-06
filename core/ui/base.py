@@ -351,7 +351,7 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def open_editor(self, file: str, line: Optional[int] = None):
+    async def open_editor(self, file: str, line: Optional[int] = None, wait_for_response: bool = False):
         """
         Open an editor at the specified file and line.
 

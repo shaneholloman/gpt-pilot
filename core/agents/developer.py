@@ -220,6 +220,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.send_message("Thinking about how to implement this task ...")
 
         await self.ui.start_breakdown_stream()
+        await self.ui.start_important_stream()
         related_api_endpoints = current_task.get("related_api_endpoints", [])
         llm = self.get_llm(TASK_BREAKDOWN_AGENT_NAME, stream_output=True)
         # TODO: Temp fix for old projects
@@ -336,6 +337,20 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "stage": ProjectStage.STARTING_TASK,
                 "task_index": task_index,
             }
+        )
+        await self.ui.clear_main_logs()
+        await self.ui.send_front_logs_headers(
+            f"be_{task_index}_{task_index + 1}", [f"E{task_index} / T{task_index + 1}", "working"], description
+        )
+        await self.ui.send_back_logs(
+            [
+                {
+                    "id": f"be_{task_index}_{task_index + 1}",
+                    "title": description,
+                    "project_state_id": f"be_{task_index}_{task_index + 1}",
+                    "labels": [f"E{task_index} / T{task_index + 1}", "working"],
+                }
+            ]
         )
         await self.send_message(f"Starting task #{task_index} with the description:\n\n## {description}")
         if self.current_state.run_command:

@@ -44,7 +44,6 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             if finished is None:
                 await self.ui.clear_main_logs()
                 await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
-                await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
                 await self.ui.send_back_logs(
                     [
                         {
@@ -55,6 +54,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         }
                     ]
                 )
+
+                await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
                 await self.ui.send_back_logs(
                     [
                         {

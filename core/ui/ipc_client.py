@@ -473,7 +473,7 @@ class IPCClientUI(UIBase):
             content=app_link,
         )
 
-    async def open_editor(self, file: str, line: Optional[int] = None):
+    async def open_editor(self, file: str, line: Optional[int] = None, wait_for_response: bool = False):
         if not line:
             pass
         await self._send(
@@ -482,7 +482,11 @@ class IPCClientUI(UIBase):
                 "path": file,  # we assume it's a full path, read the rant in HumanInput.input_required()
                 "line": line,
             },
+            wait_for_response=wait_for_response,
         )
+        if wait_for_response:
+            response = await self._receive()
+            return response
 
     async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         await self._send(
