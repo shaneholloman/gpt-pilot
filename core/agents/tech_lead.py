@@ -425,7 +425,19 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                     "id": uuid4().hex,
                     "hardcoded": True,
                     "description": "Implement and test Login and Register pages",
-                    "instructions": "",
+                    "instructions": """Open /register page, add your data and click on the "Register" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the /login page\n2. On the /login page, add your data and click on the "Login" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the home page""",
+                    "test_instructions": """[
+  {
+    "title": "Open Register Page",
+    "action": "Open your web browser and visit 'http://localhost:5173/register'.",
+    "result": "You should see a success message in the bottom right corner and you should be redirected to the /login page"
+  },
+  {
+    "title": "Open Login Page",
+    "action": "Open your web browser and visit 'http://localhost:5173/login'.",
+    "result": "You should see a success message in the bottom right corner and you should be redirected to the home page"
+  }
+]""",
                     "pre_breakdown_testing_instructions": """Open /register page, add your data and click on the "Register" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the /login page\n2. On the /login page, add your data and click on the "Login" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the home page""",
                     "status": TaskStatus.TODO,
                     "sub_epic_id": 1,
@@ -451,5 +463,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 },
             )
 
+        self.next_state.steps = [
+            {
+                "completed": True,
+                "iteration_index": 0,
+            }
+        ]
         self.next_state.tasks = updated_tasks
+        self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()

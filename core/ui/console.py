@@ -181,13 +181,13 @@ class PlainConsoleUI(UIBase):
         pass
 
     async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
-        pass
+        await self.send_message(test_instructions)
 
     async def knowledge_base_update(self, knowledge_base: dict):
         pass
 
     async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
-        pass
+        await self.send_message(f"{file_path} : {file_status}", source=source)
 
     async def send_bug_hunter_status(self, status: str, num_cycles: int):
         pass
