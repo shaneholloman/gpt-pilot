@@ -130,7 +130,6 @@ async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None
         await ui.send_back_logs(
             [
                 {
-                    "id": "setup",
                     "title": "",
                     "project_state_id": "setup",
                     "labels": [""],
@@ -154,7 +153,6 @@ async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None
         await ui.send_back_logs(
             [
                 {
-                    "id": "setup",
                     "title": "",
                     "project_state_id": "setup",
                     "labels": [""],
@@ -209,9 +207,8 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             await ui.send_back_logs(
                 [
                     {
-                        "id": "E1/T1",
                         "title": "Writing Specification",
-                        "project_state_id": "e1/t1",
+                        "project_state_id": "spec",
                         "labels": ["E1 / T1", "Spec", "done"],
                         "convo": [
                             {
@@ -237,9 +234,8 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             await ui.send_back_logs(
                 [
                     {
-                        "id": "E2/T1",
                         "title": "Building Frontend",
-                        "project_state_id": "e2/t1",
+                        "project_state_id": str(sm.current_state.id),
                         "labels": ["E2 / T1", "Frontend", "working"],
                     }
                 ]
@@ -249,9 +245,8 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             await ui.send_back_logs(
                 [
                     {
-                        "id": "E2/T1",
                         "title": "Building Frontend",
-                        "project_state_id": fe_last_state.id,
+                        "project_state_id": str(fe_last_state.id),
                         "labels": ["E2 / T1", "Frontend", "done"],
                     }
                 ]

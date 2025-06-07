@@ -615,6 +615,10 @@ class IPCClientUI(UIBase):
         self,
         items: list[dict],
     ):
+        # Add id field to each item
+        for item in items:
+            item["id"] = item.get("project_state_id")
+
         await self._send(MessageType.BACK_LOGS, content={"items": items})
 
     async def send_front_logs_headers(
