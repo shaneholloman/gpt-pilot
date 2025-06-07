@@ -161,7 +161,7 @@ class SpecWriter(BaseAgent):
         return AgentResponse.done(self)
 
     async def change_spec(self) -> AgentResponse:
-        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True)
+        llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
 
         llm_assisted_description = self.current_state.knowledge_base.user_options["project_description"]
         description = self.current_state.knowledge_base.user_options["original_description"]
