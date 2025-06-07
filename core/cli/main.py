@@ -256,6 +256,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     }
                 ]
             )
+            await ui.send_front_logs_headers("hardcoded", ["EX / TX", "hardcoded", "working"], "")
 
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
@@ -274,7 +275,6 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         success = await start_new_project(sm, ui, args)
         if not success:
             return False
-
     return await run_project(sm, ui, args)
 
 

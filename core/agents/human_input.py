@@ -1,6 +1,6 @@
 from core.agents.base import BaseAgent
 from core.agents.response import AgentResponse, ResponseType
-from core.config.actions import HUMAN_INTERVENTION_QUESTION
+from core.config.actions import CONTINUE_WHEN_DONE, HUMAN_INTERVENTION_QUESTION
 
 
 class HumanInput(BaseAgent):
@@ -16,8 +16,9 @@ class HumanInput(BaseAgent):
     async def human_intervention(self, step) -> AgentResponse:
         description = step["human_intervention_description"]
 
+        await self.send_message(f"## {HUMAN_INTERVENTION_QUESTION}\n\n{description}")
         await self.ask_question(
-            f"{HUMAN_INTERVENTION_QUESTION} {description}",
+            CONTINUE_WHEN_DONE,
             buttons={"continue": "Continue"},
             default="continue",
             buttons_only=True,

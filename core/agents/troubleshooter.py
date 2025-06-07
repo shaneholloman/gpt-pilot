@@ -287,8 +287,8 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
             buttons = {
                 "continue": "Everything works",
-                "change": "I want to make a change",
                 "bug": "There is an issue",
+                "change": "I want to make a change",
                 "redo": "Redo task",
             }
 
