@@ -365,7 +365,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 "num_epics": len(self.current_state.epics),
             },
         )
-
         return AgentResponse.done(self)
 
     # TODO - Move to a separate agent for removing mocked data
