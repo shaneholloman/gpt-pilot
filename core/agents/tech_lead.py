@@ -354,6 +354,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         self.update_epics_and_tasks(response.text)
 
+        if self.next_state.current_task and self.next_state.current_task.get("hardcoded", False):
+            await self.ui.send_message(
+                "Ok, great, you're now starting to build the backend and the first task is to test how the authentication works. You can now register and login. Your data will be saved into the database.",
+                source=pythagora_source,
+            )
+
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
             self.next_state.tasks,
@@ -425,7 +431,19 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                     "id": uuid4().hex,
                     "hardcoded": True,
                     "description": "Implement and test Login and Register pages",
-                    "instructions": "",
+                    "instructions": """Open /register page, add your data and click on the "Register" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the /login page\n2. On the /login page, add your data and click on the "Login" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the home page""",
+                    "test_instructions": """[
+  {
+    "title": "Open Register Page",
+    "action": "Open your web browser and visit 'http://localhost:5173/register'.",
+    "result": "You should see a success message in the bottom right corner and you should be redirected to the /login page"
+  },
+  {
+    "title": "Open Login Page",
+    "action": "Open your web browser and visit 'http://localhost:5173/login'.",
+    "result": "You should see a success message in the bottom right corner and you should be redirected to the home page"
+  }
+]""",
                     "pre_breakdown_testing_instructions": """Open /register page, add your data and click on the "Register" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the /login page\n2. On the /login page, add your data and click on the "Login" button\nExpected result: You should see a success message in the bottom right corner and you should be redirected to the home page""",
                     "status": TaskStatus.TODO,
                     "sub_epic_id": 1,
@@ -451,5 +469,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 },
             )
 
+        self.next_state.steps = [
+            {
+                "completed": True,
+                "iteration_index": 0,
+            }
+        ]
         self.next_state.tasks = updated_tasks
+        self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()

@@ -109,7 +109,7 @@ class IterationPromptMixin:
             user_feedback_qa=user_feedback_qa,
             next_solution_to_try=next_solution_to_try,
             bug_hunting_cycles=bug_hunting_cycles,
-            test_instructions=json.loads(self.current_state.current_task.get("test_instructions") or "[]"),
+            test_instructions=json.loads(self.current_state.current_task.get("test_instructions", "[]")),
         )
         llm_solution: str = await llm(convo)
 
