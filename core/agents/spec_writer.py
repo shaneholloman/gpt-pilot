@@ -74,7 +74,7 @@ class SpecWriter(BaseAgent):
                 [
                     {
                         "title": "",
-                        "project_state_id": self.current_state.id,
+                        "project_state_id": "first_state",
                         "labels": [""],
                         "convo": [
                             {"role": "assistant", "content": "Please describe the app you want to build."},

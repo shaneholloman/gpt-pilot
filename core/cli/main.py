@@ -131,9 +131,9 @@ async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None
             [
                 {
                     "title": "",
-                    "project_state_id": "setup",
+                    "project_state_id": "first_state",
                     "labels": [""],
-                    "convo": [{"role": "assistant", "content": "What do you want to build?"}],
+                    "convo": [{"role": "assistant", "content": "Please describe the app you want to build."}],
                 }
             ]
         )
