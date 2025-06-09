@@ -948,4 +948,4 @@ class ProjectState(Base):
 
         task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
 
-        return task_histories, first_working_task, states_for_print
+        return list(task_histories.values()), first_working_task, states_for_print
