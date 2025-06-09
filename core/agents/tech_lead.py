@@ -469,12 +469,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 },
             )
 
-        self.next_state.steps = [
-            {
-                "completed": True,
-                "iteration_index": 0,
-            }
-        ]
+            self.next_state.steps = [
+                {
+                    "completed": True,
+                    "iteration_index": 0,
+                }
+            ]
         self.next_state.tasks = updated_tasks
         self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()
