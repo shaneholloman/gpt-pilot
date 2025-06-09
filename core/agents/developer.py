@@ -340,7 +340,10 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         )
         await self.ui.clear_main_logs()
         await self.ui.send_front_logs_headers(
-            f"be_{task_index}_{task_index + 1}", [f"E{task_index} / T{task_index + 1}", "working"], description
+            f"be_{task_index}_{task_index + 1}",
+            [f"E{task_index} / T{task_index + 1}", "working"],
+            description,
+            self.current_state.current_task.get("id"),
         )
         await self.ui.send_back_logs(
             [

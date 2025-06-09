@@ -251,14 +251,22 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     }
                 ]
             )
-            await ui.send_front_logs_headers("hardcoded", ["EX / TX", "hardcoded", "working"], "")
+            await ui.send_front_logs_headers(
+                first_working_task["start_id"],
+                first_working_task["labels"],
+                first_working_task["title"],
+                first_working_task["task_id"],
+            )
 
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
 
             if any(label.lower() == "working" for label in first_working_task["labels"]):
                 await ui.send_front_logs_headers(
-                    str(states_for_history[-1].id), first_working_task["labels"], first_working_task["title"]
+                    str(states_for_history[-1].id),
+                    first_working_task["labels"],
+                    first_working_task["title"],
+                    first_working_task["task_id"],
                 )
 
         if states_for_history:

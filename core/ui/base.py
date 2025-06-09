@@ -521,6 +521,7 @@ class UIBase:
         project_state_id: str,
         labels: list[str],
         title: str,
+        task_id: Optional[str] = None,
     ):
         """
         Send front conversation data to the UI.
@@ -528,6 +529,7 @@ class UIBase:
         :param project_state_id: Project state ID.
         :param labels: Array of label strings.
         :param title: Conversation title.
+        :param task_id: Task ID.
         """
         raise NotImplementedError()
 

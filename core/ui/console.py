@@ -245,6 +245,7 @@ class PlainConsoleUI(UIBase):
         project_state_id: str,
         labels: list[str],
         title: str,
+        task_id: Optional[str] = None,
     ):
         pass
 

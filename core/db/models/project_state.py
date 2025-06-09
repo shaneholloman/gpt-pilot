@@ -907,17 +907,19 @@ class ProjectState(Base):
 
                 if task_id not in task_histories:
                     task_histories[task_id] = {}
-                    task_histories[task_id]["taskId"] = task_id
+                    task_histories[task_id]["task_id"] = task_id
                     task_histories[task_id]["title"] = task.get("description")
                     task_histories[task_id]["labels"] = []
                     task_histories[task_id]["status"] = task["status"]
+                    task_histories[task_id]["start_id"] = state.id
+                    task_histories[task_id]["end_id"] = state.id
 
                 if task.get("status") == TaskStatus.TODO:
                     task_histories[task_id]["status"] = TaskStatus.TODO
-                    task_histories[task_id]["startId"] = state.id
-                    task_histories[task_id]["endId"] = state.id
+                    task_histories[task_id]["start_id"] = state.id
+                    task_histories[task_id]["end_id"] = state.id
                 elif task.get("status") != task_histories[task_id]["status"]:
-                    task_histories[task_id]["endId"] = state.id
+                    task_histories[task_id]["end_id"] = state.id
                     task_histories[task_id]["status"] = task.get("status")
 
                 epic_num = task.get("sub_epic_id", "1")
@@ -935,15 +937,15 @@ class ProjectState(Base):
         states_for_print = []
         first_working_task = {}
 
-        # separate all elements from task_histories that have same startId and endId
+        # separate all elements from task_histories that have same start_id and end_id
         for th in task_histories:
-            if task_histories[th].get("startId") == task_histories[th].get("endId"):
+            if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
                 states_for_print = await ProjectState.get_task_conversation_project_states(
-                    session, branch_id, UUID(task_histories[th]["taskId"]), True
+                    session, branch_id, UUID(task_histories[th]["task_id"]), True
                 )
                 first_working_task = task_histories[th]
                 break
 
-        task_histories = {k: v for k, v in task_histories.items() if v.get("startId") != v.get("endId")}
+        task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
 
         return task_histories, first_working_task, states_for_print
