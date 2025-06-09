@@ -626,6 +626,7 @@ class IPCClientUI(UIBase):
         project_state_id: str,
         labels: list[str],
         title: str,
+        task_id: Optional[str] = None,
     ):
         await self._send(
             MessageType.FRONT_LOGS_HEADERS,
@@ -633,6 +634,7 @@ class IPCClientUI(UIBase):
                 "project_state_id": project_state_id,
                 "labels": labels,
                 "title": title,
+                "task_id": task_id,
             },
         )
 
