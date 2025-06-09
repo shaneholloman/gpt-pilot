@@ -114,9 +114,8 @@ class Architect(BaseAgent):
         await self.ui.send_back_logs(
             [
                 {
-                    "id": "be_0",
                     "title": "Setting up backend",
-                    "project_state_id": "be_0",
+                    "project_state_id": self.current_state.id,
                     "labels": ["E2 / T3", "Backend setup", "done"],
                 }
             ]

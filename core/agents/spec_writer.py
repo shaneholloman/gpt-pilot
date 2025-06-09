@@ -73,9 +73,8 @@ class SpecWriter(BaseAgent):
             await self.ui.send_back_logs(
                 [
                     {
-                        "id": "setup",
                         "title": "",
-                        "project_state_id": "setup",
+                        "project_state_id": "first_state",
                         "labels": [""],
                         "convo": [
                             {"role": "assistant", "content": "Please describe the app you want to build."},
@@ -99,9 +98,8 @@ class SpecWriter(BaseAgent):
             await self.ui.send_back_logs(
                 [
                     {
-                        "id": "setup",
                         "title": "",
-                        "project_state_id": "setup",
+                        "project_state_id": self.current_state.id,
                         "labels": [""],
                         "convo": [
                             {"role": "assistant", "content": "Please describe the app you want to build."},
@@ -114,9 +112,8 @@ class SpecWriter(BaseAgent):
         await self.ui.send_back_logs(
             [
                 {
-                    "id": "specs_0",
                     "title": "Writing Specification",
-                    "project_state_id": "setup",
+                    "project_state_id": self.current_state.id,
                     "labels": ["E1 / T1", "Specs", "working"],
                     "disallow_reload": True,
                 }
@@ -209,9 +206,8 @@ class SpecWriter(BaseAgent):
         await self.ui.send_back_logs(
             [
                 {
-                    "id": "specs_0",
                     "title": "Writing Specification",
-                    "project_state_id": "setup",
+                    "project_state_id": self.current_state.id,
                     "labels": ["E1 / T1", "Specs", "done"],
                     "disallow_reload": True,
                 }
@@ -220,9 +216,8 @@ class SpecWriter(BaseAgent):
         await self.ui.send_back_logs(
             [
                 {
-                    "id": "fe_0",
                     "title": "Building frontend",
-                    "project_state_id": "fe_0",
+                    "project_state_id": self.current_state.id,
                     "labels": ["E2 / T1", "Frontend", "working"],
                 }
             ]

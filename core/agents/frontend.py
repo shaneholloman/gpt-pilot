@@ -47,9 +47,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 await self.ui.send_back_logs(
                     [
                         {
-                            "id": "fe_0",
                             "title": "Building frontend",
-                            "project_state_id": "fe_0",
+                            "project_state_id": self.current_state.id,
                             "labels": ["E2 / T1", "Frontend", "done"],
                         }
                     ]
@@ -59,9 +58,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 await self.ui.send_back_logs(
                     [
                         {
-                            "id": "be_0",
                             "title": "Setting up backend",
-                            "project_state_id": self.next_state.id,
+                            "project_state_id": self.current_state.id,
                             "labels": ["E2 / T2", "Backend setup", "working"],
                         }
                     ]
@@ -172,9 +170,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.ui.send_back_logs(
                 [
                     {
-                        "id": "fe_0",
                         "title": "Building frontend",
-                        "project_state_id": "fe_0",
+                        "project_state_id": self.current_state.id,
                         "labels": ["E2 / T1", "Frontend", "done"],
                     }
                 ]
@@ -182,9 +179,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.ui.send_back_logs(
                 [
                     {
-                        "id": "be_0",
                         "title": "Setting up backend",
-                        "project_state_id": self.next_state.id,
+                        "project_state_id": self.current_state.id,
                         "labels": ["E2 / T2", "Backend setup", "working"],
                     }
                 ]

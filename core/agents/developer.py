@@ -345,9 +345,8 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.ui.send_back_logs(
             [
                 {
-                    "id": f"be_{task_index}_{task_index + 1}",
                     "title": description,
-                    "project_state_id": f"be_{task_index}_{task_index + 1}",
+                    "project_state_id": self.current_state.id,
                     "labels": [f"E{task_index} / T{task_index + 1}", "working"],
                 }
             ]
