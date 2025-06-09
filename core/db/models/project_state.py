@@ -829,7 +829,6 @@ class ProjectState(Base):
                 .order_by(ProjectState.step_index.desc())
             )
         else:
-            # return project state with last FE_ITERATION_DONE action or FE_CONTINUE action, whichever is last
             query = (
                 select(ProjectState)
                 .where(

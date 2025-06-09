@@ -194,7 +194,7 @@ class PlainConsoleUI(UIBase):
         pass
 
     async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
-        pass
+        await self.send_message(f"{file_path}: {file_status}")
 
     async def send_bug_hunter_status(self, status: str, num_cycles: int):
         pass
@@ -208,7 +208,7 @@ class PlainConsoleUI(UIBase):
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
     ):
-        pass
+        await self.send_message(f"{file_path}: ({n_new_lines},{n_del_lines})")
 
     async def stop_app(self):
         pass

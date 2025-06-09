@@ -38,6 +38,7 @@ from core.db.models import ProjectState
 from core.db.models.project_state import TaskStatus
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
+from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger, setup
 from core.state.state_manager import StateManager
 from core.ui.base import AgentSource, UIBase, UISource
@@ -461,6 +462,9 @@ def get_source_for_history(msg_type: Optional[str] = "", question: Optional[str]
     elif msg_type in ["bug_reproduction_instructions", "bug_description"]:
         return AgentSource("Troubleshooter", "troubleshooter")
 
+    elif msg_type in ["frontend"]:
+        return AgentSource("Frontend", "frontend")
+
     elif HUMAN_INTERVENTION_QUESTION in question:
         return AgentSource("Human Input", "human-input")
 
@@ -479,6 +483,13 @@ async def print_convo(
     convo: list,
 ):
     for msg in convo:
+        if "frontend" in msg:
+            await ui.send_message(
+                msg["frontend"],
+                source=get_source_for_history(msg_type="frontend"),
+                project_state_id=msg["id"],
+            )
+
         if "bh_breakdown" in msg:
             await ui.send_message(
                 msg["bh_breakdown"],
@@ -556,6 +567,8 @@ async def load_convo(
         project_states = await sm.get_project_states(project_id, branch_id)
 
     task_counter = 1
+    fe_printed_msgs = []
+    fe_commands = []
 
     for i, state in enumerate(project_states):
         convo_el = {}
@@ -616,6 +629,68 @@ async def load_convo(
                     elif answer == "change":
                         answer = "I want to make a change"
                     convo_el["user_inputs"].append({"question": ui.question, "answer": answer})
+
+        if len(state.epics[-1].get("messages", [])) > 0:
+            if convo_el.get("user_inputs", None) is None:
+                convo_el["user_inputs"] = []
+            parser = DescriptiveCodeBlockParser()
+
+            for msg in state.epics[-1].get("messages", []):
+                if msg.get("role") == "assistant" and msg["content"] not in fe_printed_msgs:
+                    if "frontend" not in convo_el:
+                        convo_el["frontend"] = []
+                    convo_el["frontend"].append(msg["content"])
+                    fe_printed_msgs.append(msg["content"])
+
+                    blocks = parser(msg.get("content", ""))
+                    files_dict = {}
+                    for block in blocks.blocks:
+                        description = block.description.strip()
+                        content = block.content.strip()
+
+                        # Split description into lines and check the last line for file path
+                        description_lines = description.split("\n")
+                        last_line = description_lines[-1].strip()
+
+                        if "file:" in last_line:
+                            # Extract file path from the last line - get everything after "file:"
+                            file_path = last_line[last_line.index("file:") + 5 :].strip()
+                            file_path = file_path.strip("\"'`")
+                            # Skip empty file paths
+                            if file_path.strip() == "":
+                                continue
+                            new_content = content
+                            old_content = sm.current_state.get_file_content_by_path(file_path)
+
+                            diff = get_line_changes(
+                                old_content=old_content,
+                                new_content=new_content,
+                            )
+
+                            if diff != (0, 0):
+                                files_dict[file_path] = {
+                                    "path": file_path,
+                                    "old_content": old_content,
+                                    "new_content": new_content,
+                                    "diff": diff,
+                                }
+
+                        elif "command:" in last_line:
+                            commands = content.strip().split("\n")
+                            for command in commands:
+                                command = command.strip()
+                                if command and command not in fe_commands:
+                                    if "user_inputs" not in convo_el:
+                                        convo_el["user_inputs"] = []
+                                    convo_el["user_inputs"].append(
+                                        {
+                                            "question": f"{RUN_COMMAND} {command}",
+                                            "answer": "yes",
+                                        }
+                                    )
+                                    fe_commands.append(command)
+
+                    convo_el["files"] = list(files_dict.values())
 
         if state.action is not None:
             if state.action == DEV_TROUBLESHOOT.format(task_counter):
