@@ -192,7 +192,7 @@ class FileDiffMixin:
 
         :param old_content: old file content
         :param new_content: new file content
-        :return: a tuple (added_lines, deleted_lines)
+        :return: a tuple (n_new_lines, n_del_lines)
         """
 
         return get_line_changes(old_content, new_content)

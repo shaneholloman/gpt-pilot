@@ -572,8 +572,8 @@ class IPCClientUI(UIBase):
     async def generate_diff(
         self,
         file_path: str,
-        file_old: str,
-        file_new: str,
+        old_content: str,
+        new_content: str,
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
@@ -583,8 +583,8 @@ class IPCClientUI(UIBase):
             category=source.type_name if source else None,
             content={
                 "file_path": file_path,
-                "file_old": file_old,
-                "file_new": file_new,
+                "old_content": old_content,
+                "new_content": new_content,
                 "n_new_lines": n_new_lines,
                 "n_del_lines": n_del_lines,
             },

@@ -202,8 +202,8 @@ class PlainConsoleUI(UIBase):
     async def generate_diff(
         self,
         file_path: str,
-        file_old: str,
-        file_new: str,
+        old_content: str,
+        new_content: str,
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,

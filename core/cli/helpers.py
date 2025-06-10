@@ -517,8 +517,8 @@ async def print_convo(
                 await ui.send_file_status(f["path"], "done")
                 await ui.generate_diff(
                     file_path=f["path"],
-                    file_old=f.get("old_content", ""),
-                    file_new=f.get("new_content", ""),
+                    old_content=f.get("old_content", ""),
+                    new_content=f.get("new_content", ""),
                     n_new_lines=f["diff"][0],
                     n_del_lines=f["diff"][1],
                 )
