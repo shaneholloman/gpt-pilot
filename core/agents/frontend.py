@@ -107,9 +107,16 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.process_response(response_blocks)
 
         self.next_state.epics[-1]["messages"] = convo.messages
-        self.next_state.epics[-1]["fe_iteration_done"] = (
-            "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
-        )
+
+        if self.next_state.epics[-1].get("manual_iteration", False):
+            # If manual iteration is True, we assume only one iteration of continue is needed
+            # If we want multiple iterations, we should use response.original_response.count("```") % 2 == 0
+            self.next_state.epics[-1]["fe_iteration_done"] = True
+        else:
+            self.next_state.epics[-1]["fe_iteration_done"] = (
+                "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
+            )
+
         self.next_state.flag_epics_as_modified()
 
         return False
@@ -218,12 +225,9 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # Store the conversation in the epic messages for potential continuation
         self.next_state.epics[-1]["messages"] = convo.messages
 
-        # Set fe_iteration_done flag based on response completion
-        # If response is cut off (doesn't end with "done" and conversation isn't too long),
-        # set fe_iteration_done to False so continue_frontend will be called
-        self.next_state.epics[-1]["fe_iteration_done"] = (
-            "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
-        )
+        self.next_state.epics[-1]["fe_iteration_done"] = response.original_response.count("```") % 2 == 0
+        self.next_state.epics[-1]["manual_iteration"] = True
+
         self.next_state.flag_epics_as_modified()
 
         return False
