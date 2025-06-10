@@ -111,7 +111,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if self.next_state.epics[-1].get("manual_iteration", False):
             # If manual iteration is True, we assume only one iteration of continue is needed
             # If we want multiple iterations, we should use response.original_response.count("```") % 2 == 0
-            self.next_state.epics[-1]["fe_iteration_done"] = True
+            self.next_state.epics[-1]["fe_iteration_done"] = response.original_response.count("```") % 2 == 0
         else:
             self.next_state.epics[-1]["fe_iteration_done"] = (
                 "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
