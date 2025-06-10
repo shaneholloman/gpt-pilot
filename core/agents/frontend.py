@@ -165,29 +165,29 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 buttons_only=True,
                 default="yes",
             )
-            await self.ui.clear_main_logs()
-            await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
-            await self.ui.send_back_logs(
-                [
-                    {
-                        "title": "Building frontend",
-                        "project_state_id": self.current_state.id,
-                        "labels": ["E2 / T1", "Frontend", "done"],
-                    }
-                ]
-            )
-            await self.ui.send_back_logs(
-                [
-                    {
-                        "title": "Setting up backend",
-                        "project_state_id": self.current_state.id,
-                        "labels": ["E2 / T2", "Backend setup", "working"],
-                    }
-                ]
-            )
-            await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
 
             if answer.button == "yes":
+                await self.ui.clear_main_logs()
+                await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
+                await self.ui.send_back_logs(
+                    [
+                        {
+                            "title": "Building frontend",
+                            "project_state_id": self.current_state.id,
+                            "labels": ["E2 / T1", "Frontend", "done"],
+                        }
+                    ]
+                )
+                await self.ui.send_back_logs(
+                    [
+                        {
+                            "title": "Setting up backend",
+                            "project_state_id": self.current_state.id,
+                            "labels": ["E2 / T2", "Backend setup", "working"],
+                        }
+                    ]
+                )
+                await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
                 return True
             else:
                 return False

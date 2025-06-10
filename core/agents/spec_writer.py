@@ -120,7 +120,7 @@ class SpecWriter(BaseAgent):
             ]
         )
 
-        await self.ui.send_front_logs_headers("setup", ["E1 / T1", "Writing Specification", "working"], "")
+        await self.ui.send_front_logs_headers("specs_0", ["E1 / T1", "Writing Specification", "working"], "")
 
         await self.send_message(
             "## Write specification\n\nPythagora is generating a detailed specification for app based on your input.",
@@ -182,6 +182,7 @@ class SpecWriter(BaseAgent):
             if user_done_with_description.button == "yes":
                 break
 
+            await self.send_message("## What would you like to add?")
             user_add_to_spec = await self.ask_question(
                 "What would you like to add?",
                 allow_empty=False,
