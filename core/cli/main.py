@@ -2,6 +2,7 @@ import asyncio
 import atexit
 import signal
 import sys
+import traceback
 from argparse import Namespace
 from asyncio import run
 
@@ -102,11 +103,13 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
 
 
 async def send_error(ui: UIBase, error_source: str, err: Exception):
+    stack_trace = traceback.format_exc()
     await ui.send_fatal_error(
         f"Stopping Pythagora due to {error_source}:\n\n{err}",
         source=pythagora_source,
         extra_info={
             "fatal_error": True,
+            "stack_trace": stack_trace,
         },
     )
     capture_exception(err)
