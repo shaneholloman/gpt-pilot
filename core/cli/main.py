@@ -226,6 +226,10 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         # frontend back logs
         fe_last_state = await sm.get_fe_last_state()
 
+        if fe_last_state:
+            convo = await load_convo(sm, args.project, args.branch)
+            await print_convo(ui, convo)
+
         # backend back logs
         be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
 
