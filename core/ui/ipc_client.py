@@ -68,6 +68,7 @@ class MessageType(str, Enum):
     LOAD_FRONT_LOGS = "loadFrontLogs"
     FRONT_LOGS_HEADERS = "frontLogsHeaders"
     CLEAR_MAIN_LOGS = "clearMainLogs"
+    FATAL_ERROR = "fatalError"
 
 
 class Message(BaseModel):
@@ -572,8 +573,8 @@ class IPCClientUI(UIBase):
     async def generate_diff(
         self,
         file_path: str,
-        file_old: str,
-        file_new: str,
+        old_content: str,
+        new_content: str,
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
@@ -583,8 +584,8 @@ class IPCClientUI(UIBase):
             category=source.type_name if source else None,
             content={
                 "file_path": file_path,
-                "file_old": file_old,
-                "file_new": file_new,
+                "old_content": old_content,
+                "new_content": new_content,
                 "n_new_lines": n_new_lines,
                 "n_del_lines": n_del_lines,
             },
@@ -620,6 +621,21 @@ class IPCClientUI(UIBase):
             item["id"] = item.get("project_state_id")
 
         await self._send(MessageType.BACK_LOGS, content={"items": items})
+
+    async def send_fatal_error(
+        self,
+        message: str,
+        extra_info: Optional[dict] = None,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        await self._send(
+            MessageType.FATAL_ERROR,
+            content=message,
+            category=source.type_name if source else None,
+            project_state_id=project_state_id,
+            extra_info=extra_info,
+        )
 
     async def send_front_logs_headers(
         self,

@@ -436,8 +436,8 @@ class UIBase:
     async def generate_diff(
         self,
         file_path: str,
-        file_old: str,
-        file_new: str,
+        old_content: str,
+        new_content: str,
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
@@ -446,8 +446,8 @@ class UIBase:
         Generate a diff between two files.
 
         :param file_path File path.
-        :param file_old: Old file content.
-        :param file_new: New file content.
+        :param old_content: Old file content.
+        :param new_content: New file content.
         :param n_new_lines: Number of new lines.
         :param n_del_lines: Number of deleted lines.
         :param source: Source of the diff.
@@ -515,6 +515,15 @@ class UIBase:
                       - convo: array of objects
         """
         raise NotImplementedError()
+
+    async def send_fatal_error(
+        self,
+        message: str,
+        extra_info: Optional[dict] = None,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        pass
 
     async def send_front_logs_headers(
         self,

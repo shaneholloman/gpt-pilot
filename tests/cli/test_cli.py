@@ -342,7 +342,7 @@ async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     mock_response = MagicMock(text="test", cancelled=False)
     mock_response.button = "test_project_type"  # Set a string value for project_type
     ui.ask_question = AsyncMock(return_value=mock_response)
-    ui.send_message = AsyncMock()
+    ui.send_fatal_error = AsyncMock()
 
     mock_orca = mock_Orchestrator.return_value
     mock_orca.run = AsyncMock(side_effect=RuntimeError("test error"))
@@ -350,5 +350,5 @@ async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     success = await async_main(ui, db, args)
 
     assert success is False
-    ui.send_message.assert_called_once()
-    assert "test error" in ui.send_message.call_args[0][0]
+    ui.send_fatal_error.assert_called_once()
+    assert "test error" in ui.send_fatal_error.call_args[0][0]

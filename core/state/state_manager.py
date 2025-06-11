@@ -720,8 +720,8 @@ class StateManager:
             modified_files.append(
                 {
                     "path": path,
-                    "file_old": saved_file_content,  # Serialized content
-                    "file_new": content,
+                    "old_content": saved_file_content,  # Serialized content
+                    "new_content": content,
                 }
             )
 
@@ -732,8 +732,8 @@ class StateManager:
                 modified_files.append(
                     {
                         "path": db_file.path,
-                        "file_old": db_file.content.content,  # Serialized content
-                        "file_new": "",  # Empty string as the file is removed
+                        "old_content": db_file.content.content,  # Serialized content
+                        "new_content": "",  # Empty string as the file is removed
                     }
                 )
 

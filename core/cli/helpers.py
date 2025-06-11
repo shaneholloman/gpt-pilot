@@ -143,7 +143,9 @@ def calculate_pr_changes(convo_entries):
                 file_changes[path]["new_content"] = file_data.get("new_content", "")
 
     for path, file_info in file_changes.items():
-        file_info["diff"] = get_line_changes(old_content=file_info["old_content"], new_content=file_info["new_content"])
+        file_info["n_new_lines"], file_info["n_del_lines"] = get_line_changes(
+            old_content=file_info["old_content"], new_content=file_info["new_content"]
+        )
 
     # Convert dict to list
     return list(file_changes.values())
@@ -517,8 +519,8 @@ async def print_convo(
                 await ui.send_file_status(f["path"], "done")
                 await ui.generate_diff(
                     file_path=f["path"],
-                    file_old=f.get("old_content", ""),
-                    file_new=f.get("new_content", ""),
+                    old_content=f.get("old_content", ""),
+                    new_content=f.get("new_content", ""),
                     n_new_lines=f["diff"][0],
                     n_del_lines=f["diff"][1],
                 )
