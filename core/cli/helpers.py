@@ -486,11 +486,20 @@ async def print_convo(
 ):
     for msg in convo:
         if "frontend" in msg:
-            await ui.send_message(
-                msg["frontend"],
-                source=get_source_for_history(msg_type="frontend"),
-                project_state_id=msg["id"],
-            )
+            frontend_data = msg["frontend"]
+            if isinstance(frontend_data, list):
+                for frontend_msg in frontend_data:
+                    await ui.send_message(
+                        frontend_msg,
+                        source=get_source_for_history(msg_type="frontend"),
+                        project_state_id=msg["id"],
+                    )
+            else:
+                await ui.send_message(
+                    frontend_data,
+                    source=get_source_for_history(msg_type="frontend"),
+                    project_state_id=msg["id"],
+                )
 
         if "bh_breakdown" in msg:
             await ui.send_message(
