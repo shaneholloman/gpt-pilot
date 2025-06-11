@@ -143,7 +143,9 @@ def calculate_pr_changes(convo_entries):
                 file_changes[path]["new_content"] = file_data.get("new_content", "")
 
     for path, file_info in file_changes.items():
-        file_info["diff"] = get_line_changes(old_content=file_info["old_content"], new_content=file_info["new_content"])
+        file_info["n_new_lines"], file_info["n_del_lines"] = get_line_changes(
+            old_content=file_info["old_content"], new_content=file_info["new_content"]
+        )
 
     # Convert dict to list
     return list(file_changes.values())
