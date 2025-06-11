@@ -419,7 +419,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.kill_app()
 
             # 1. Start npm run start in the background
-            npm_proc = await self.process_manager.start_process("npm run start &")
+            npm_proc = await self.process_manager.start_process("npm run start &", show_output=False)
 
             # 2. Wait for the server to start
             await asyncio.sleep(2)
