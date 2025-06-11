@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from urllib.parse import urljoin
 
 import httpx
@@ -400,13 +401,26 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.ui.send_app_link(app_link)
 
     async def kill_app(self):
+        is_win = sys.platform.lower().startswith("win")
         # TODO make ports configurable
         # kill frontend - both swagger and node
-        await self.process_manager.run_command("lsof -ti:5173 | xargs -r kill", show_output=False)
+        if is_win:
+            await self.process_manager.run_command(
+                "Get-NetTCPConnection -LocalPort 5173 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }",
+                show_output=False,
+            )
+        else:
+            await self.process_manager.run_command("lsof -ti:5173 | xargs -r kill", show_output=False)
 
         # if node project, kill backend as well
         if self.state_manager.project.project_type == "node":
-            await self.process_manager.run_command("lsof -ti:3000 | xargs -r kill", show_output=False)
+            if is_win:
+                await self.process_manager.run_command(
+                    "Get-NetTCPConnection -LocalPort 3000 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }",
+                    show_output=False,
+                )
+            else:
+                await self.process_manager.run_command("lsof -ti:3000 | xargs -r kill", show_output=False)
 
     async def try_auto_debug(self) -> str:
         if self.current_state.epics[0].get("auto_debug_attempts", 0) >= 3:
