@@ -82,35 +82,34 @@ async def run_project(sm: StateManager, ui: UIBase, args) -> bool:
         telemetry.set("end_result", "interrupt")
         await sm.rollback()
     except APIError as err:
-        log.warning(f"LLM API error occurred: {err.message}")
-        capture_exception(err)
-        await ui.send_message(
-            f"Stopping Pythagora due to an error while calling the LLM API: {err.message}",
-            source=pythagora_source,
-        )
+        log.warning(f"an LLM API error occurred: {err.message}")
+        await send_error(ui, "error while calling the LLM API", err)
         telemetry.set("end_result", "failure:api-error")
         await sm.rollback()
     except CustomAssertionError as err:
-        log.warning(f"Anthropic assertion error occurred: {str(err)}")
-        capture_exception(err)
-        await ui.send_message(
-            f"Stopping Pythagora due to an error inside Anthropic SDK. {str(err)}",
-            source=pythagora_source,
-        )
+        log.warning(f"an Anthropic assertion error occurred: {str(err)}")
+        await send_error(ui, "error inside Anthropic SDK", err)
         telemetry.set("end_result", "failure:assertion-error")
         await sm.rollback()
     except Exception as err:
         log.error(f"Uncaught exception: {err}", exc_info=True)
-        capture_exception(err)
+        await send_error(ui, "an error", err)
 
-        stack_trace = telemetry.record_crash(err)
+        telemetry.record_crash(err)
         await sm.rollback()
-        await ui.send_message(
-            f"Stopping Pythagora due to error:\n\n{stack_trace}",
-            source=pythagora_source,
-        )
 
     return success
+
+
+async def send_error(ui: UIBase, error_source: str, err: Exception):
+    await ui.send_fatal_error(
+        f"Stopping Pythagora due to {error_source}:\n\n{err}",
+        source=pythagora_source,
+        extra_info={
+            "fatal_error": True,
+        },
+    )
+    capture_exception(err)
 
 
 async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None) -> bool:
@@ -368,7 +367,7 @@ async def async_main(
         success = await run_pythagora_session(sm, ui, args)
     except Exception as err:
         log.error(f"Uncaught exception in main session: {err}", exc_info=True)
-        capture_exception(err)
+        await send_error(ui, "an error", err)
         raise
     finally:
         await cleanup(ui)

@@ -240,6 +240,15 @@ class PlainConsoleUI(UIBase):
     ):
         pass
 
+    async def send_fatal_error(
+        self,
+        message: str,
+        extra_info: Optional[dict] = None,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        pass
+
     async def send_front_logs_headers(
         self,
         project_state_id: str,

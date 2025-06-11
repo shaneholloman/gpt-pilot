@@ -68,6 +68,7 @@ class MessageType(str, Enum):
     LOAD_FRONT_LOGS = "loadFrontLogs"
     FRONT_LOGS_HEADERS = "frontLogsHeaders"
     CLEAR_MAIN_LOGS = "clearMainLogs"
+    FATAL_ERROR = "fatalError"
 
 
 class Message(BaseModel):
@@ -620,6 +621,21 @@ class IPCClientUI(UIBase):
             item["id"] = item.get("project_state_id")
 
         await self._send(MessageType.BACK_LOGS, content={"items": items})
+
+    async def send_fatal_error(
+        self,
+        message: str,
+        extra_info: Optional[dict] = None,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        await self._send(
+            MessageType.FATAL_ERROR,
+            content=message,
+            category=source.type_name if source else None,
+            project_state_id=project_state_id,
+            extra_info=extra_info,
+        )
 
     async def send_front_logs_headers(
         self,
