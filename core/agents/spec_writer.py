@@ -155,6 +155,10 @@ class SpecWriter(BaseAgent):
 
         self.next_state.knowledge_base.user_options["original_description"] = description
         self.next_state.knowledge_base.user_options["project_description"] = llm_assisted_description
+
+        self.next_state.specification = self.current_state.specification.clone()
+        self.next_state.specification.description = llm_assisted_description
+        self.next_state.specification.original_description = description
         return AgentResponse.done(self)
 
     async def change_spec(self) -> AgentResponse:

@@ -211,7 +211,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     {
                         "title": "Writing Specification",
                         "project_state_id": "spec",
-                        "labels": ["E1 / T1", "Spec", "done"],
+                        "labels": ["E1 / T1", "Spec", "working"],
                         "convo": [
                             {
                                 "role": "assistant",
@@ -232,6 +232,19 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         if fe_last_state:
             convo = await load_convo(sm, args.project, args.branch)
             await print_convo(ui, convo)
+        else:
+            if sm.current_state.specification and sm.current_state.specification.description:
+                await ui.send_back_logs(
+                    [
+                        {
+                            "title": "Writing Specification",
+                            "project_state_id": "spec",
+                            "labels": ["E1 / T1", "Writing specification", "working"],
+                            "convo": [],
+                        }
+                    ]
+                )
+                # await ui.send_message(sm.current_state.specification.description, extra_info={"route": "forwardToCenter"})
 
         # backend back logs
         be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
