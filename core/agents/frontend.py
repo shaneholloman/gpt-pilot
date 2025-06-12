@@ -1,4 +1,6 @@
 import asyncio
+import json
+import os
 import sys
 from urllib.parse import urljoin
 
@@ -312,6 +314,25 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         prefix, cmd_part = command.split("&&", 1)
                         cmd_part = cmd_part.strip().replace("client/", "")
                         command = f"{prefix} && {cmd_part}"
+
+                        # check if cmd_part contains npm run something, if that something is not in scripts, then skip it
+                        if "npm run" in cmd_part:
+                            npm_script = cmd_part.split("npm run")[1].strip()
+
+                            absolute_path = os.path.join(
+                                self.state_manager.get_full_project_root(),
+                                os.path.join(
+                                    "client" if "client" in prefix else "server" if "server" in prefix else "",
+                                    "package.json",
+                                ),
+                            )
+                            with open(absolute_path, "r") as file:
+                                package_json = json.load(file)
+                                if npm_script not in package_json.get("scripts", {}):
+                                    log.warning(
+                                        f"Skipping command: {command} as npm script {npm_script} not found, command is {command}"
+                                    )
+                                    continue
 
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
