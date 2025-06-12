@@ -453,6 +453,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.kill_app()
 
             if diff_stdout or diff_stderr:
+                log.debug(f"Auto-debugging output:\n{diff_stdout}\n{diff_stderr}")
                 return f"I got an error. Here are the logs:\n{diff_stdout}\n{diff_stderr}"
         except Exception as e:
             capture_exception(e)
