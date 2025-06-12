@@ -445,6 +445,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 await self.process_manager.run_command("lsof -ti:3000 | xargs -r kill", show_output=False)
 
     async def try_auto_debug(self) -> str:
+        count = 3
         if self.current_state.epics[0].get("auto_debug_attempts", 0) >= 3:
             return ""
         try:
@@ -454,20 +455,21 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             # kill app
             await self.kill_app()
 
-            # 1. Start npm run start in the background
             npm_proc = await self.process_manager.start_process("npm run start &", show_output=False)
 
-            # 2. Wait for the server to start
-            await asyncio.sleep(2)
+            while True:
+                if count == 5:
+                    await asyncio.sleep(5)
+                else:
+                    await asyncio.sleep(2)
+                diff_stdout, diff_stderr = await npm_proc.read_output()
+                if (diff_stdout == "" and diff_stderr == "") or count <= 0:
+                    break
+                count -= 1
 
-            # 3. Capture and clear current stdout and stderr - this clears the buffer
-            await npm_proc.read_output()
-
-            # 4. Run curl command
             await self.process_manager.run_command("curl http://localhost:5173", show_output=False)
             await asyncio.sleep(1)
 
-            # 5. Capture new stdout and stderr from npm process (diff)
             diff_stdout, diff_stderr = await npm_proc.read_output()
 
             # kill app again
