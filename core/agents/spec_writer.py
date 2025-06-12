@@ -181,12 +181,14 @@ class SpecWriter(BaseAgent):
 
             if user_done_with_description.button == "yes":
                 break
-
-            await self.send_message("## What would you like to add?")
-            user_add_to_spec = await self.ask_question(
-                "What would you like to add?",
-                allow_empty=False,
-            )
+            elif user_done_with_description.button == "no":
+                await self.send_message("## What would you like to add?")
+                user_add_to_spec = await self.ask_question(
+                    "What would you like to add?",
+                    allow_empty=False,
+                )
+            else:
+                user_add_to_spec = user_done_with_description
 
             await self.send_message(
                 "## Refining specification\n\nPythagora is refining the specs based on your input.",

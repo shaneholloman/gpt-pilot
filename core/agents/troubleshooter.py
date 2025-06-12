@@ -334,6 +334,10 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 bug_report = user_description.text
                 await self.get_relevant_files_parallel(user_feedback=bug_report)
                 break
+            elif user_response.text and isinstance(user_response.text, str):
+                bug_report = user_response.text
+                await self.get_relevant_files_parallel(user_feedback=bug_report)
+                break
 
         return should_iterate, is_loop, should_redo, bug_report, change_description
 
