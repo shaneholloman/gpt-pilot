@@ -406,7 +406,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # kill frontend - both swagger and node
         if is_win:
             await self.process_manager.run_command(
-                "Get-NetTCPConnection -LocalPort 5173 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }",
+                """for /f "tokens=5" %a in ('netstat -ano ^| findstr :5173 ^| findstr LISTENING') do taskkill /F /PID %a""",
                 show_output=False,
             )
         else:
@@ -416,7 +416,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if self.state_manager.project.project_type == "node":
             if is_win:
                 await self.process_manager.run_command(
-                    "Get-NetTCPConnection -LocalPort 3000 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }",
+                    """for /f "tokens=5" %a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do taskkill /F /PID %a""",
                     show_output=False,
                 )
             else:
