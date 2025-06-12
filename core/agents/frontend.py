@@ -122,6 +122,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: True if the frontend is fully built, False otherwise.
         """
+        self.current_state.epics[0]["auto_debug_attempts"] = 0
         user_input = await self.try_auto_debug()
 
         frontend_only = self.current_state.branch.project.project_type == "swagger"
