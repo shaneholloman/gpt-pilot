@@ -458,7 +458,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             npm_proc = await self.process_manager.start_process("npm run start &", show_output=False)
 
             while True:
-                if count == 5:
+                if count == 3:
                     await asyncio.sleep(5)
                 else:
                     await asyncio.sleep(2)
