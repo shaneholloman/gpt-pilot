@@ -480,83 +480,109 @@ def get_source_for_history(msg_type: Optional[str] = "", question: Optional[str]
         return UISource("Pythagora", "pythagora")
 
 
-async def print_convo(
+async def print_convo_old_to_v2_adapter(
     ui: UIBase,
     convo: list,
 ):
+    msgs = []
     for msg in convo:
         if "frontend" in msg:
             frontend_data = msg["frontend"]
             if isinstance(frontend_data, list):
                 for frontend_msg in frontend_data:
-                    await ui.send_message(
-                        frontend_msg,
-                        source=get_source_for_history(msg_type="frontend"),
-                        project_state_id=msg["id"],
+                    msgs.append(
+                        await ui.send_message(
+                            frontend_msg,
+                            source=get_source_for_history(msg_type="frontend"),
+                            project_state_id=msg["id"],
+                            fake=True,
+                        )
                     )
             else:
-                await ui.send_message(
-                    frontend_data,
-                    source=get_source_for_history(msg_type="frontend"),
-                    project_state_id=msg["id"],
+                msgs.append(
+                    await ui.send_message(
+                        frontend_data,
+                        source=get_source_for_history(msg_type="frontend"),
+                        project_state_id=msg["id"],
+                        fake=True,
+                    )
                 )
 
         if "bh_breakdown" in msg:
-            await ui.send_message(
-                msg["bh_breakdown"],
-                source=get_source_for_history(msg_type="bh_breakdown"),
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_message(
+                    msg["bh_breakdown"],
+                    source=get_source_for_history(msg_type="bh_breakdown"),
+                    project_state_id=msg["id"],
+                    fake=True,
+                )
             )
 
         if "task_description" in msg:
-            await ui.send_message(
-                msg["task_description"],
-                source=get_source_for_history(msg_type="task_description"),
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_message(
+                    msg["task_description"],
+                    source=get_source_for_history(msg_type="task_description"),
+                    project_state_id=msg["id"],
+                    fake=True,
+                )
             )
 
         if "task_breakdown" in msg:
-            await ui.send_message(
-                msg["task_breakdown"],
-                source=get_source_for_history(msg_type="task_breakdown"),
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_message(
+                    msg["task_breakdown"],
+                    source=get_source_for_history(msg_type="task_breakdown"),
+                    project_state_id=msg["id"],
+                    fake=True,
+                )
             )
 
         if "test_instructions" in msg:
-            await ui.send_test_instructions(
-                msg["test_instructions"],
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_test_instructions(msg["test_instructions"], project_state_id=msg["id"], fake=True)
             )
 
         if "bh_testing_instructions" in msg:
-            await ui.send_test_instructions(
-                msg["bh_testing_instructions"],
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_test_instructions(msg["bh_testing_instructions"], project_state_id=msg["id"], fake=True)
             )
 
         if "files" in msg:
             for f in msg["files"]:
-                await ui.send_file_status(f["path"], "done")
-                await ui.generate_diff(
-                    file_path=f["path"],
-                    old_content=f.get("old_content", ""),
-                    new_content=f.get("new_content", ""),
-                    n_new_lines=f["diff"][0],
-                    n_del_lines=f["diff"][1],
+                msgs.append(await ui.send_file_status(f["path"], "done", fake=True))
+                msgs.append(
+                    await ui.generate_diff(
+                        file_path=f["path"],
+                        old_content=f.get("old_content", ""),
+                        new_content=f.get("new_content", ""),
+                        n_new_lines=f["diff"][0],
+                        n_del_lines=f["diff"][1],
+                        fake=True,
+                    )
                 )
 
         if "user_inputs" in msg and msg["user_inputs"]:
             for input_item in msg["user_inputs"]:
                 if "question" in input_item:
-                    await ui.send_message(
-                        input_item["question"],
-                        source=get_source_for_history(question=input_item["question"]),
-                        project_state_id=msg["id"],
+                    msgs.append(
+                        await ui.send_message(
+                            input_item["question"],
+                            source=get_source_for_history(question=input_item["question"]),
+                            project_state_id=msg["id"],
+                            fake=True,
+                        )
                     )
 
                 if "answer" in input_item:
                     if input_item["question"] != TL_EDIT_DEV_PLAN:
-                        await ui.send_user_input_history(input_item["answer"], project_state_id=msg["id"])
+                        msgs.append(
+                            await ui.send_user_input_history(
+                                input_item["answer"], project_state_id=msg["id"], fake=True
+                            )
+                        )
+
+    return msgs
 
 
 async def load_convo(
