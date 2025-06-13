@@ -209,7 +209,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         if sm.current_state.specification and sm.current_state.specification.original_description:
             await ui.send_front_logs_headers(
-                "setup", ["E1 / T1", "Writing Specification", "working"], "Writing Specification"
+                "spec", ["E1 / T1", "Writing Specification", "working"], "Writing Specification"
             )
             await ui.send_back_logs(
                 [
@@ -232,7 +232,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             )
 
         # FRONTEND
-        be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
+        be_back_logs, first_task_in_progress = await sm.get_be_back_logs()
 
         if fe_states:
             status = "working" if fe_states[-1].action != FE_ITERATION_DONE else "done"
@@ -251,12 +251,12 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         # backend back logs
         # if there is a task that is in progress (NOT DONE) - send front logs headers
-        if first_working_task:
+        if first_task_in_progress:
             await ui.send_front_logs_headers(
-                first_working_task["start_id"],
-                first_working_task["labels"],
-                first_working_task["title"],
-                first_working_task["task_id"],
+                first_task_in_progress["start_id"],
+                first_task_in_progress["labels"],
+                first_task_in_progress["title"],
+                first_task_in_progress["task_id"],
             )
 
         if be_back_logs:

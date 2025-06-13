@@ -773,7 +773,7 @@ class ProjectState(Base):
                 start == -1
                 and state.current_task
                 and UUID(state.current_task["id"]) == task_id
-                and state.current_task["status"] == TaskStatus.TODO
+                and state.current_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
             ):
                 start = i
             if end == -1:
@@ -887,7 +887,6 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
-        is_frontend = False
         query = select(ProjectState).where(
             and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
         )
@@ -897,7 +896,6 @@ class ProjectState(Base):
         log.debug(f"Found {len(states)} states in branch")
 
         if not states:
-            is_frontend = True
             query = select(ProjectState).where(ProjectState.branch_id == branch_id)
             result = await session.execute(query)
             states = result.scalars().all()
@@ -917,40 +915,32 @@ class ProjectState(Base):
                     task_histories[task_id]["labels"] = []
                     task_histories[task_id]["status"] = task["status"]
                     task_histories[task_id]["start_id"] = state.id
-                    task_histories[task_id]["end_id"] = state.id
 
                 if task.get("status") == TaskStatus.TODO:
                     task_histories[task_id]["status"] = TaskStatus.TODO
                     task_histories[task_id]["start_id"] = state.id
-                    task_histories[task_id]["end_id"] = state.id
                 elif task.get("status") != task_histories[task_id]["status"]:
-                    task_histories[task_id]["end_id"] = state.id
                     task_histories[task_id]["status"] = task.get("status")
 
-                epic_num = task.get("sub_epic_id", "1") + 2  # +2 because we have spec_writer and frontend epics
+                # Update the end project state id in every state where its the current task - this will give us correct end id for every task, whether its in progress or done
+                if state.current_task.get("id") == task_id:
+                    task_histories[task_id]["end_id"] = state.id
+
+                epic_num = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
                 task_num = ProjectState.get_task_num_regex(state.action)
                 task_histories[task_id]["labels"] = [
-                    f"E{epic_num} / T{task_num}",
+                    f"E{str(epic_num)} / T{task_num}",
                     "Backend",
                     "Working" if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] else "Done",
                 ]
         log.debug(task_histories)
 
-        if is_frontend:
-            return [], {}, states
-
-        states_for_print = []
-        first_working_task = {}
+        first_in_progress_task = {}
 
         # separate all elements from task_histories that have same start_id and end_id
         for th in task_histories:
             if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
-                states_for_print = await ProjectState.get_task_conversation_project_states(
-                    session, branch_id, UUID(task_histories[th]["task_id"]), True
-                )
-                first_working_task = task_histories[th]
+                first_in_progress_task = task_histories[th]
                 break
 
-        task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
-
-        return list(task_histories.values()), first_working_task, states_for_print
+        return list(task_histories.values()), first_in_progress_task

@@ -155,10 +155,8 @@ class IPCClientUI(UIBase):
     async def _send(self, type: MessageType, fake: Optional[bool] = False, **kwargs):
         msg = Message(type=type, **kwargs)
         if fake:
-            log.debug("NOT SENDING message because it's fake: %s", msg)
             return msg
         else:
-            log.debug("SEND message: %s", msg)
             data = msg.to_bytes()
             if self.writer.is_closing():
                 log.error("IPC connection closed, can't send the message")
