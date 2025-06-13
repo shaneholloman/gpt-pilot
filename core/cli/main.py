@@ -209,14 +209,14 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         if sm.current_state.specification and sm.current_state.specification.original_description:
             await ui.send_front_logs_headers(
-                "spec", ["E1 / T1", "Writing Specification", "working"], "Writing Specification"
+                "", ["E1 / T1", "Writing Specification", "working"], "Writing Specification", ""
             )
             await ui.send_back_logs(
                 [
                     {
-                        "title": "Writing Specification",
                         "project_state_id": "spec",
                         "labels": ["E1 / T1", "Spec", "working" if fe_states == [] else "done"],
+                        "title": "Writing Specification",
                         "convo": [
                             {
                                 "role": "assistant",
@@ -227,6 +227,8 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                                 "content": sm.current_state.specification.original_description,
                             },
                         ],
+                        "start_id": "",
+                        "end_id": "",
                     }
                 ]
             )
@@ -236,31 +238,43 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         if fe_states:
             status = "working" if fe_states[-1].action != FE_ITERATION_DONE else "done"
-            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", status], "")
+            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", status], "Building Frontend", "")
             await ui.send_back_logs(
                 [
                     {
-                        "title": "Building Frontend",
-                        "project_state_id": str(sm.current_state.id),
                         "labels": ["E2 / T1", "Frontend", status],
+                        "title": "Building Frontend",
+                        "convo": [],
+                        "project_state_id": fe_states[0].id,
                         "start_id": fe_states[0].id,
                         "end_id": fe_states[-1].id,
                     }
                 ]
             )
 
-        # backend back logs
-        # if there is a task that is in progress (NOT DONE) - send front logs headers
-        if first_task_in_progress:
-            await ui.send_front_logs_headers(
-                first_task_in_progress["start_id"],
-                first_task_in_progress["labels"],
-                first_task_in_progress["title"],
-                first_task_in_progress["task_id"],
-            )
-
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
+
+        # TODO: is this already printed by extension? if you uncomment this, you will see double prints, so disabled it here
+        # if first_task_in_progress:
+        #     await ui.send_front_logs_headers(
+        #         first_task_in_progress["start_id"],
+        #         first_task_in_progress["labels"],
+        #         first_task_in_progress["title"],
+        #         first_task_in_progress.get("task_id", ""),
+        #     )
+        #     await ui.send_back_logs(
+        #         [
+        #             {
+        #                 "project_state_id": "",
+        #                 "labels": first_task_in_progress["labels"],
+        #                 "title": first_task_in_progress["title"],
+        #                 "convo": [],
+        #                 "start_id": first_task_in_progress["start_id"],
+        #                 "end_id": first_task_in_progress["end_id"],
+        #             }
+        #         ]
+        #     )
 
     else:
         success = await start_new_project(sm, ui, args)

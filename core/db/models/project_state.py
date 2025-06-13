@@ -915,23 +915,29 @@ class ProjectState(Base):
                     task_histories[task_id]["labels"] = []
                     task_histories[task_id]["status"] = task["status"]
                     task_histories[task_id]["start_id"] = state.id
+                    task_histories[task_id]["project_state_id"] = state.id
+                    task_histories[task_id]["end_id"] = state.id
 
                 if task.get("status") == TaskStatus.TODO:
                     task_histories[task_id]["status"] = TaskStatus.TODO
                     task_histories[task_id]["start_id"] = state.id
+                    task_histories[task_id]["project_state_id"] = state.id
+                    task_histories[task_id]["end_id"] = state.id
+
                 elif task.get("status") != task_histories[task_id]["status"]:
                     task_histories[task_id]["status"] = task.get("status")
-
-                # Update the end project state id in every state where its the current task - this will give us correct end id for every task, whether its in progress or done
-                if state.current_task.get("id") == task_id:
                     task_histories[task_id]["end_id"] = state.id
 
                 epic_num = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
-                task_num = ProjectState.get_task_num_regex(state.action)
+                # task_num = ProjectState.get_task_num_regex(state.action)
                 task_histories[task_id]["labels"] = [
-                    f"E{str(epic_num)} / T{task_num}",
+                    f"E{str(epic_num)} / T{state.tasks.index(task) + 1}",
                     "Backend",
-                    "Working" if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] else "Done",
+                    "Working"
+                    if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+                    else "Skipped"
+                    if task.get("status") == TaskStatus.SKIPPED
+                    else "Done",
                 ]
         log.debug(task_histories)
 
@@ -942,5 +948,5 @@ class ProjectState(Base):
             if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
                 first_in_progress_task = task_histories[th]
                 break
-
+        task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
         return list(task_histories.values()), first_in_progress_task

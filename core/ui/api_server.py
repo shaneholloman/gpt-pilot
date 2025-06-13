@@ -684,7 +684,10 @@ class IPCServer:
 
             response = Message(
                 type=MessageType.TASK_CONVO,
-                content={"taskConvo": await print_convo_old_to_v2_adapter(self.state_manager.ui, convo)},  # convo
+                content={
+                    "taskConvo": await print_convo_old_to_v2_adapter(self.state_manager.ui, convo),
+                    "project_state_id": start_project_id,
+                },
                 request_id=message.request_id,
             )
             await self._send_response(writer, response)

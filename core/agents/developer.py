@@ -332,6 +332,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         description = self.current_state.current_task["description"]
         task_index = self.current_state.tasks.index(self.current_state.current_task) + 1
+        epic_index = (
+            self.current_state.current_task.get("sub_epic_id", 0) + 2
+        )  # 2 because we have spec writer and frontend before backend
         await self.ui.send_project_stage(
             {
                 "stage": ProjectStage.STARTING_TASK,
@@ -341,7 +344,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         await self.ui.clear_main_logs()
         await self.ui.send_front_logs_headers(
             f"be_{task_index}_{task_index + 1}",
-            [f"E{task_index} / T{task_index + 1}", "working"],
+            [f"E{epic_index} / T{task_index}", "Backend", "working"],
             description,
             self.current_state.current_task.get("id"),
         )
@@ -350,7 +353,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 {
                     "title": description,
                     "project_state_id": self.current_state.id,
-                    "labels": [f"E{task_index} / T{task_index + 1}", "working"],
+                    "labels": [f"E{epic_index} / T{task_index}", "working"],
                 }
             ]
         )
