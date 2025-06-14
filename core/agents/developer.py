@@ -333,7 +333,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         description = self.current_state.current_task["description"]
         task_index = self.current_state.tasks.index(self.current_state.current_task) + 1
         epic_index = (
-            self.current_state.current_task.get("sub_epic_id", 0) + 2
+            self.current_state.current_task.get("sub_epic_id", 1) + 2
         )  # 2 because we have spec writer and frontend before backend
         await self.ui.send_project_stage(
             {

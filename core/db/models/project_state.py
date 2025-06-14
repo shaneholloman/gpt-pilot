@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, UniqueConstraint, and_, delete, inspect, select
+from sqlalchemy import ForeignKey, UniqueConstraint, and_, delete, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, load_only, mapped_column, relationship
 from sqlalchemy.orm.attributes import flag_modified
@@ -888,8 +888,13 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
+        epic_num = -1
+        task_num = -1
         query = select(ProjectState).where(
-            and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
+            and_(
+                ProjectState.branch_id == branch_id,
+                or_(ProjectState.action.like("%Task #%"), ProjectState.action.like("%Create a development plan%")),
+            )
         )
         result = await session.execute(query)
         states = result.scalars().all()
@@ -929,10 +934,13 @@ class ProjectState(Base):
                     task_histories[task_id]["status"] = task.get("status")
                     task_histories[task_id]["end_id"] = state.id
 
-                epic_num = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
-                # task_num = ProjectState.get_task_num_regex(state.action)
+                epic_n = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
+
+                if epic_n != epic_num:
+                    epic_num = epic_n
+                    task_num = 1
                 task_histories[task_id]["labels"] = [
-                    f"E{str(epic_num)} / T{state.tasks.index(task) + 1}",
+                    f"E{str(epic_n)} / T{task_num}",
                     "Backend",
                     "Working"
                     if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
@@ -940,24 +948,25 @@ class ProjectState(Base):
                     if task.get("status") == TaskStatus.SKIPPED
                     else "Done",
                 ]
+                task_num += 1
         log.debug(task_histories)
 
-        first_in_progress_task = {}
-
+        last_task = {}
         # separate all elements from task_histories that have same start_id and end_id
         for th in task_histories:
             if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
-                first_in_progress_task = task_histories[th]
+                last_task = task_histories[th]
                 break
+
         task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
 
-        if first_in_progress_task:
-            unfinished_task = first_in_progress_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+        if last_task:
+            unfinished_task = last_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
             project_states = await ProjectState.get_task_conversation_project_states(
-                session, branch_id, first_in_progress_task.get("id"), unfinished_task
+                session, branch_id, last_task.get("id"), unfinished_task
             )
             if project_states:
-                first_in_progress_task["start_id"] = project_states[0].id
-                first_in_progress_task["project_state_id"] = project_states[0].id
-                first_in_progress_task["end_id"] = project_states[-1].id
-        return list(task_histories.values()), first_in_progress_task
+                last_task["start_id"] = project_states[0].id
+                last_task["project_state_id"] = project_states[0].id
+                last_task["end_id"] = project_states[-1].id
+        return list(task_histories.values()), last_task
