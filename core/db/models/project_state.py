@@ -740,7 +740,6 @@ class ProjectState(Base):
             )
         )
         result = await session.execute(query)
-        result = await session.execute(query)
         return result.scalars().all()
 
     @staticmethod

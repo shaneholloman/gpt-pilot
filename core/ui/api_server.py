@@ -667,7 +667,7 @@ class IPCServer:
         """
         log.debug("Got _handle_task_convo request with message: %s", message)
         try:
-            task_id = message.content.get("task_id", "")
+            task_id = uuid.UUID(message.content.get("task_id", ""))
             start_project_id = uuid.UUID(message.content.get("start_id", ""))
             end_project_id = uuid.UUID(message.content.get("end_id", ""))
 
