@@ -39,6 +39,7 @@ class PlainConsoleUI(UIBase):
         message: str,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
+        fake: Optional[bool] = False,
     ):
         if source:
             print(f"[{source}] {message}")
@@ -52,6 +53,7 @@ class PlainConsoleUI(UIBase):
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
         extra_info: Optional[dict] = None,
+        fake: Optional[bool] = False,
     ):
         if source:
             print(f"[{source}] {message}")
@@ -187,13 +189,17 @@ class PlainConsoleUI(UIBase):
     async def send_project_stats(self, stats: dict):
         pass
 
-    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
+    async def send_test_instructions(
+        self, test_instructions: str, project_state_id: Optional[str] = None, fake: Optional[bool] = False
+    ):
         await self.send_message(test_instructions)
 
     async def knowledge_base_update(self, knowledge_base: dict):
         pass
 
-    async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
+    async def send_file_status(
+        self, file_path: str, file_status: str, source: Optional[UISource] = None, fake: Optional[bool] = False
+    ):
         await self.send_message(f"{file_path}: {file_status}")
 
     async def send_bug_hunter_status(self, status: str, num_cycles: int):
@@ -207,6 +213,7 @@ class PlainConsoleUI(UIBase):
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
         await self.send_message(f"{file_path}: ({n_new_lines},{n_del_lines})")
 

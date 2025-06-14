@@ -735,8 +735,8 @@ class ProjectState(Base):
         query = select(ProjectState).where(
             and_(
                 ProjectState.branch_id == branch_id,
-                ProjectState.id >= start_id,
-                ProjectState.id <= end_id,
+                ProjectState.step_index >= start_state.step_index,
+                ProjectState.step_index <= end_state.step_index,
             )
         )
         result = await session.execute(query)
@@ -807,6 +807,8 @@ class ProjectState(Base):
         result = await session.execute(query)
         results = result.scalars().all()
 
+        # Remove the last state from the list because that state is not yet commited in the databse!
+        results = results[:-1]
         # only return sublist of states, first state should have action like "Task #<task_number> start"
         index = -1
         for i, state in enumerate(results):
@@ -948,4 +950,14 @@ class ProjectState(Base):
                 first_in_progress_task = task_histories[th]
                 break
         task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
+
+        if first_in_progress_task:
+            unfinished_task = first_in_progress_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+            project_states = await ProjectState.get_task_conversation_project_states(
+                session, branch_id, first_in_progress_task.get("id"), unfinished_task
+            )
+            if project_states:
+                first_in_progress_task["start_id"] = project_states[0].id
+                first_in_progress_task["project_state_id"] = project_states[0].id
+                first_in_progress_task["end_id"] = project_states[-1].id
         return list(task_histories.values()), first_in_progress_task

@@ -480,10 +480,16 @@ def get_source_for_history(msg_type: Optional[str] = "", question: Optional[str]
         return UISource("Pythagora", "pythagora")
 
 
-async def print_convo_old_to_v2_adapter(
-    ui: UIBase,
-    convo: list,
-):
+"""
+Prints the conversation history to the UI.
+
+:param ui: UI instance to send messages to
+:param convo: List of conversation messages to print
+:param fake: If True, messages will NOT be sent to the extension.
+"""
+
+
+async def print_convo(ui: UIBase, convo: list, fake: Optional[bool] = True):
     msgs = []
     for msg in convo:
         if "frontend" in msg:
@@ -495,7 +501,7 @@ async def print_convo_old_to_v2_adapter(
                             frontend_msg,
                             source=get_source_for_history(msg_type="frontend"),
                             project_state_id=msg["id"],
-                            fake=True,
+                            fake=fake,
                         )
                     )
             else:
@@ -504,7 +510,7 @@ async def print_convo_old_to_v2_adapter(
                         frontend_data,
                         source=get_source_for_history(msg_type="frontend"),
                         project_state_id=msg["id"],
-                        fake=True,
+                        fake=fake,
                     )
                 )
 
@@ -514,7 +520,7 @@ async def print_convo_old_to_v2_adapter(
                     msg["bh_breakdown"],
                     source=get_source_for_history(msg_type="bh_breakdown"),
                     project_state_id=msg["id"],
-                    fake=True,
+                    fake=fake,
                 )
             )
 
@@ -524,7 +530,7 @@ async def print_convo_old_to_v2_adapter(
                     msg["task_description"],
                     source=get_source_for_history(msg_type="task_description"),
                     project_state_id=msg["id"],
-                    fake=True,
+                    fake=fake,
                 )
             )
 
@@ -534,23 +540,23 @@ async def print_convo_old_to_v2_adapter(
                     msg["task_breakdown"],
                     source=get_source_for_history(msg_type="task_breakdown"),
                     project_state_id=msg["id"],
-                    fake=True,
+                    fake=fake,
                 )
             )
 
         if "test_instructions" in msg:
             msgs.append(
-                await ui.send_test_instructions(msg["test_instructions"], project_state_id=msg["id"], fake=True)
+                await ui.send_test_instructions(msg["test_instructions"], project_state_id=msg["id"], fake=fake)
             )
 
         if "bh_testing_instructions" in msg:
             msgs.append(
-                await ui.send_test_instructions(msg["bh_testing_instructions"], project_state_id=msg["id"], fake=True)
+                await ui.send_test_instructions(msg["bh_testing_instructions"], project_state_id=msg["id"], fake=fake)
             )
 
         if "files" in msg:
             for f in msg["files"]:
-                msgs.append(await ui.send_file_status(f["path"], "done", fake=True))
+                msgs.append(await ui.send_file_status(f["path"], "done", fake=fake))
                 msgs.append(
                     await ui.generate_diff(
                         file_path=f["path"],
@@ -558,7 +564,7 @@ async def print_convo_old_to_v2_adapter(
                         new_content=f.get("new_content", ""),
                         n_new_lines=f["diff"][0],
                         n_del_lines=f["diff"][1],
-                        fake=True,
+                        fake=fake,
                     )
                 )
 
@@ -570,7 +576,7 @@ async def print_convo_old_to_v2_adapter(
                             input_item["question"],
                             source=get_source_for_history(question=input_item["question"]),
                             project_state_id=msg["id"],
-                            fake=True,
+                            fake=fake,
                         )
                     )
 
@@ -578,7 +584,7 @@ async def print_convo_old_to_v2_adapter(
                     if input_item["question"] != TL_EDIT_DEV_PLAN:
                         msgs.append(
                             await ui.send_user_input_history(
-                                input_item["answer"], project_state_id=msg["id"], fake=True
+                                input_item["answer"], project_state_id=msg["id"], fake=fake
                             )
                         )
 

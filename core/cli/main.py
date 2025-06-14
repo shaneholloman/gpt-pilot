@@ -23,7 +23,9 @@ from core.cli.helpers import (
     init_sentry,
     list_projects_branches_states,
     list_projects_json,
+    load_convo,
     load_project,
+    print_convo,
     show_config,
 )
 from core.db.session import SessionManager
@@ -254,27 +256,36 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
+        else:
+            # if no backend logs, print frontend convo
+            convo = await load_convo(sm, project_states=fe_states)
+            await print_convo(ui=ui, convo=convo, fake=False)
 
-        # TODO: is this already printed by extension? if you uncomment this, you will see double prints, so disabled it here
-        # if first_task_in_progress:
-        #     await ui.send_front_logs_headers(
-        #         first_task_in_progress["start_id"],
-        #         first_task_in_progress["labels"],
-        #         first_task_in_progress["title"],
-        #         first_task_in_progress.get("task_id", ""),
-        #     )
-        #     await ui.send_back_logs(
-        #         [
-        #             {
-        #                 "project_state_id": "",
-        #                 "labels": first_task_in_progress["labels"],
-        #                 "title": first_task_in_progress["title"],
-        #                 "convo": [],
-        #                 "start_id": first_task_in_progress["start_id"],
-        #                 "end_id": first_task_in_progress["end_id"],
-        #             }
-        #         ]
-        #     )
+        if first_task_in_progress:
+            # if a task is in progress, print backend convo
+            be_states = await sm.get_project_states_in_between(
+                first_task_in_progress["start_id"], first_task_in_progress["end_id"]
+            )
+            convo = await load_convo(sm, project_states=be_states)
+            await print_convo(ui=ui, convo=convo, fake=False)
+            # await ui.send_front_logs_headers(
+            #     first_task_in_progress["start_id"],
+            #     first_task_in_progress["labels"],
+            #     first_task_in_progress["title"],
+            #     first_task_in_progress.get("task_id", ""),
+            # )
+            # await ui.send_back_logs(
+            #     [
+            #         {
+            #             "project_state_id": "",
+            #             "labels": first_task_in_progress["labels"],
+            #             "title": first_task_in_progress["title"],
+            #             "convo": [],
+            #             "start_id": first_task_in_progress["start_id"],
+            #             "end_id": first_task_in_progress["end_id"],
+            #         }
+            #     ]
+            # )
 
     else:
         success = await start_new_project(sm, ui, args)

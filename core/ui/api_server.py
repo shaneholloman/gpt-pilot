@@ -15,7 +15,7 @@ from core.cli.helpers import (
     find_task_by_id,
     insert_new_task,
     load_convo,
-    print_convo_old_to_v2_adapter,
+    print_convo,
 )
 from core.config.actions import CM_UPDATE_FILES
 from core.db.models.chat_convo import ChatConvo
@@ -667,7 +667,9 @@ class IPCServer:
         """
         log.debug("Got _handle_task_convo request with message: %s", message)
         try:
-            task_id = uuid.UUID(message.content.get("task_id", ""))
+            task_id = message.content.get("task_id", "")
+            if task_id:
+                task_id = uuid.UUID(task_id)
             start_project_id = uuid.UUID(message.content.get("start_id", ""))
             end_project_id = uuid.UUID(message.content.get("end_id", ""))
 
@@ -685,7 +687,7 @@ class IPCServer:
             response = Message(
                 type=MessageType.TASK_CONVO,
                 content={
-                    "taskConvo": await print_convo_old_to_v2_adapter(self.state_manager.ui, convo),
+                    "taskConvo": await print_convo(self.state_manager.ui, convo),
                     "project_state_id": start_project_id,
                 },
                 request_id=message.request_id,
