@@ -174,7 +174,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                     default="yes",
                 )
 
-            return answer.button == "yes"
+                return answer.button == "yes"
 
             if answer.text:
                 user_input = answer.text
@@ -239,7 +239,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         )
 
         # replace system prompt because of relace
-        convo.messages[-1]["content"] = AgentConvo(self).render("system_relace")
+        convo.messages[0]["content"] = AgentConvo(self).render("system_relace")
 
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
 
