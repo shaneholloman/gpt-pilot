@@ -138,12 +138,17 @@ class StateManager:
             self.current_session, self.current_state.branch_id, task_id
         )
 
-    async def get_fe_last_state(self) -> Optional[ProjectState]:
+    async def get_project_states_in_between(self, start_state_id: UUID, end_state_id: UUID) -> list[ProjectState]:
         """
-        Get all frontend and backend logs for the current project state.
-        This retrieves all logs that are associated with the current project state.
+        Get all project states in between two states.
+        This retrieves all project states that are associated with a specific branch
         """
-        return await ProjectState.get_fe_last_state(self.current_session, self.current_state.branch_id)
+        return await ProjectState.get_project_states_in_between(
+            self.current_session, self.current_state.branch_id, start_state_id, end_state_id
+        )
+
+    async def get_fe_states(self) -> Optional[ProjectState]:
+        return await ProjectState.get_fe_states(self.current_session, self.current_state.branch_id)
 
     async def get_be_back_logs(self):
         """

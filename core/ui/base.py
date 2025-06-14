@@ -138,6 +138,7 @@ class UIBase:
         message: str,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
+        fake: Optional[bool] = False,
     ):
         """
         Send a user input history (what the user said to Pythagora) message to the UI.
@@ -145,6 +146,7 @@ class UIBase:
         :param message: Message content.
         :param source: Source of the message (if any).
         :param project_state_id: Current project state id.
+        :param fake: Whether to actually send the message - if fake==True, will not send msg.
         """
         raise NotImplementedError()
 
@@ -155,6 +157,7 @@ class UIBase:
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
         extra_info: Optional[dict] = None,
+        fake: Optional[bool] = False,
     ):
         """
         Send a complete message to the UI.
@@ -163,6 +166,7 @@ class UIBase:
         :param source: Source of the message (if any).
         :param project_state_id: Current project state id.
         :param extra_info: Extra information to indicate special functionality in extension.
+        :param fake: Whether to actually send the message - if fake==True, will not send msg.
         """
         raise NotImplementedError()
 
@@ -397,12 +401,15 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
+    async def send_test_instructions(
+        self, test_instructions: str, project_state_id: Optional[str] = None, fake: Optional[bool] = False
+    ):
         """
         Send test instructions.
 
         :param test_instructions: Test instructions.
         :param project_state_id: Project state ID.
+        :param fake: Whether to actually send the message - if fake==True, will not send msg.
         """
         raise NotImplementedError()
 
@@ -414,13 +421,16 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
+    async def send_file_status(
+        self, file_path: str, file_status: str, source: Optional[UISource] = None, fake: Optional[bool] = False
+    ):
         """
         Send file status.
 
         :param file_path: File path.
         :param file_status: File status.
         :param source: Source of the file status.
+        :param fake: Whether to actually send the message - if fake==True, will not send msg.
         """
         raise NotImplementedError()
 
@@ -441,6 +451,7 @@ class UIBase:
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
         """
         Generate a diff between two files.
@@ -451,6 +462,7 @@ class UIBase:
         :param n_new_lines: Number of new lines.
         :param n_del_lines: Number of deleted lines.
         :param source: Source of the diff.
+        :param fake: Whether to actually send the message - if fake==True, will not send msg.
         """
         raise NotImplementedError()
 

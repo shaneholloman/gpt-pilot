@@ -4,13 +4,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, UniqueConstraint, and_, delete, inspect, select
+from sqlalchemy import ForeignKey, UniqueConstraint, and_, delete, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, load_only, mapped_column, relationship
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import func
 
-from core.config.actions import FE_CONTINUE, FE_ITERATION, FE_ITERATION_DONE, FE_START, PS_EPIC_COMPLETE
+from core.config.actions import FE_START, PS_EPIC_COMPLETE
 from core.db.models import Base, FileContent
 from core.log import get_logger
 
@@ -709,6 +709,40 @@ class ProjectState(Base):
         return epics_and_tasks
 
     @staticmethod
+    async def get_project_states_in_between(session: "AsyncSession", branch_id: UUID, start_id: UUID, end_id: UUID):
+        query = select(ProjectState).where(
+            and_(
+                ProjectState.branch_id == branch_id,
+                ProjectState.id == start_id,
+            )
+        )
+        result = await session.execute(query)
+        start_state = result.scalars().one_or_none()
+
+        query = select(ProjectState).where(
+            and_(
+                ProjectState.branch_id == branch_id,
+                ProjectState.id == end_id,
+            )
+        )
+        result = await session.execute(query)
+        end_state = result.scalars().one_or_none()
+
+        if not start_state or not end_state:
+            log.error(f"Could not find states with IDs {start_id} and {end_id} in branch {branch_id}")
+            return []
+
+        query = select(ProjectState).where(
+            and_(
+                ProjectState.branch_id == branch_id,
+                ProjectState.step_index >= start_state.step_index,
+                ProjectState.step_index <= end_state.step_index,
+            )
+        )
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @staticmethod
     async def get_task_conversation_project_states(
         session: "AsyncSession", branch_id: UUID, task_id: UUID, unfinished_task: bool = False
     ) -> Optional[list["ProjectState"]]:
@@ -738,7 +772,7 @@ class ProjectState(Base):
                 start == -1
                 and state.current_task
                 and UUID(state.current_task["id"]) == task_id
-                and state.current_task["status"] == TaskStatus.TODO
+                and state.current_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
             ):
                 start = i
             if end == -1:
@@ -773,6 +807,8 @@ class ProjectState(Base):
         result = await session.execute(query)
         results = result.scalars().all()
 
+        # Remove the last state from the list because that state is not yet commited in the databse!
+        results = results[:-1]
         # only return sublist of states, first state should have action like "Task #<task_number> start"
         index = -1
         for i, state in enumerate(results):
@@ -783,18 +819,7 @@ class ProjectState(Base):
         return results[index:]
 
     @staticmethod
-    async def get_fe_last_state(session: "AsyncSession", branch_id: UUID) -> Optional["ProjectState"]:
-        """
-        Get the last project state in the frontend stage for the given branch.
-
-        This method finds the last project state with action FE_ITERATION_DONE or FE_CONTINUE
-        within the frontend stage, which is defined by the presence of a FE_START action.
-        If no such state exists, it returns None.
-        :param session: The SQLAlchemy async session.
-        :param branch_id: The UUID of the branch.
-        :return: The last ProjectState object in the frontend stage, or None if not found.
-        """
-        # find project state with action == FE_START
+    async def get_fe_states(session: "AsyncSession", branch_id: UUID) -> Optional["ProjectState"]:
         query = select(ProjectState).where(
             and_(
                 ProjectState.branch_id == branch_id,
@@ -804,52 +829,34 @@ class ProjectState(Base):
         result = await session.execute(query)
         fe_start = result.scalars().one_or_none()
 
-        # find project state with action == FE_ITERATION_DONE
-        query = select(ProjectState).where(
-            and_(
-                ProjectState.branch_id == branch_id,
-                ProjectState.action == FE_ITERATION_DONE,
+        if not fe_start:
+            return []
+
+        query = (
+            select(ProjectState)
+            .where(
+                and_(
+                    ProjectState.branch_id == branch_id,
+                    ProjectState.step_index >= fe_start.step_index,
+                    ProjectState.action.like("%Frontend%"),
+                )
             )
+            .order_by(ProjectState.step_index.desc())
+            .limit(1)
         )
         result = await session.execute(query)
         fe_end = result.scalars().one_or_none()
 
-        if not fe_start:
-            return None
-
-        if not fe_end:
-            query = (
-                select(ProjectState)
-                .where(
-                    and_(
-                        ProjectState.branch_id == branch_id,
-                        ProjectState.step_index >= fe_start.step_index,
-                    )
-                )
-                .order_by(ProjectState.step_index.desc())
+        query = select(ProjectState).where(
+            and_(
+                ProjectState.branch_id == branch_id,
+                ProjectState.step_index >= fe_start.step_index,
+                ProjectState.step_index <= fe_end.step_index,
             )
-        else:
-            query = (
-                select(ProjectState)
-                .where(
-                    and_(
-                        ProjectState.branch_id == branch_id,
-                        ProjectState.step_index >= fe_start.step_index,
-                        ProjectState.step_index <= fe_end.step_index,
-                    )
-                )
-                .order_by(ProjectState.step_index.desc())
-            )
+        )
 
-        result = await session.execute(query)
-        states = result.scalars().all()
-
-        # iterate over states backwards to find the last FE_ITERATION_DONE or FE_CONTINUE action
-        for state in states:
-            if state.action in [FE_ITERATION, FE_CONTINUE]:
-                return state
-
-        return states[-1]
+        results = await session.execute(query)
+        return results.scalars().all()
 
     @staticmethod
     def get_task_num_regex(task_action: str) -> Optional[int]:
@@ -881,9 +888,13 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
-        is_frontend = False
+        epic_num = -1
+        task_num = -1
         query = select(ProjectState).where(
-            and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
+            and_(
+                ProjectState.branch_id == branch_id,
+                or_(ProjectState.action.like("%Task #%"), ProjectState.action.like("%Create a development plan%")),
+            )
         )
         result = await session.execute(query)
         states = result.scalars().all()
@@ -891,7 +902,6 @@ class ProjectState(Base):
         log.debug(f"Found {len(states)} states in branch")
 
         if not states:
-            is_frontend = True
             query = select(ProjectState).where(ProjectState.branch_id == branch_id)
             result = await session.execute(query)
             states = result.scalars().all()
@@ -911,40 +921,52 @@ class ProjectState(Base):
                     task_histories[task_id]["labels"] = []
                     task_histories[task_id]["status"] = task["status"]
                     task_histories[task_id]["start_id"] = state.id
+                    task_histories[task_id]["project_state_id"] = state.id
                     task_histories[task_id]["end_id"] = state.id
 
                 if task.get("status") == TaskStatus.TODO:
                     task_histories[task_id]["status"] = TaskStatus.TODO
                     task_histories[task_id]["start_id"] = state.id
+                    task_histories[task_id]["project_state_id"] = state.id
                     task_histories[task_id]["end_id"] = state.id
-                elif task.get("status") != task_histories[task_id]["status"]:
-                    task_histories[task_id]["end_id"] = state.id
-                    task_histories[task_id]["status"] = task.get("status")
 
-                epic_num = task.get("sub_epic_id", "1")
-                task_num = ProjectState.get_task_num_regex(state.action)
+                elif task.get("status") != task_histories[task_id]["status"]:
+                    task_histories[task_id]["status"] = task.get("status")
+                    task_histories[task_id]["end_id"] = state.id
+
+                epic_n = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
+
+                if epic_n != epic_num:
+                    epic_num = epic_n
+                    task_num = 1
                 task_histories[task_id]["labels"] = [
-                    f"E{epic_num} / T{task_num}",
+                    f"E{str(epic_n)} / T{task_num}",
                     "Backend",
-                    "Working" if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS] else "Done",
+                    "Working"
+                    if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+                    else "Skipped"
+                    if task.get("status") == TaskStatus.SKIPPED
+                    else "Done",
                 ]
+                task_num += 1
         log.debug(task_histories)
 
-        if is_frontend:
-            return [], {}, states
-
-        states_for_print = []
-        first_working_task = {}
-
+        last_task = {}
         # separate all elements from task_histories that have same start_id and end_id
         for th in task_histories:
             if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
-                states_for_print = await ProjectState.get_task_conversation_project_states(
-                    session, branch_id, UUID(task_histories[th]["task_id"]), True
-                )
-                first_working_task = task_histories[th]
+                last_task = task_histories[th]
                 break
 
         task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
 
-        return list(task_histories.values()), first_working_task, states_for_print
+        if last_task:
+            unfinished_task = last_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+            project_states = await ProjectState.get_task_conversation_project_states(
+                session, branch_id, last_task.get("id"), unfinished_task
+            )
+            if project_states:
+                last_task["start_id"] = project_states[0].id
+                last_task["project_state_id"] = project_states[0].id
+                last_task["end_id"] = project_states[-1].id
+        return list(task_histories.values()), last_task

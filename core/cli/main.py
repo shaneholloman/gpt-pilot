@@ -6,6 +6,8 @@ import traceback
 from argparse import Namespace
 from asyncio import run
 
+from core.config.actions import FE_ITERATION_DONE
+
 try:
     import sentry_sdk
 
@@ -204,14 +206,19 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
         if not project_state:
             return False
 
-        # initial two hardcoded messages
-        if sm.current_state.specification and sm.current_state.specification.description:
+        # SPECIFICATION
+        fe_states = await sm.get_fe_states()
+
+        if sm.current_state.specification and sm.current_state.specification.original_description:
+            await ui.send_front_logs_headers(
+                "", ["E1 / T1", "Writing Specification", "working"], "Writing Specification", ""
+            )
             await ui.send_back_logs(
                 [
                     {
-                        "title": "Writing Specification",
                         "project_state_id": "spec",
-                        "labels": ["E1 / T1", "Spec", "working"],
+                        "labels": ["E1 / T1", "Spec", "working" if fe_states == [] else "done"],
+                        "title": "Writing Specification",
                         "convo": [
                             {
                                 "role": "assistant",
@@ -219,74 +226,68 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                             },
                             {
                                 "role": "user",
-                                "content": sm.current_state.specification.description,
+                                "content": sm.current_state.specification.original_description,
                             },
                         ],
+                        "start_id": "",
+                        "end_id": "",
                     }
                 ]
             )
 
-        # frontend back logs
-        fe_last_state = await sm.get_fe_last_state()
+        # FRONTEND
+        be_back_logs, last_task_in_db = await sm.get_be_back_logs()
 
-        if fe_last_state:
-            convo = await load_convo(sm, args.project, args.branch)
-            await print_convo(ui, convo)
-        else:
-            if sm.current_state.specification and sm.current_state.specification.description:
-                await ui.send_back_logs(
-                    [
-                        {
-                            "title": "Writing Specification",
-                            "project_state_id": "spec",
-                            "labels": ["E1 / T1", "Writing specification", "working"],
-                            "convo": [],
-                        }
-                    ]
-                )
-                # await ui.send_message(sm.current_state.specification.description, extra_info={"route": "forwardToCenter"})
-
-        # backend back logs
-        be_back_logs, first_working_task, states_for_history = await sm.get_be_back_logs()
-
-        if not be_back_logs and not first_working_task:
+        if fe_states:
+            status = "working" if fe_states[-1].action != FE_ITERATION_DONE else "done"
+            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", status], "Building Frontend", "")
             await ui.send_back_logs(
                 [
                     {
+                        "labels": ["E2 / T1", "Frontend", status],
                         "title": "Building Frontend",
-                        "project_state_id": str(sm.current_state.id),
-                        "labels": ["E2 / T1", "Frontend", "working"],
+                        "convo": [],
+                        "project_state_id": fe_states[0].id,
+                        "start_id": fe_states[0].id,
+                        "end_id": fe_states[-1].id,
                     }
                 ]
             )
-            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", "working"], "")
-        else:
-            await ui.send_back_logs(
-                [
-                    {
-                        "title": "Building Frontend",
-                        "project_state_id": str(fe_last_state.id),
-                        "labels": ["E2 / T1", "Frontend", "done"],
-                    }
-                ]
-            )
-            if first_working_task:
-                await ui.send_front_logs_headers(
-                    first_working_task["start_id"],
-                    first_working_task["labels"],
-                    first_working_task["title"],
-                    first_working_task["task_id"],
-                )
 
+        # BACKEND
         if be_back_logs:
             await ui.send_back_logs(be_back_logs)
 
-        if states_for_history:
-            convo = await load_convo(sm, args.project, args.branch, states_for_history)
-            await print_convo(ui, convo)
+        if not be_back_logs and not last_task_in_db:
+            # if no backend logs AND no task is currently active -> we are on frontend -> print frontend convo history
+            convo = await load_convo(sm, project_states=fe_states)
+            await print_convo(ui=ui, convo=convo, fake=False)
+
+        if last_task_in_db:
+            # if there is a task in the db (we are at backend stage), print backend convo history and add task back logs and front logs headers
+            await ui.send_front_logs_headers(
+                last_task_in_db["start_id"],
+                last_task_in_db["labels"],
+                last_task_in_db["title"],
+                last_task_in_db.get("task_id", ""),
+            )
+            await ui.send_back_logs(
+                [
+                    {
+                        "project_state_id": last_task_in_db["start_id"],
+                        "labels": last_task_in_db["labels"],
+                        "title": last_task_in_db["title"],
+                        "convo": [],
+                        "start_id": last_task_in_db["start_id"],
+                        "end_id": last_task_in_db["end_id"],
+                    }
+                ]
+            )
+            be_states = await sm.get_project_states_in_between(last_task_in_db["start_id"], last_task_in_db["end_id"])
+            convo = await load_convo(sm, project_states=be_states)
+            await print_convo(ui=ui, convo=convo, fake=False)
 
     else:
-        # await ui.send_front_logs_headers("setup", ["E0 / T0", "Setup", "working"], "")
         success = await start_new_project(sm, ui, args)
         if not success:
             return False

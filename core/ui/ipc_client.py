@@ -152,19 +152,23 @@ class IPCClientUI(UIBase):
             log.error(f"Can't connect to the Pythagora VSCode extension: {err}")
             return False
 
-    async def _send(self, type: MessageType, **kwargs):
+    async def _send(self, type: MessageType, fake: Optional[bool] = False, **kwargs):
         msg = Message(type=type, **kwargs)
-        data = msg.to_bytes()
-        if self.writer.is_closing():
-            log.error("IPC connection closed, can't send the message")
-            raise UIClosedError()
-        try:
-            self.writer.write(len(data).to_bytes(4, byteorder="big"))
-            self.writer.write(data)
-            await self.writer.drain()
-        except (ConnectionResetError, BrokenPipeError) as err:
-            log.error(f"Connection lost while sending the message: {err}")
-            raise UIClosedError()
+        if fake:
+            return msg
+        else:
+            data = msg.to_bytes()
+            if self.writer.is_closing():
+                log.error("IPC connection closed, can't send the message")
+                raise UIClosedError()
+            try:
+                self.writer.write(len(data).to_bytes(4, byteorder="big"))
+                self.writer.write(data)
+                await self.writer.drain()
+                return msg
+            except (ConnectionResetError, BrokenPipeError) as err:
+                log.error(f"Connection lost while sending the message: {err}")
+                raise UIClosedError()
 
     async def _receive(self) -> Message:
         data = b""
@@ -238,9 +242,11 @@ class IPCClientUI(UIBase):
         message: str,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
+        fake: Optional[bool] = False,
     ):
-        await self._send(
+        return await self._send(
             MessageType.USER_INPUT_HISTORY,
+            fake,
             content=message,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
@@ -253,13 +259,15 @@ class IPCClientUI(UIBase):
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
         extra_info: Optional[dict] = None,
+        fake: Optional[bool] = False,
     ):
         if not self.writer:
-            return
+            return None
 
         log.debug(f"Sending message: [{message.strip()}] from {source.type_name if source else '(none)'}")
-        await self._send(
+        return await self._send(
             MessageType.VERBOSE,
+            fake,
             content=message,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
@@ -524,6 +532,7 @@ class IPCClientUI(UIBase):
         test_instructions: str,
         project_state_id: Optional[str] = None,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
         try:
             log.debug("Sending test instructions")
@@ -532,8 +541,9 @@ class IPCClientUI(UIBase):
             # this is for backwards compatibility with the old format
             parsed_instructions = test_instructions
 
-        await self._send(
+        return await self._send(
             MessageType.TEST_INSTRUCTIONS,
+            fake,
             content={
                 "test_instructions": parsed_instructions,
             },
@@ -551,9 +561,12 @@ class IPCClientUI(UIBase):
             },
         )
 
-    async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
-        await self._send(
+    async def send_file_status(
+        self, file_path: str, file_status: str, source: Optional[UISource] = None, fake: Optional[bool] = False
+    ):
+        return await self._send(
             MessageType.FILE_STATUS,
+            fake,
             category=source.type_name if source else None,
             content={
                 "file_path": file_path,
@@ -578,9 +591,11 @@ class IPCClientUI(UIBase):
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
-        await self._send(
+        return await self._send(
             MessageType.GENERATE_DIFF,
+            fake,
             category=source.type_name if source else None,
             content={
                 "file_path": file_path,

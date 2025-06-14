@@ -15,6 +15,7 @@ from core.cli.helpers import (
     find_task_by_id,
     insert_new_task,
     load_convo,
+    print_convo,
 )
 from core.config.actions import CM_UPDATE_FILES
 from core.db.models.chat_convo import ChatConvo
@@ -664,19 +665,31 @@ class IPCServer:
         :param message: Request message.
         :param writer: Stream writer to send response.
         """
+        log.debug("Got _handle_task_convo request with message: %s", message)
         try:
-            task_id = uuid.UUID(message.content.get("taskId", ""))
+            task_id = message.content.get("task_id", "")
+            if task_id:
+                task_id = uuid.UUID(task_id)
+            start_project_id = uuid.UUID(message.content.get("start_id", ""))
+            end_project_id = uuid.UUID(message.content.get("end_id", ""))
 
-            if not task_id:
-                await self._send_error(writer, "taskId is required", message.request_id)
-                return
+            if start_project_id and end_project_id:
+                project_states = await self.state_manager.get_project_states_in_between(
+                    start_project_id, end_project_id
+                )
+            elif task_id:
+                project_states = await self.state_manager.get_task_conversation_project_states(task_id)
+            else:
+                await self._send_error(writer, "task_id or (start_id and end_id) required", message.request_id)
 
-            project_states = await self.state_manager.get_task_conversation_project_states(task_id)
             convo = await load_convo(sm=self.state_manager, project_states=project_states)
 
             response = Message(
                 type=MessageType.TASK_CONVO,
-                content={"taskConvo": convo},
+                content={
+                    "taskConvo": await print_convo(self.state_manager.ui, convo),
+                    "project_state_id": start_project_id,
+                },
                 request_id=message.request_id,
             )
             await self._send_response(writer, response)
