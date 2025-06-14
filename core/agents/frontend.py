@@ -12,7 +12,7 @@ from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.cli.helpers import capture_exception
-from core.config import FRONTEND_AGENT_NAME, SWAGGER_EMBEDDINGS_API
+from core.config import FRONTEND_AGENT_NAME, IMPLEMENT_CHANGES_AGENT_NAME, SWAGGER_EMBEDDINGS_API
 from core.config.actions import (
     FE_CHANGE_REQ,
     FE_CONTINUE,
@@ -21,7 +21,8 @@ from core.config.actions import (
     FE_ITERATION_DONE,
     FE_START,
 )
-from core.llm.parser import DescriptiveCodeBlockParser
+from core.llm.convo import Convo
+from core.llm.parser import DescriptiveCodeBlockParser, OptionalCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.ui.base import ProjectStage
@@ -29,12 +30,19 @@ from core.ui.base import ProjectStage
 log = get_logger(__name__)
 
 
+def has_correct_num_of_backticks(response: str) -> bool:
+    """
+    Checks if the response has the correct number of backticks.
+    """
+    return response.count("```") % 2 == 0 and response.count("```") > 0
+
+
 class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     agent_type = "frontend"
     display_name = "Frontend"
 
     async def run(self) -> AgentResponse:
-        if not self.current_state.epics[0]["messages"]:
+        if not self.current_state.epics[-1]["messages"]:
             finished = await self.start_frontend()
         elif self.next_state.epics[-1].get("file_paths_to_remove_mock"):
             finished = await self.remove_mock()
@@ -65,7 +73,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             else self.current_state.specification.template_summary,
             description=self.state_manager.template["description"]
             if self.state_manager.template is not None
-            else self.next_state.epics[0]["description"],
+            else self.next_state.epics[-1]["description"],
             user_feedback=None,
             first_time_build=True,
         )
@@ -99,7 +107,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         llm = self.get_llm(FRONTEND_AGENT_NAME)
         convo = AgentConvo(self)
-        convo.messages = self.current_state.epics[0]["messages"]
+        convo.messages = self.current_state.epics[-1]["messages"]
         convo.user(
             "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response doesn't end by mentioning continuing, respond only with `DONE` and with nothing else."
         )
@@ -108,12 +116,21 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         response_blocks = response.blocks
         convo.assistant(response.original_response)
 
-        await self.process_response(response_blocks)
+        use_relace = self.current_state.epics[-1].get("use_relace", False)
+        await self.process_response(response_blocks, relace=use_relace)
+
+        if self.next_state.epics[-1].get("manual_iteration", False):
+            self.next_state.epics[-1]["fe_iteration_done"] = (
+                has_correct_num_of_backticks(response.original_response)
+                or self.current_state.epics[-1].get("retry_count", 0) >= 2
+            )
+            self.next_state.epics[-1]["retry_count"] = self.current_state.epics[-1].get("retry_count", 0) + 1
+        else:
+            self.next_state.epics[-1]["fe_iteration_done"] = (
+                "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
+            )
 
         self.next_state.epics[-1]["messages"] = convo.messages
-        self.next_state.epics[-1]["fe_iteration_done"] = (
-            "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
-        )
         self.next_state.flag_epics_as_modified()
 
         return False
@@ -124,7 +141,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: True if the frontend is fully built, False otherwise.
         """
-        self.current_state.epics[0]["auto_debug_attempts"] = 0
+        self.next_state.epics[-1]["auto_debug_attempts"] = 0
+        self.next_state.epics[-1]["retry_count"] = 0
         user_input = await self.try_auto_debug()
 
         frontend_only = self.current_state.branch.project.project_type == "swagger"
@@ -156,7 +174,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                     default="yes",
                 )
 
-                return answer.button == "yes"
+            return answer.button == "yes"
 
             if answer.text:
                 user_input = answer.text
@@ -169,7 +187,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if frontend_only:
             convo = AgentConvo(self).template(
                 "is_relevant_for_docs_search",
-                user_feedback=answer.text,
+                user_feedback=user_input,
             )
 
             response = await llm(convo)
@@ -181,7 +199,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
                             resp = await client.post(
                                 url,
-                                json={"text": answer.text, "project_id": str(self.state_manager.project.id)},
+                                json={"text": user_input, "project_id": str(self.state_manager.project.id)},
                                 headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                             )
 
@@ -211,17 +229,43 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
 
+        # try relace first
         convo = AgentConvo(self).template(
-            "build_frontend",
-            description=self.current_state.epics[0]["description"],
+            "iterate_frontend",
+            description=self.current_state.epics[-1]["description"],
             user_feedback=user_input,
             relevant_api_documentation=relevant_api_documentation,
             first_time_build=False,
         )
 
+        # replace system prompt because of relace
+        convo.messages[-1]["content"] = AgentConvo(self).render("system_relace")
+
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
 
-        await self.process_response(response.blocks)
+        relace_finished = await self.process_response(response.blocks, relace=True)
+
+        if not relace_finished:
+            log.debug("Relace didn't finish, reverting to build_frontend")
+            convo = AgentConvo(self).template(
+                "build_frontend",
+                description=self.current_state.epics[-1]["description"],
+                user_feedback=user_input,
+                relevant_api_documentation=relevant_api_documentation,
+                first_time_build=False,
+            )
+
+            response = await llm(convo, parser=DescriptiveCodeBlockParser())
+
+            await self.process_response(response.blocks)
+
+        convo.assistant(response.original_response)
+
+        self.next_state.epics[-1]["messages"] = convo.messages
+        self.next_state.epics[-1]["use_relace"] = relace_finished
+        self.next_state.epics[-1]["fe_iteration_done"] = has_correct_num_of_backticks(response.original_response)
+        self.next_state.epics[-1]["manual_iteration"] = True
+        self.next_state.flag_epics_as_modified()
 
         return False
 
@@ -240,8 +284,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await telemetry.trace_code_event(
                 "frontend-finished",
                 {
-                    "description": self.current_state.epics[0]["description"],
-                    "messages": self.current_state.epics[0]["messages"],
+                    "description": self.current_state.epics[-1]["description"],
+                    "messages": self.current_state.epics[-1]["messages"],
                 },
             )
 
@@ -261,7 +305,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return AgentResponse.done(self)
 
-    async def process_response(self, response_blocks: list, removed_mock: bool = False) -> list[str]:
+    async def process_response(self, response_blocks: list, removed_mock: bool = False, relace: bool = False) -> bool:
         """
         Processes the response blocks from the LLM.
 
@@ -285,6 +329,21 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                     continue
                 new_content = content
                 old_content = self.current_state.get_file_content_by_path(file_path)
+
+                if relace:
+                    llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
+                    convo = Convo().user(
+                        {
+                            "initialCode": old_content,
+                            "editSnippet": new_content,
+                        }
+                    )
+
+                    new_content = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
+
+                    if not new_content or new_content == ("", 0, 0):
+                        return False
+
                 n_new_lines, n_del_lines = self.get_line_changes(old_content, new_content)
                 await self.ui.send_file_status(file_path, "done", source=self.ui_source)
                 await self.ui.generate_diff(
@@ -339,7 +398,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             else:
                 log.info(f"Unknown block description: {description}")
 
-        return AgentResponse.done(self)
+        return True
 
     async def remove_mock(self):
         """
@@ -446,11 +505,11 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
     async def try_auto_debug(self) -> str:
         count = 3
-        if self.current_state.epics[0].get("auto_debug_attempts", 0) >= 3:
+        if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3:
             return ""
         try:
-            self.current_state.epics[0]["auto_debug_attempts"] = (
-                self.current_state.epics[0].get("auto_debug_attempts", 0) + 1
+            self.next_state.epics[-1]["auto_debug_attempts"] = (
+                self.current_state.epics[-1].get("auto_debug_attempts", 0) + 1
             )
             # kill app
             await self.kill_app()
