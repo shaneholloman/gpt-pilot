@@ -1,3 +1,7 @@
+import asyncio
+import json
+import os
+import sys
 from urllib.parse import urljoin
 
 import httpx
@@ -120,6 +124,9 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: True if the frontend is fully built, False otherwise.
         """
+        self.current_state.epics[0]["auto_debug_attempts"] = 0
+        user_input = await self.try_auto_debug()
+
         frontend_only = self.current_state.branch.project.project_type == "swagger"
         self.next_state.action = FE_ITERATION
         # update the pages in the knowledge base
@@ -127,31 +134,33 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND})
 
-        answer = await self.ask_question(
-            "Do you want to change anything or report a bug?" if frontend_only else FE_CHANGE_REQ,
-            buttons={"yes": "I'm done building the UI"} if not frontend_only else None,
-            default="yes",
-            extra_info="restart_app/collect_logs",
-            placeholder='For example, "I don\'t see anything when I open http://localhost:5173/" or "Nothing happens when I click on the NEW PROJECT button"',
-        )
-
-        if answer.button == "yes":
+        if user_input:
+            await self.send_message("Errors detected, fixing...")
+        else:
             answer = await self.ask_question(
-                FE_DONE_WITH_UI,
-                buttons={
-                    "yes": "Yes, let's build the backend",
-                    "no": "No, continue working on the UI",
-                },
-                buttons_only=True,
+                "Do you want to change anything or report a bug?" if frontend_only else FE_CHANGE_REQ,
+                buttons={"yes": "I'm done building the UI"} if not frontend_only else None,
                 default="yes",
+                extra_info="restart_app/collect_logs",
+                placeholder='For example, "I don\'t see anything when I open http://localhost:5173/" or "Nothing happens when I click on the NEW PROJECT button"',
             )
 
             if answer.button == "yes":
-                return True
-            else:
-                return False
+                answer = await self.ask_question(
+                    FE_DONE_WITH_UI,
+                    buttons={
+                        "yes": "Yes, let's build the backend",
+                        "no": "No, continue working on the UI",
+                    },
+                    buttons_only=True,
+                    default="yes",
+                )
 
-        await self.send_message("Implementing the changes you suggested...")
+                return answer.button == "yes"
+
+            if answer.text:
+                user_input = answer.text
+                await self.send_message("Implementing the changes you suggested...")
 
         llm = self.get_llm(FRONTEND_AGENT_NAME)
 
@@ -205,7 +214,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         convo = AgentConvo(self).template(
             "build_frontend",
             description=self.current_state.epics[0]["description"],
-            user_feedback=answer.text,
+            user_feedback=user_input,
             relevant_api_documentation=relevant_api_documentation,
             first_time_build=False,
         )
@@ -306,6 +315,25 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         cmd_part = cmd_part.strip().replace("client/", "")
                         command = f"{prefix} && {cmd_part}"
 
+                        # check if cmd_part contains npm run something, if that something is not in scripts, then skip it
+                        if "npm run" in cmd_part:
+                            npm_script = cmd_part.split("npm run")[1].strip()
+
+                            absolute_path = os.path.join(
+                                self.state_manager.get_full_project_root(),
+                                os.path.join(
+                                    "client" if "client" in prefix else "server" if "server" in prefix else "",
+                                    "package.json",
+                                ),
+                            )
+                            with open(absolute_path, "r") as file:
+                                package_json = json.load(file)
+                                if npm_script not in package_json.get("scripts", {}):
+                                    log.warning(
+                                        f"Skipping command: {command} as npm script {npm_script} not found, command is {command}"
+                                    )
+                                    continue
+
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
             else:
@@ -393,3 +421,65 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # self.next_state.app_link = app_link
         await self.ui.send_run_command(command)
         await self.ui.send_app_link(app_link)
+
+    async def kill_app(self):
+        is_win = sys.platform.lower().startswith("win")
+        # TODO make ports configurable
+        # kill frontend - both swagger and node
+        if is_win:
+            await self.process_manager.run_command(
+                """for /f "tokens=5" %a in ('netstat -ano ^| findstr :5173 ^| findstr LISTENING') do taskkill /F /PID %a""",
+                show_output=False,
+            )
+        else:
+            await self.process_manager.run_command("lsof -ti:5173 | xargs -r kill", show_output=False)
+
+        # if node project, kill backend as well
+        if self.state_manager.project.project_type == "node":
+            if is_win:
+                await self.process_manager.run_command(
+                    """for /f "tokens=5" %a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do taskkill /F /PID %a""",
+                    show_output=False,
+                )
+            else:
+                await self.process_manager.run_command("lsof -ti:3000 | xargs -r kill", show_output=False)
+
+    async def try_auto_debug(self) -> str:
+        count = 3
+        if self.current_state.epics[0].get("auto_debug_attempts", 0) >= 3:
+            return ""
+        try:
+            self.current_state.epics[0]["auto_debug_attempts"] = (
+                self.current_state.epics[0].get("auto_debug_attempts", 0) + 1
+            )
+            # kill app
+            await self.kill_app()
+
+            npm_proc = await self.process_manager.start_process("npm run start &", show_output=False)
+
+            while True:
+                if count == 3:
+                    await asyncio.sleep(5)
+                else:
+                    await asyncio.sleep(2)
+                diff_stdout, diff_stderr = await npm_proc.read_output()
+                if (diff_stdout == "" and diff_stderr == "") or count <= 0:
+                    break
+                count -= 1
+
+            await self.process_manager.run_command("curl http://localhost:5173", show_output=False)
+            await asyncio.sleep(1)
+
+            diff_stdout, diff_stderr = await npm_proc.read_output()
+
+            # kill app again
+            await self.kill_app()
+
+            if diff_stdout or diff_stderr:
+                log.debug(f"Auto-debugging output:\n{diff_stdout}\n{diff_stderr}")
+                return f"I got an error. Here are the logs:\n{diff_stdout}\n{diff_stderr}"
+        except Exception as e:
+            capture_exception(e)
+            log.error(f"Error during auto-debugging: {e}", exc_info=True)
+
+        return ""
