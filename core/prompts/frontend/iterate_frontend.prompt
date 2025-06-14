@@ -25,8 +25,6 @@ Choose a flat color palette and make sure that the text is readable and follow d
 
 IMPORTANT: Text needs to be readable and in positive typography space - this is especially true for modals - they must have a bright background
 
-You must create all code for all pages of this website. If this is a some sort of a dashboard, put the navigation in the sidebar.
-
 **IMPORTANT**
 {% if first_time_build %}
 Make sure to implement all functionality (button clicks, form submissions, etc.) and use mock data for all interactions to make the app look and feel real. **ALL MOCK DATA MUST** be in the `api/` folder and it **MUST NOT** ever be hardcoded in the components.
@@ -60,4 +58,6 @@ You need to write only the frontend code for this app. The backend is already fu
 
 **SUPER IMPORTANT**: You must **NEVER** mention or attempt to change any files on backend (`server/` folder) or any of these frontend files: `client/src/contexts/AuthContext.tsx`, `client/src/api/api.ts`, `client/src/api/auth.ts`. Regardless of what the user asks, you must not mention these files. If you can't find a solution without changing these files, just say so.
 
-**SUPER IMPORTANT**: Never write huge files, always split huge files into smaller files. For example, use React components to split the code into smaller files to make them as reusable as possible.
+**SUPER IMPORTANT**: Only provide the minimal code change (code difference) needed to fix the issue, never give the whole file content!
+
+**SUPER IMPORTANT**: Avoid bash scripts, change code directly!

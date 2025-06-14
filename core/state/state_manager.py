@@ -54,6 +54,7 @@ class StateManager:
         self.git_available = False
         self.git_used = False
         self.auto_confirm_breakdown = True
+        self.save_llm_requests = False
         self.options = {}
         self.access_token = None
         self.async_tasks = None
@@ -346,8 +347,21 @@ class StateManager:
 
         :param request_log: The request log to log.
         """
-        # removed logging of LLM requests
-        pass
+        # Always record telemetry regardless of save_llm_requests setting
+        try:
+            telemetry.record_llm_request(
+                request_log.prompt_tokens + request_log.completion_tokens,
+                request_log.duration,
+                request_log.status != LLMRequestStatus.SUCCESS,
+            )
+        except Exception as e:
+            if self.ui:
+                log.error(f"An error occurred recording telemetry: {e}")
+
+        # Only save to database if configured to do so
+        if not self.session_manager.save_llm_requests:
+            return
+
         async with self.db_blocker():
             try:
                 telemetry.record_llm_request(
