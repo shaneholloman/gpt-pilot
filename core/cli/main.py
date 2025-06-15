@@ -234,6 +234,9 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                     }
                 ]
             )
+            await ui.send_message(
+                sm.current_state.specification.description, extra_info={"route": "forwardToCenter", "screen": "spec"}
+            )
 
         # FRONTEND
         be_back_logs, last_task_in_db = await sm.get_be_back_logs()
