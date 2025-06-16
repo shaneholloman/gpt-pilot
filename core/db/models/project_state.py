@@ -954,11 +954,17 @@ class ProjectState(Base):
         last_task = {}
         # separate all elements from task_histories that have same start_id and end_id
         for th in task_histories:
-            if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
+            if task_histories[th].get("start_id") == task_histories[th].get("end_id") or task_histories[th][
+                "status"
+            ] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]:
                 last_task = task_histories[th]
                 break
 
         task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
+
+        if not last_task and len(task_histories.items()) == 1:
+            # If there is only one task in the history, use it as the last task
+            last_task = next(iter(task_histories.values()))
 
         if last_task:
             unfinished_task = last_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
