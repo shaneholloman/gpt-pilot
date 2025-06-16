@@ -706,7 +706,6 @@ class IPCServer:
         :param writer: Stream writer to send response.
         """
         current_state = self.state_manager.current_state
-        next_state = self.state_manager.next_state
 
         try:
             new_spec_desc = message.content.get("specification", "")
@@ -714,14 +713,15 @@ class IPCServer:
                 await self._send_error(writer, "specification is required", message.request_id)
                 return
 
-            next_state.specification = current_state.specification.clone()
-            next_state.specification.description = new_spec_desc
+            spec = current_state.specification
+            spec.description = new_spec_desc
+            await self.state_manager.update_specification(spec)
 
             response = Message(
                 type=MessageType.EDIT_SPECS,
                 content={
                     "projectStateId": current_state.id,
-                    "specification": next_state.specification.description,
+                    "specification": spec.description,
                 },
                 request_id=message.request_id,
             )
