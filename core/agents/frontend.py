@@ -117,7 +117,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         convo = AgentConvo(self)
         convo.messages = self.current_state.epics[0]["messages"]
         convo.user(
-            "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response doesn't end by mentioning continuing, respond only with `DONE` and with nothing else."
+            "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response finishes with an incomplete file, implement that file and any other that needs implementation. Finally, if your last response doesn't end by mentioning continuing and if there isn't an unfinished file implementation, respond only with `DONE` and with nothing else."
         )
 
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
