@@ -62,6 +62,7 @@ const onSubmit = async (data) => {
         description: "Answer submitted successfully"
       })
     } catch (error) {
+      console.error("Login error:", error.message)
       toast({
         variant: "destructive",
         title: "Error",
