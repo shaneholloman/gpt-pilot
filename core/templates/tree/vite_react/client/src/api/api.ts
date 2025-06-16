@@ -89,16 +89,16 @@ const setupInterceptors = (apiInstance: typeof axios) => {
         originalRequest._retry = true;
 
         try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            if (!refreshToken) {
-              throw new Error('No refresh token available');
-            }
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (!refreshToken) {
+            throw new Error('No refresh token available');
+          }
 
-            const response = await localApi.post(`/api/auth/refresh`, {
-              refreshToken,
-            });
+          const response = await localApi.post(`/api/auth/refresh`, {
+            refreshToken,
+          });
 
-            if (response.data.data) {
+          if (response.data.data) {
             const newAccessToken = response.data.data.accessToken;
             const newRefreshToken = response.data.data.refreshToken;
 

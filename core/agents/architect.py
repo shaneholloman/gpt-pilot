@@ -257,7 +257,7 @@ class Architect(BaseAgent):
                     remedy = "If you would like to use it locally, please install it before proceeding."
                 await self.send_message(f"❌ {dep['name']} is not available. {remedy}")
                 await self.ask_question(
-                    "",
+                    f"Have you installed {dep['name']}?",
                     buttons={"continue": f"I've installed {dep['name']}"},
                     buttons_only=True,
                     default="continue",
