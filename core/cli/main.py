@@ -208,8 +208,15 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         # SPECIFICATION
         fe_states = await sm.get_fe_states()
+        be_back_logs, last_task_in_db = await sm.get_be_back_logs()
 
-        if sm.current_state.specification and sm.current_state.specification.original_description:
+        if (
+            sm.current_state.specification
+            and sm.current_state.specification.original_description
+            and not fe_states
+            and not be_back_logs
+            and not last_task_in_db
+        ):
             await ui.send_front_logs_headers(
                 "", ["E1 / T1", "Writing Specification", "working"], "Writing Specification", ""
             )
@@ -239,7 +246,6 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             )
 
         # FRONTEND
-        be_back_logs, last_task_in_db = await sm.get_be_back_logs()
 
         if fe_states:
             status = "working" if fe_states[-1].action != FE_ITERATION_DONE else "done"
