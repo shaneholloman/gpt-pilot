@@ -732,6 +732,8 @@ class IPCServer:
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
 
     async def _handle_file_diff(self, message: Message, writer: asyncio.StreamWriter):
+        log.debug("Got _handle_file_diff request with message: %s", message)
+
         try:
             task_id = uuid.UUID(message.content.get("taskId", ""))
             type = message.content.get("type", "")
@@ -749,7 +751,7 @@ class IPCServer:
                 filtered = list(
                     filter(
                         lambda x: x.get("action", "") == CM_UPDATE_FILES
-                        and x.get("bh_testing_instructions", None) is not None,
+                        and x.get("files", [])[0].get("bug_hunter", False) is True,
                         convo,
                     )
                 )

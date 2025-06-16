@@ -812,6 +812,8 @@ async def load_convo(
                                 "old_content": old_content,
                                 "new_content": new_content,
                                 "diff": diff,
+                                "bug_hunter": len(state.iterations) > 0
+                                and len(state.iterations[-1].get("bug_hunting_cycles", [])) > 0,
                             }
 
                 convo_el["files"] = list(files_dict.values())
