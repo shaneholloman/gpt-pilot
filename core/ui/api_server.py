@@ -751,7 +751,8 @@ class IPCServer:
                 filtered = list(
                     filter(
                         lambda x: x.get("action", "") == CM_UPDATE_FILES
-                        and x.get("files", [])[0].get("bug_hunter", False) is True,
+                        and len(x.get("files", [])) > 0
+                        and x["files"][0].get("bug_hunter", False) is True,
                         convo,
                     )
                 )
