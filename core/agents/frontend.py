@@ -75,7 +75,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         self.next_state.action = FE_START
         await self.send_message("## Building the frontend\n\nThis may take a couple of minutes.")
 
-        llm = self.get_llm(FRONTEND_AGENT_NAME)
+        llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self).template(
             "build_frontend",
             summary=self.state_manager.template["template"].get_summary()
@@ -113,7 +113,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         await self.ui.send_project_stage({"stage": ProjectStage.CONTINUE_FRONTEND})
         await self.send_message("Continuing to build UI... This may take a couple of minutes")
 
-        llm = self.get_llm(FRONTEND_AGENT_NAME)
+        llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self)
         convo.messages = self.current_state.epics[0]["messages"]
         convo.user(
