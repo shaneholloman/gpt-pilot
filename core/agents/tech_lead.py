@@ -255,19 +255,22 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         llm = self.get_llm(TECH_LEAD_EPIC_BREAKDOWN)
         epic_plan: EpicPlan = await llm(epic_convo, parser=JSONParser(EpicPlan))
 
-        tasks = [
-            {
-                "id": uuid4().hex,
-                "description": task.description,
-                "instructions": None,
-                "pre_breakdown_testing_instructions": task.testing_instructions,
-                "status": TaskStatus.TODO,
-                "sub_epic_id": sub_epic_number,
-                "related_api_endpoints": [rae.model_dump() for rae in (task.related_api_endpoints or [])],
-            }
-            for task in epic_plan.plan
-        ]
-        return tasks
+        task = {
+            "id": uuid4().hex,
+            "description": "",
+            "instructions": None,
+            "pre_breakdown_testing_instructions": "",
+            "status": TaskStatus.TODO,
+            "sub_epic_id": sub_epic_number,
+            "related_api_endpoints": [],
+        }
+
+        for epic_task in epic_plan.plan:
+            task["description"] += epic_task.description + " " if epic_task.description.endswith(".") else ". "
+            task["related_api_endpoints"] += [rae.model_dump() for rae in (epic_task.related_api_endpoints or [])]
+            task["pre_breakdown_testing_instructions"] += f"{epic_task.description}\n{epic_task.testing_instructions}\n"
+
+        return task
 
     async def plan_epic(self, epic) -> AgentResponse:
         self.next_state.action = TL_CREATE_PLAN.format(epic["name"])
@@ -334,7 +337,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             all_tasks_results = await asyncio.gather(*epic_tasks)
 
             for tasks_result in all_tasks_results:
-                self.next_state.tasks.extend(tasks_result)
+                self.next_state.tasks.append(tasks_result)
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
