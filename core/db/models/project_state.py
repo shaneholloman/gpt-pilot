@@ -761,31 +761,34 @@ class ProjectState(Base):
         result = await session.execute(query)
         states = result.scalars().all()
 
-        log.debug(f"Found {len(states)} states with task start action")
+        log.debug(f"Found {len(states)} states with custom action")
 
         start = -1
         end = -1
 
+        # for the FIRST task, it is todo in the same state as Create a development plan, while other tasks are "Task #N start" (action)
+
+        # this is done solely to be able to reload to the first task, due to the fact that we need the same project_state_id for the send_back_logs
+        # for the first task, we need to start from the FIRST state that has that task in TODO status
+        # for all other tasks, we need to start from LAST state that has that task in TODO status
         for i, state in enumerate(states):
-            if start != -1 and end != -1:
-                break
-            if (
-                start == -1
-                and state.current_task
-                and UUID(state.current_task["id"]) == task_id
-                and state.current_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
-            ):
-                start = i
-            if end == -1:
-                for task in state.tasks:
-                    if UUID(task["id"]) == task_id and task.get("status") in [
-                        TaskStatus.SKIPPED,
-                        TaskStatus.DOCUMENTED,
-                        TaskStatus.REVIEWED,
-                        TaskStatus.DONE,
-                    ]:
-                        end = i
-                        break
+            for task in state.tasks:
+                if UUID(task["id"]) == task_id and task.get("status", "") == TaskStatus.TODO:
+                    if UUID(task["id"]) == UUID(state.tasks[0]["id"]):
+                        # First task: set start only once (first occurrence)
+                        if start == -1:
+                            start = i
+                    else:
+                        # Other tasks: update start every time (last occurrence)
+                        start = i
+
+                if UUID(task["id"]) == task_id and task.get("status", "") in [
+                    TaskStatus.SKIPPED,
+                    TaskStatus.DOCUMENTED,
+                    TaskStatus.REVIEWED,
+                    TaskStatus.DONE,
+                ]:
+                    end = i
 
         if end == -1:
             query = select(ProjectState).where(
@@ -807,14 +810,15 @@ class ProjectState(Base):
 
         # Remove the last state from the list because that state is not yet committed in the database!
         results = results[:-1]
-        # only return sublist of states, first state should have action like "Task #<task_number> start"
-        index = -1
-        for i, state in enumerate(results):
-            if state.action and "Task #" in state.action and "start" in state.action:
-                index = i
-                break
 
-        return results[index:]
+        # index = -1
+        # for i, state in enumerate(results):
+        #     if state.action and "Task #" in state.action and "start" in state.action:
+        #         index = i
+        #         break
+        #
+        # return results[index:]
+        return results
 
     @staticmethod
     async def get_fe_states(session: "AsyncSession", branch_id: UUID) -> Optional["ProjectState"]:

@@ -1,7 +1,7 @@
 import json
 from enum import Enum
 from typing import Annotated, Literal, Union
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -347,6 +347,30 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             description,
             self.current_state.current_task.get("id"),
         )
+
+        # find latest finished task, send back logs for it being finished
+        tasks_done = [task for task in self.current_state.tasks if task not in self.current_state.unfinished_tasks]
+        previous_task = tasks_done[-1] if tasks_done else None
+        if previous_task:
+            task_convo = await self.state_manager.get_task_conversation_project_states(UUID(previous_task["id"]))
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "title": previous_task["description"],
+                        "project_state_id": str(task_convo[0].id) if task_convo else "be_0",
+                        "start_id": str(task_convo[0].id) if task_convo else "be_0",
+                        "end_id": str(task_convo[-1].id) if task_convo else "be_0",
+                        "labels": [f"E{epic_index} / T{task_index - 1}", "Backend", "done"],
+                    }
+                ]
+            )
+            await self.ui.send_front_logs_headers(
+                f"be_{epic_index}_{task_index}",
+                [f"E{epic_index} / T{task_index}", "Backend", "working"],
+                previous_task["description"],
+                self.current_state.current_task.get("id"),
+            )
+
         await self.ui.send_back_logs(
             [
                 {
