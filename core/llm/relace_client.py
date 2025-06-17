@@ -17,7 +17,7 @@ class RelaceClient(BaseLLMClient):
     def _init_client(self):
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.state_manager.get_access_token()}",
+            "Authorization": f"Bearer {self.state_manager.get_access_token() if self.state_manager.get_access_token() is not None else self.config.api_key if self.config.api_key is not None else ''}",
         }
         self.client = AsyncClient()
 
