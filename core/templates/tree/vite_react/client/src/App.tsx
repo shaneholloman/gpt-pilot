@@ -8,6 +8,7 @@ import { Register } from "./pages/Register"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 {% endif %}
 import { Layout } from "./components/Layout"
+import { BlankPage } from "./pages/BlankPage"
 
 function App() {
   return (
@@ -24,7 +25,7 @@ function App() {
 {% else %}
           <Route path="/" element={<Layout />} />
           {% endif %}
-
+          <Route path="*" element={<BlankPage />} />
         </Routes>
       </Router>
       <Toaster />

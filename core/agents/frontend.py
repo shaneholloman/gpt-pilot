@@ -1,3 +1,7 @@
+import asyncio
+import json
+import os
+import sys
 from urllib.parse import urljoin
 
 import httpx
@@ -8,7 +12,7 @@ from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.cli.helpers import capture_exception
-from core.config import FRONTEND_AGENT_NAME, SWAGGER_EMBEDDINGS_API
+from core.config import FRONTEND_AGENT_NAME, IMPLEMENT_CHANGES_AGENT_NAME, SWAGGER_EMBEDDINGS_API
 from core.config.actions import (
     FE_CHANGE_REQ,
     FE_CONTINUE,
@@ -17,7 +21,8 @@ from core.config.actions import (
     FE_ITERATION_DONE,
     FE_START,
 )
-from core.llm.parser import DescriptiveCodeBlockParser
+from core.llm.convo import Convo
+from core.llm.parser import DescriptiveCodeBlockParser, OptionalCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.ui.base import ProjectStage
@@ -25,12 +30,19 @@ from core.ui.base import ProjectStage
 log = get_logger(__name__)
 
 
+def has_correct_num_of_backticks(response: str) -> bool:
+    """
+    Checks if the response has the correct number of backticks.
+    """
+    return response.count("```") % 2 == 0 and response.count("```") > 0
+
+
 class Frontend(FileDiffMixin, GitMixin, BaseAgent):
     agent_type = "frontend"
     display_name = "Frontend"
 
     async def run(self) -> AgentResponse:
-        if not self.current_state.epics[0]["messages"]:
+        if not self.current_state.epics[-1]["messages"]:
             finished = await self.start_frontend()
         elif self.next_state.epics[-1].get("file_paths_to_remove_mock"):
             finished = await self.remove_mock()
@@ -81,7 +93,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             summary=self.state_manager.template["template"].get_summary()
             if self.state_manager.template is not None
             else self.current_state.specification.template_summary,
-            description=self.next_state.epics[0]["description"],
+            description=self.next_state.epics[-1]["description"],
             user_feedback=None,
             first_time_build=True,
         )
@@ -115,7 +127,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self)
-        convo.messages = self.current_state.epics[0]["messages"]
+        convo.messages = self.current_state.epics[-1]["messages"]
         convo.user(
             "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response finishes with an incomplete file, implement that file and any other that needs implementation. Finally, if your last response doesn't end by mentioning continuing and if there isn't an unfinished file implementation, respond only with `DONE` and with nothing else."
         )
@@ -124,12 +136,21 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         response_blocks = response.blocks
         convo.assistant(response.original_response)
 
-        await self.process_response(response_blocks)
+        use_relace = self.current_state.epics[-1].get("use_relace", False)
+        await self.process_response(response_blocks, relace=use_relace)
+
+        if self.next_state.epics[-1].get("manual_iteration", False):
+            self.next_state.epics[-1]["fe_iteration_done"] = (
+                has_correct_num_of_backticks(response.original_response)
+                or self.current_state.epics[-1].get("retry_count", 0) >= 2
+            )
+            self.next_state.epics[-1]["retry_count"] = self.current_state.epics[-1].get("retry_count", 0) + 1
+        else:
+            self.next_state.epics[-1]["fe_iteration_done"] = (
+                "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
+            )
 
         self.next_state.epics[-1]["messages"] = convo.messages
-        self.next_state.epics[-1]["fe_iteration_done"] = (
-            "done" in response.original_response[-20:].lower().strip() or len(convo.messages) > 15
-        )
         self.next_state.flag_epics_as_modified()
 
         return False
@@ -140,6 +161,10 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         :return: True if the frontend is fully built, False otherwise.
         """
+        self.next_state.epics[-1]["auto_debug_attempts"] = 0
+        self.next_state.epics[-1]["retry_count"] = 0
+        user_input = await self.try_auto_debug()
+
         frontend_only = self.current_state.branch.project.project_type == "swagger"
         self.next_state.action = FE_ITERATION
         # update the pages in the knowledge base
@@ -147,52 +172,57 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND})
 
-        answer = await self.ask_question(
-            "Do you want to change anything or report a bug?" if frontend_only else FE_CHANGE_REQ,
-            buttons={"yes": "I'm done building the UI"} if not frontend_only else None,
-            default="yes",
-            extra_info={"restart_app": True, "collect_logs": True},
-            placeholder='For example, "I don\'t see anything when I open http://localhost:5173/" or "Nothing happens when I click on the NEW PROJECT button"',
-        )
-
-        if answer.button == "yes":
+        if user_input:
+            await self.send_message("Errors detected, fixing...")
+        else:
             answer = await self.ask_question(
-                FE_DONE_WITH_UI,
-                buttons={
-                    "yes": "Yes, let's build the backend",
-                    "no": "No, continue working on the UI",
-                },
-                buttons_only=True,
+                "Do you want to change anything or report a bug?" if frontend_only else FE_CHANGE_REQ,
+                buttons={"yes": "I'm done building the UI"} if not frontend_only else None,
                 default="yes",
+                extra_info={"restart_app": True, "collect_logs": True},
+                placeholder='For example, "I don\'t see anything when I open http://localhost:5173/" or "Nothing happens when I click on the NEW PROJECT button"',
             )
 
             if answer.button == "yes":
-                await self.ui.clear_main_logs()
-                await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
-                await self.ui.send_back_logs(
-                    [
-                        {
-                            "title": "Building frontend",
-                            "project_state_id": self.current_state.id,
-                            "labels": ["E2 / T1", "Frontend", "done"],
-                        }
-                    ]
+                answer = await self.ask_question(
+                    FE_DONE_WITH_UI,
+                    buttons={
+                        "yes": "Yes, let's build the backend",
+                        "no": "No, continue working on the UI",
+                    },
+                    buttons_only=True,
+                    default="yes",
                 )
-                await self.ui.send_back_logs(
-                    [
-                        {
-                            "title": "Setting up backend",
-                            "project_state_id": self.current_state.id,
-                            "labels": ["E2 / T2", "Backend setup", "working"],
-                        }
-                    ]
-                )
-                await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
-                return True
-            else:
-                return False
 
-        await self.send_message("Implementing the changes you suggested...")
+                if answer.button == "yes":
+                    await self.ui.clear_main_logs()
+                    await self.ui.send_front_logs_headers("fe_0", ["E2 / T1", "done"], "Building frontend")
+                    await self.ui.send_back_logs(
+                        [
+                            {
+                                "title": "Building frontend",
+                                "project_state_id": self.current_state.id,
+                                "labels": ["E2 / T1", "Frontend", "done"],
+                            }
+                        ]
+                    )
+                    await self.ui.send_back_logs(
+                        [
+                            {
+                                "title": "Setting up backend",
+                                "project_state_id": self.current_state.id,
+                                "labels": ["E2 / T2", "Backend setup", "working"],
+                            }
+                        ]
+                    )
+                    await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
+                    return True
+                else:
+                    return False
+
+            if answer.text:
+                user_input = answer.text
+                await self.send_message("Implementing the changes you suggested...")
 
         llm = self.get_llm(FRONTEND_AGENT_NAME)
 
@@ -201,7 +231,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if frontend_only:
             convo = AgentConvo(self).template(
                 "is_relevant_for_docs_search",
-                user_feedback=answer.text,
+                user_feedback=user_input,
             )
 
             response = await llm(convo)
@@ -213,7 +243,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
                             resp = await client.post(
                                 url,
-                                json={"text": answer.text, "project_id": str(self.state_manager.project.id)},
+                                json={"text": user_input, "project_id": str(self.state_manager.project.id)},
                                 headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
                             )
 
@@ -243,17 +273,43 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
 
+        # try relace first
         convo = AgentConvo(self).template(
-            "build_frontend",
-            description=self.current_state.epics[0]["description"],
-            user_feedback=answer.text,
+            "iterate_frontend",
+            description=self.current_state.epics[-1]["description"],
+            user_feedback=user_input,
             relevant_api_documentation=relevant_api_documentation,
             first_time_build=False,
         )
 
+        # replace system prompt because of relace
+        convo.messages[0]["content"] = AgentConvo(self).render("system_relace")
+
         response = await llm(convo, parser=DescriptiveCodeBlockParser())
 
-        await self.process_response(response.blocks)
+        relace_finished = await self.process_response(response.blocks, relace=True)
+
+        if not relace_finished:
+            log.debug("Relace didn't finish, reverting to build_frontend")
+            convo = AgentConvo(self).template(
+                "build_frontend",
+                description=self.current_state.epics[-1]["description"],
+                user_feedback=user_input,
+                relevant_api_documentation=relevant_api_documentation,
+                first_time_build=False,
+            )
+
+            response = await llm(convo, parser=DescriptiveCodeBlockParser())
+
+            await self.process_response(response.blocks)
+
+        convo.assistant(response.original_response)
+
+        self.next_state.epics[-1]["messages"] = convo.messages
+        self.next_state.epics[-1]["use_relace"] = relace_finished
+        self.next_state.epics[-1]["fe_iteration_done"] = has_correct_num_of_backticks(response.original_response)
+        self.next_state.epics[-1]["manual_iteration"] = True
+        self.next_state.flag_epics_as_modified()
 
         return False
 
@@ -272,8 +328,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await telemetry.trace_code_event(
                 "frontend-finished",
                 {
-                    "description": self.current_state.epics[0]["description"],
-                    "messages": self.current_state.epics[0]["messages"],
+                    "description": self.current_state.epics[-1]["description"],
+                    "messages": self.current_state.epics[-1]["messages"],
                 },
             )
 
@@ -293,7 +349,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
         return AgentResponse.done(self)
 
-    async def process_response(self, response_blocks: list, removed_mock: bool = False) -> list[str]:
+    async def process_response(self, response_blocks: list, removed_mock: bool = False, relace: bool = False) -> bool:
         """
         Processes the response blocks from the LLM.
 
@@ -317,6 +373,21 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                     continue
                 new_content = content
                 old_content = self.current_state.get_file_content_by_path(file_path)
+
+                if relace:
+                    llm = self.get_llm(IMPLEMENT_CHANGES_AGENT_NAME)
+                    convo = Convo().user(
+                        {
+                            "initialCode": old_content,
+                            "editSnippet": new_content,
+                        }
+                    )
+
+                    new_content = await llm(convo, temperature=0, parser=OptionalCodeBlockParser())
+
+                    if not new_content or new_content == ("", 0, 0):
+                        return False
+
                 n_new_lines, n_del_lines = self.get_line_changes(old_content, new_content)
                 await self.ui.send_file_status(file_path, "done", source=self.ui_source)
                 await self.ui.generate_diff(
@@ -347,12 +418,31 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         cmd_part = cmd_part.strip().replace("client/", "")
                         command = f"{prefix} && {cmd_part}"
 
+                        # check if cmd_part contains npm run something, if that something is not in scripts, then skip it
+                        if "npm run" in cmd_part:
+                            npm_script = cmd_part.split("npm run")[1].strip()
+
+                            absolute_path = os.path.join(
+                                self.state_manager.get_full_project_root(),
+                                os.path.join(
+                                    "client" if "client" in prefix else "server" if "server" in prefix else "",
+                                    "package.json",
+                                ),
+                            )
+                            with open(absolute_path, "r") as file:
+                                package_json = json.load(file)
+                                if npm_script not in package_json.get("scripts", {}):
+                                    log.warning(
+                                        f"Skipping command: {command} as npm script {npm_script} not found, command is {command}"
+                                    )
+                                    continue
+
                         await self.send_message(f"Running command: `{command}`...")
                         await self.process_manager.run_command(command)
             else:
                 log.info(f"Unknown block description: {description}")
 
-        return AgentResponse.done(self)
+        return True
 
     async def remove_mock(self):
         """
@@ -434,3 +524,65 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # self.next_state.app_link = app_link
         await self.ui.send_run_command(command)
         await self.ui.send_app_link(app_link)
+
+    async def kill_app(self):
+        is_win = sys.platform.lower().startswith("win")
+        # TODO make ports configurable
+        # kill frontend - both swagger and node
+        if is_win:
+            await self.process_manager.run_command(
+                """for /f "tokens=5" %a in ('netstat -ano ^| findstr :5173 ^| findstr LISTENING') do taskkill /F /PID %a""",
+                show_output=False,
+            )
+        else:
+            await self.process_manager.run_command("lsof -ti:5173 | xargs -r kill", show_output=False)
+
+        # if node project, kill backend as well
+        if self.state_manager.project.project_type == "node":
+            if is_win:
+                await self.process_manager.run_command(
+                    """for /f "tokens=5" %a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do taskkill /F /PID %a""",
+                    show_output=False,
+                )
+            else:
+                await self.process_manager.run_command("lsof -ti:3000 | xargs -r kill", show_output=False)
+
+    async def try_auto_debug(self) -> str:
+        count = 3
+        if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3:
+            return ""
+        try:
+            self.next_state.epics[-1]["auto_debug_attempts"] = (
+                self.current_state.epics[-1].get("auto_debug_attempts", 0) + 1
+            )
+            # kill app
+            await self.kill_app()
+
+            npm_proc = await self.process_manager.start_process("npm run start &", show_output=False)
+
+            while True:
+                if count == 3:
+                    await asyncio.sleep(5)
+                else:
+                    await asyncio.sleep(2)
+                diff_stdout, diff_stderr = await npm_proc.read_output()
+                if (diff_stdout == "" and diff_stderr == "") or count <= 0:
+                    break
+                count -= 1
+
+            await self.process_manager.run_command("curl http://localhost:5173", show_output=False)
+            await asyncio.sleep(1)
+
+            diff_stdout, diff_stderr = await npm_proc.read_output()
+
+            # kill app again
+            await self.kill_app()
+
+            if diff_stdout or diff_stderr:
+                log.debug(f"Auto-debugging output:\n{diff_stdout}\n{diff_stderr}")
+                return f"I got an error. Here are the logs:\n{diff_stdout}\n{diff_stderr}"
+        except Exception as e:
+            capture_exception(e)
+            log.error(f"Error during auto-debugging: {e}", exc_info=True)
+
+        return ""

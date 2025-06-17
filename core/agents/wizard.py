@@ -1,10 +1,8 @@
 import json
-from json import JSONDecodeError
 from urllib.parse import urljoin
 from uuid import uuid4
 
 import httpx
-import yaml
 from sqlalchemy import inspect
 
 from core.agents.base import BaseAgent
@@ -22,34 +20,6 @@ log = get_logger(__name__)
 class Wizard(BaseAgent):
     agent_type = "wizard"
     display_name = "Wizard"
-
-    def load_docs(self, docs: str) -> dict[str, any]:
-        try:
-            return json.loads(docs)
-        except JSONDecodeError:
-            try:
-                return yaml.safe_load(docs)
-            except Exception as e:
-                log.error(f"An error occurred: {str(e)}")
-                return {}
-
-    def get_auth_data(self, docs: dict[str, any]) -> dict[str, any]:
-        auth_methods = {}
-        if "openapi" in docs and docs["openapi"].startswith("3."):
-            if "components" in docs and "securitySchemes" in docs["components"]:
-                auth_methods["types"] = [details["type"] for details in docs["components"]["securitySchemes"].values()]
-            auth_methods["api_version"] = 3
-            auth_methods["external_api_url"] = docs.get("servers", [{}])[0].get("url", "https://api.example.com")
-
-        elif "swagger" in docs and docs["swagger"].startswith("2."):
-            if "securityDefinitions" in docs:
-                auth_methods["types"] = [details["type"] for details in docs["securityDefinitions"].values()]
-            auth_methods["api_version"] = 2
-            scheme = docs.get("schemes", ["https"])[0] + "://"
-            host = docs.get("host", "api.example.com")
-            base_path = docs.get("basePath", "")
-            auth_methods["external_api_url"] = scheme + host + base_path
-        return auth_methods
 
     async def run(self) -> AgentResponse:
         success = await self.init_template()
@@ -76,19 +46,7 @@ class Wizard(BaseAgent):
                         allow_empty=False,
                         verbose=True,
                     )
-                    content = self.load_docs(docs.text.strip())
-
-                    if "paths" not in content:
-                        await self.send_message("Please provide a valid input.")
-                        continue
-
-                    auth_data = self.get_auth_data(content)
-                    if auth_data == {}:
-                        await self.send_message("Please provide a valid input.")
-                        continue
-
-                    options["external_api_url"] = auth_data["external_api_url"]
-                    success = await self.upload_docs(docs.text.strip())
+                    success, options["external_api_url"], options["types"] = await self.upload_docs(docs.text)
                     if not success:
                         await self.send_message("Please try creating a new project.")
                         return False
@@ -172,19 +130,19 @@ class Wizard(BaseAgent):
 
         return True
 
-    async def upload_docs(self, docs: str) -> bool:
+    async def upload_docs(self, docs: str) -> (bool, str, list):
         error = None
         url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/upload")
         for attempt in range(3):
             log.debug(f"Uploading docs to RAG service... attempt {attempt}")
             try:
                 async with httpx.AsyncClient(
-                    transport=httpx.AsyncHTTPTransport(), timeout=httpx.Timeout(10.0, connect=5.0)
+                    transport=httpx.AsyncHTTPTransport(), timeout=httpx.Timeout(30.0, connect=5.0)
                 ) as client:
                     resp = await client.post(
                         url,
                         json={
-                            "text": docs,
+                            "text": docs.strip(),
                             "project_id": str(self.state_manager.project.id),
                         },
                         headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
@@ -192,7 +150,8 @@ class Wizard(BaseAgent):
 
                     if resp.status_code == 200:
                         log.debug("Uploading docs to RAG service successful")
-                        return True
+                        resp_body = json.loads(resp.text)
+                        return True, resp_body["external_api_url"], resp_body["types"]
                     elif resp.status_code == 403:
                         log.debug("Uploading docs to RAG service failed, trying to refresh token")
                         access_token = await self.ui.send_token_expired()

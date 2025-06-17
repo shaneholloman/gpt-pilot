@@ -287,10 +287,11 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
             buttons = {
                 "continue": "Everything works",
-                "bug": "There is an issue",
                 "change": "I want to make a change",
-                "redo": "Redo task",
+                "bug": "There is an issue",
             }
+            if not self.current_state.current_task.get("hardcoded", False):
+                buttons["redo"] = "Redo task"
 
             user_response = await self.ask_question(
                 test_message,
