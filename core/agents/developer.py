@@ -24,7 +24,7 @@ from core.db.models.specification import Complexity
 from core.llm.parser import JSONParser
 from core.log import get_logger
 from core.telemetry import telemetry
-from core.ui.base import ProjectStage
+from core.ui.base import ProjectStage, pythagora_source
 
 log = get_logger(__name__)
 
@@ -340,7 +340,6 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "task_index": task_index,
             }
         )
-        await self.ui.clear_main_logs()
         await self.ui.send_front_logs_headers(
             f"be_{task_index}_{task_index + 1}",
             [f"E{epic_index} / T{task_index}", "Backend", "working"],
@@ -396,6 +395,14 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         if self.current_state.current_task.get("hardcoded", False):
             return True
+
+        await self.ui.clear_main_logs()
+
+        if self.current_state.current_task and self.current_state.current_task.get("hardcoded", False):
+            await self.ui.send_message(
+                "Ok, great, you're now starting to build the backend and the first task is to test how the authentication works. You can now register and login. Your data will be saved into the database.",
+                source=pythagora_source,
+            )
 
         user_response = await self.ask_question(
             DEV_EXECUTE_TASK,

@@ -343,12 +343,6 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         self.update_epics_and_tasks()
 
-        if self.next_state.current_task and self.next_state.current_task.get("hardcoded", False):
-            await self.ui.send_message(
-                "Ok, great, you're now starting to build the backend and the first task is to test how the authentication works. You can now register and login. Your data will be saved into the database.",
-                source=pythagora_source,
-            )
-
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
             self.next_state.tasks,
