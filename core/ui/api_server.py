@@ -706,7 +706,6 @@ class IPCServer:
         :param writer: Stream writer to send response.
         """
         current_state = self.state_manager.current_state
-        next_state = self.state_manager.next_state
 
         try:
             new_spec_desc = message.content.get("specification", "")
@@ -714,14 +713,15 @@ class IPCServer:
                 await self._send_error(writer, "specification is required", message.request_id)
                 return
 
-            next_state.specification = current_state.specification.clone()
-            next_state.specification.description = new_spec_desc
+            spec = current_state.specification
+            spec.description = new_spec_desc
+            await self.state_manager.update_specification(spec)
 
             response = Message(
                 type=MessageType.EDIT_SPECS,
                 content={
                     "projectStateId": current_state.id,
-                    "specification": next_state.specification.description,
+                    "specification": spec.description,
                 },
                 request_id=message.request_id,
             )
@@ -732,6 +732,8 @@ class IPCServer:
             await self._send_error(writer, f"Internal server error: {str(err)}", message.request_id)
 
     async def _handle_file_diff(self, message: Message, writer: asyncio.StreamWriter):
+        log.debug("Got _handle_file_diff request with message: %s", message)
+
         try:
             task_id = uuid.UUID(message.content.get("taskId", ""))
             type = message.content.get("type", "")
@@ -749,7 +751,8 @@ class IPCServer:
                 filtered = list(
                     filter(
                         lambda x: x.get("action", "") == CM_UPDATE_FILES
-                        and x.get("bh_testing_instructions", None) is not None,
+                        and len(x.get("files", [])) > 0
+                        and x["files"][0].get("bug_hunter", False) is True,
                         convo,
                     )
                 )

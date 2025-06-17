@@ -1,4 +1,3 @@
-import re
 from copy import deepcopy
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
@@ -744,7 +743,7 @@ class ProjectState(Base):
 
     @staticmethod
     async def get_task_conversation_project_states(
-        session: "AsyncSession", branch_id: UUID, task_id: UUID, unfinished_task: bool = False
+        session: "AsyncSession", branch_id: UUID, task_id: UUID
     ) -> Optional[list["ProjectState"]]:
         """
         Retrieve the conversation for the task in the project state.
@@ -753,9 +752,11 @@ class ProjectState(Base):
         :param state_id: The UUID of the project state.
         :return: List of conversation messages if found, None otherwise.
         """
-
         query = select(ProjectState).where(
-            and_(ProjectState.branch_id == branch_id, ProjectState.action.like("%Task #%"))
+            and_(
+                ProjectState.branch_id == branch_id,
+                or_(ProjectState.action.like("%Task #%"), ProjectState.action.like("%Create a development plan%")),
+            )
         )
         result = await session.execute(query)
         states = result.scalars().all()
@@ -786,10 +787,7 @@ class ProjectState(Base):
                         end = i
                         break
 
-        if (start == -1 or end == -1) and not unfinished_task:
-            return []
-
-        if unfinished_task:
+        if end == -1:
             query = select(ProjectState).where(
                 and_(
                     ProjectState.branch_id == branch_id,
@@ -807,7 +805,7 @@ class ProjectState(Base):
         result = await session.execute(query)
         results = result.scalars().all()
 
-        # Remove the last state from the list because that state is not yet commited in the databse!
+        # Remove the last state from the list because that state is not yet committed in the database!
         results = results[:-1]
         # only return sublist of states, first state should have action like "Task #<task_number> start"
         index = -1
@@ -857,26 +855,6 @@ class ProjectState(Base):
 
         results = await session.execute(query)
         return results.scalars().all()
-
-    @staticmethod
-    def get_task_num_regex(task_action: str) -> Optional[int]:
-        """
-        Get the task number from the action string using regex.
-
-        :param task_id: The task ID to search for.
-        :return: The task number if found, None otherwise.
-        """
-        task_num = 1
-        try:
-            if task_action:
-                m = re.search(r"Task #(\d+)", task_action)
-                if m:
-                    task_num = int(m.group(1))
-            else:
-                log.warning("Task action is empty, returning default task number 1")
-        except Exception as e:
-            log.error(f"Error extracting task number from action '{task_action}': {e}")
-        return task_num
 
     @staticmethod
     async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], dict, list["ProjectState"]):
@@ -954,16 +932,21 @@ class ProjectState(Base):
         last_task = {}
         # separate all elements from task_histories that have same start_id and end_id
         for th in task_histories:
-            if task_histories[th].get("start_id") == task_histories[th].get("end_id"):
+            if task_histories[th].get("start_id") == task_histories[th].get("end_id") or task_histories[th][
+                "status"
+            ] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]:
                 last_task = task_histories[th]
                 break
 
         task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
 
+        if not last_task and len(task_histories.items()) == 1:
+            # If there is only one task in the history, use it as the last task
+            last_task = next(iter(task_histories.values()))
+
         if last_task:
-            unfinished_task = last_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
             project_states = await ProjectState.get_task_conversation_project_states(
-                session, branch_id, last_task.get("id"), unfinished_task
+                session, branch_id, last_task.get("id")
             )
             if project_states:
                 last_task["start_id"] = project_states[0].id

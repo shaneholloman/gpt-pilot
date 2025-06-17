@@ -208,6 +208,17 @@ class StateManager:
             log.info(f"Deleted project {project_id}.")
         return bool(rows)
 
+    async def update_specification(self, specification: Specification) -> Optional[Specification]:
+        """
+        Update the specification in the database.
+
+        :param specification: The Specification object to update.
+        :return: The updated Specification object or None if not found.
+        """
+        if not self.current_session:
+            raise ValueError("No database session open.")
+        return await Specification.update_specification(self.current_session, specification)
+
     async def load_project(
         self,
         *,

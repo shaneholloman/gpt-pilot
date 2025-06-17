@@ -9,6 +9,7 @@ from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, RelevantFilesMixin
 from core.agents.response import AgentResponse
+from core.cli.helpers import get_epic_task_number
 from core.config import PARSE_TASK_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME
 from core.config.actions import (
     DEV_EXECUTE_TASK,
@@ -331,10 +332,8 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             buttons["skip"] = "Skip Task"
 
         description = self.current_state.current_task["description"]
-        task_index = self.current_state.tasks.index(self.current_state.current_task) + 1
-        epic_index = (
-            self.current_state.current_task.get("sub_epic_id", 1) + 2
-        )  # 2 because we have spec writer and frontend before backend
+        epic_index, task_index = get_epic_task_number(self.current_state, self.current_state.current_task)
+
         await self.ui.send_project_stage(
             {
                 "stage": ProjectStage.STARTING_TASK,

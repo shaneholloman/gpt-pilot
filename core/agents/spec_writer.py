@@ -26,7 +26,7 @@ class SpecWriter(BaseAgent):
             return await self.update_spec(iteration_mode=True)
         elif self.prev_response and self.prev_response.type == ResponseType.UPDATE_SPECIFICATION:
             return await self.update_spec(iteration_mode=False)
-        elif not self.current_state.knowledge_base.user_options.get("project_description", ""):
+        elif not self.current_state.specification.description:
             return await self.initialize_spec_and_project()
         else:
             return await self.change_spec()
@@ -164,8 +164,8 @@ class SpecWriter(BaseAgent):
     async def change_spec(self) -> AgentResponse:
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
 
-        llm_assisted_description = self.current_state.knowledge_base.user_options["project_description"]
-        description = self.current_state.knowledge_base.user_options["original_description"]
+        llm_assisted_description = self.current_state.specification.description
+        description = self.current_state.specification.original_description
 
         convo = AgentConvo(self).template(
             "build_full_specification",

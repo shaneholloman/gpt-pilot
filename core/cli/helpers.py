@@ -415,6 +415,24 @@ def find_first_todo_task_index(tasks):
     return -1
 
 
+def get_epic_task_number(state, current_task) -> (int, int):
+    epic_num = -1
+    task_num = -1
+
+    for task in state.tasks:
+        epic_n = task.get("sub_epic_id", 1) + 2
+        if epic_n != epic_num:
+            epic_num = epic_n
+            task_num = 1
+
+        if current_task["id"] == task["id"]:
+            return epic_num, task_num
+
+        task_num += 1
+
+    return epic_num, task_num
+
+
 def trim_logs(logs: str) -> str:
     """
     Trim logs by removing everything after specific marker phrases.
@@ -794,6 +812,8 @@ async def load_convo(
                                 "old_content": old_content,
                                 "new_content": new_content,
                                 "diff": diff,
+                                "bug_hunter": len(state.iterations) > 0
+                                and len(state.iterations[-1].get("bug_hunting_cycles", [])) > 0,
                             }
 
                 convo_el["files"] = list(files_dict.values())
