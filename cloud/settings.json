@@ -1,6 +1,15 @@
 {
     "workbench.statusBar.visible": false,
-    "workbench.editor.showTabs": "multiple",
+    "workbench.editor.showTabs": "none",
     "chat.commandCenter.enabled": false,
-    "window.commandCenter": false
+    "window.commandCenter": false,
+    "workbench.colorCustomizations": {
+         "commandCenter.background": "#0B0912",
+         "activityBar.foreground":   "#F7F8F8",
+         "activityBar.background": "#0B0912",
+         "commandCenter.foreground": "#F7F8F8",
+         "commandCenter.activeBackground": "#0B0912",
+         "titleBar.activeBackground": "#0B0912",
+         "titleBar.inactiveBackground": "#0B0912"
+    }
 }
