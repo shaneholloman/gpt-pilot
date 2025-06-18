@@ -950,7 +950,7 @@ class ProjectState(Base):
 
         if last_task:
             project_states = await ProjectState.get_task_conversation_project_states(
-                session, branch_id, last_task.get("id")
+                session, branch_id, UUID(last_task["task_id"])
             )
             if project_states:
                 last_task["start_id"] = project_states[0].id
