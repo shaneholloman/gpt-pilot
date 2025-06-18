@@ -538,7 +538,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             return ""
         try:
             await self.send_message(
-                f"Auto-debugging the frontend #{self.next_state.epics[-1]["auto_debug_attempts"]+1}"
+                f"Auto-debugging the frontend #{self.next_state.epics[-1]['auto_debug_attempts']+1}"
             )
             self.next_state.epics[-1]["auto_debug_attempts"] = (
                 self.current_state.epics[-1].get("auto_debug_attempts", 0) + 1
