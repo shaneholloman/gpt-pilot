@@ -78,7 +78,6 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
             await self.ui.send_project_stage({"stage": ProjectStage.TEST_APP})
             await self.ui.send_message("Test the app by following these steps:", source=pythagora_source)
 
-        await self.send_message("", extra_info={"restart_app": True})
         await self.ui.send_test_instructions(user_instructions, project_state_id=str(self.current_state.id))
 
         # Developer sets iteration as "completed" when it generates the step breakdown, so we can't
