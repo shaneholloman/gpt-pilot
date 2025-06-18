@@ -381,6 +381,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 }
             ]
         )
+        await self.ui.clear_main_logs()
         await self.send_message(f"Starting task #{task_index} with the description:\n\n## {description}")
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
@@ -397,8 +398,6 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         if self.current_state.current_task.get("hardcoded", False):
             return True
-
-        await self.ui.clear_main_logs()
 
         if self.current_state.current_task and self.current_state.current_task.get("hardcoded", False):
             await self.ui.send_message(
