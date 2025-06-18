@@ -63,8 +63,12 @@ ADD cloud/favicon.ico /favicon.ico
 RUN mkdir -p /usr/local/share/code-server/data/User/globalStorage && \
     mkdir -p /usr/local/share/code-server/data/User/History && \
     mkdir -p /usr/local/share/code-server/data/Machine && \
-    mkdir -p /usr/local/share/code-server/data/logs && \
-    chown -R devuser:devusergroup /usr/local/share/code-server && \
+    mkdir -p /usr/local/share/code-server/data/logs
+
+# Add code server settings.json
+ADD cloud/settings.json /usr/local/share/code-server/data/Machine/settings.json
+
+RUN chown -R devuser:devusergroup /usr/local/share/code-server && \
     chmod -R 755 /usr/local/share/code-server && \
     # Copy icons
     cp -f /favicon.ico /usr/local/lib/code-server/src/browser/media/favicon.ico && \

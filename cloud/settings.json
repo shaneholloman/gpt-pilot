@@ -1,0 +1,7 @@
+{
+    "workbench.statusBar.visible": false,
+    "workbench.editor.showTabs": "multiple",
+    "workbench.activityBar.location": "hidden",
+    "chat.commandCenter.enabled": false,
+    "window.commandCenter": false
+}
