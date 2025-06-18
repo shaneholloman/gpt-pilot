@@ -266,7 +266,9 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         }
 
         for epic_task in epic_plan.plan:
-            task["description"] += epic_task.description + " " if epic_task.description.endswith(".") else ". "
+            task["description"] += (
+                epic_task.description + " " if epic_task.description.endswith(".") else epic_task.description + ". "
+            )
             task["related_api_endpoints"] += [rae.model_dump() for rae in (epic_task.related_api_endpoints or [])]
             task["pre_breakdown_testing_instructions"] += f"{epic_task.description}\n{epic_task.testing_instructions}\n"
 
