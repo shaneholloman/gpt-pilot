@@ -636,9 +636,8 @@ async def load_convo(
         convo_el["id"] = str(state.id) if state.step_index >= 3 else None
         user_inputs = await sm.find_user_input(state, branch_id)
 
-        todo_task = find_first_todo_task(state.tasks)
-        if todo_task:
-            task_counter = state.tasks.index(todo_task) + 1
+        if state.tasks and state.current_task:
+            task_counter = state.tasks.index(state.current_task) + 1
 
         if user_inputs:
             convo_el["user_inputs"] = []
@@ -765,7 +764,7 @@ async def load_convo(
 
             elif state.action == DEV_TASK_BREAKDOWN.format(task_counter):
                 if state.tasks and len(state.tasks) >= task_counter:
-                    task = state.tasks[task_counter - 1]
+                    task = state.current_task
                     if task.get("description", None) is not None:
                         convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
 
@@ -778,9 +777,9 @@ async def load_convo(
                     if next_task is not None and next_task.get("description", None) is not None:
                         convo_el["task_description"] = f"Task #{task_counter} - " + next_task["description"]
 
-            elif state.action == DEV_TASK_START:
+            elif state.action == DEV_TASK_START.format(task_counter):
                 if state.tasks and len(state.tasks) >= task_counter:
-                    task = state.tasks[task_counter - 1]
+                    task = state.current_task
                     if task.get("instructions", None) is not None:
                         convo_el["task_breakdown"] = task["instructions"]
 
