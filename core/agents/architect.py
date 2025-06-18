@@ -109,14 +109,12 @@ class Architect(BaseAgent):
         self.next_state.specification = spec
         telemetry.set("templates", spec.templates)
         self.next_state.action = ARCHITECTURE_STEP_NAME
-        await self.ui.clear_main_logs()
-        await self.ui.send_front_logs_headers("be_0", ["E2 / T3", "done"], "Setting up backend")
         await self.ui.send_back_logs(
             [
                 {
                     "title": "Setting up backend",
-                    "project_state_id": self.current_state.id,
-                    "labels": ["E2 / T3", "Backend setup", "done"],
+                    "project_state_id": "be_0",
+                    "labels": ["E2 / T2", "Backend setup", "done"],
                 }
             ]
         )

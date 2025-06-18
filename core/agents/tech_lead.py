@@ -1,5 +1,4 @@
 import asyncio
-import json
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -342,22 +341,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             self.next_state.tasks,
         )
 
-        # await self.ui.send_project_stage({"stage": ProjectStage.OPEN_PLAN})
-        # response = await self.ask_question(
-        #     TL_EDIT_DEV_PLAN,
-        #     buttons={"done_editing": "I'm done editing, the plan looks good"},
-        #     default="done_editing",
-        #     buttons_only=True,
-        #     extra_info={"edit_plan": True},
-        # )
-        #
-        # self.update_epics_and_tasks(response.text)
-
-        if self.next_state.current_task and self.next_state.current_task.get("hardcoded", False):
-            await self.ui.send_message(
-                "Ok, great, you're now starting to build the backend and the first task is to test how the authentication works. You can now register and login. Your data will be saved into the database.",
-                source=pythagora_source,
-            )
+        self.update_epics_and_tasks()
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
@@ -384,46 +368,14 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                         file_content = file_content.replace(line + "\n", "")
                 await self.state_manager.save_file(file.path, file_content)
 
-    def update_epics_and_tasks(self, edited_plan_string):
-        edited_plan = json.loads(edited_plan_string)
-        updated_tasks = []
-
-        existing_tasks_map = {task["description"]: task for task in self.next_state.tasks}
-
-        self.next_state.current_epic["sub_epics"] = []
-        for sub_epic_number, sub_epic in enumerate(edited_plan, start=1):
-            self.next_state.current_epic["sub_epics"].append(
-                {
-                    "id": sub_epic_number,
-                    "description": sub_epic["description"],
-                }
-            )
-
-            for task in sub_epic["tasks"]:
-                original_task = existing_tasks_map.get(task["description"])
-                if original_task and task == original_task:
-                    updated_task = original_task.copy()
-                    updated_task["sub_epic_id"] = sub_epic_number
-                    updated_tasks.append(updated_task)
-                else:
-                    updated_tasks.append(
-                        {
-                            "id": uuid4().hex,
-                            "description": task["description"],
-                            "instructions": None,
-                            "pre_breakdown_testing_instructions": None,
-                            "status": TaskStatus.TODO,
-                            "sub_epic_id": sub_epic_number,
-                        }
-                    )
-
+    def update_epics_and_tasks(self):
         if (
             self.current_state.current_epic
             and self.current_state.current_epic.get("source", "") == "app"
             and self.current_state.knowledge_base.user_options.get("auth", False)
         ):
             log.debug("Adding auth task to the beginning of the task list")
-            updated_tasks.insert(
+            self.next_state.tasks.insert(
                 0,
                 {
                     "id": uuid4().hex,
@@ -473,6 +425,5 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                     "iteration_index": 0,
                 }
             ]
-        self.next_state.tasks = updated_tasks
         self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()
