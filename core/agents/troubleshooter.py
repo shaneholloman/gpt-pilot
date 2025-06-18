@@ -201,7 +201,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         return llm_response
 
     async def get_user_instructions(self) -> Optional[str]:
-        await self.send_message("Determining how to test the app ...")
+        await self.send_message("### Determining how to test the app ...")
 
         route_files = await self._get_route_files()
         current_task = self.current_state.current_task

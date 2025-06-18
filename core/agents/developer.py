@@ -225,7 +225,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         current_task_index = self.current_state.tasks.index(current_task)
 
-        await self.send_message("Thinking about how to implement this task ...")
+        await self.send_message("### Thinking about how to implement this task ...")
 
         await self.ui.start_breakdown_stream()
         await self.ui.start_important_stream()

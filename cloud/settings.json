@@ -10,6 +10,13 @@
          "commandCenter.foreground": "#F7F8F8",
          "commandCenter.activeBackground": "#0B0912",
          "titleBar.activeBackground": "#0B0912",
-         "titleBar.inactiveBackground": "#0B0912"
+         "titleBar.inactiveBackground": "#0B0912",
+         "sideBarSectionHeader.background": "#0B0912",
+         "sideBarSectionHeader.foreground": "#F7F8F8",
+         "editorGroupHeader.tabsBackground": "#0B0912",
+         "tab.activeBackground":   "#0B0912",
+         "tab.inactiveBackground": "#0B0912",
+         "tab.activeForeground":   "#F7F8F8",
+         "tab.inactiveForeground": "#F7F8F8"
     }
 }
