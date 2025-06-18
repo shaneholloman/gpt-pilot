@@ -537,6 +537,9 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3:
             return ""
         try:
+            await self.send_message(
+                f"Auto-debugging the frontend #{self.next_state.epics[-1]["auto_debug_attempts"]+1}"
+            )
             self.next_state.epics[-1]["auto_debug_attempts"] = (
                 self.current_state.epics[-1].get("auto_debug_attempts", 0) + 1
             )
@@ -564,10 +567,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.kill_app()
 
             if diff_stdout or diff_stderr:
+                await self.send_message(f"Auto-debugging found an error: \n{diff_stdout}\n{diff_stderr}")
                 log.debug(f"Auto-debugging output:\n{diff_stdout}\n{diff_stderr}")
                 return f"I got an error. Here are the logs:\n{diff_stdout}\n{diff_stderr}"
         except Exception as e:
             capture_exception(e)
             log.error(f"Error during auto-debugging: {e}", exc_info=True)
 
+        await self.send_message("All good, no errors found.")
         return ""
