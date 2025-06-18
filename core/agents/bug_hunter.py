@@ -162,7 +162,7 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
 
-        await self.ask_question(
+        user_feedback = await self.ask_question(
             BH_HUMAN_TEST_AGAIN,
             buttons={"done": "I am done testing"},
             buttons_only=True,
@@ -172,6 +172,9 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         )
 
         if awaiting_user_test:
+            self.next_state.current_iteration["bug_hunting_cycles"][-1]["fix_attempted"] = True
+
+        if awaiting_user_test and not user_feedback.text:
             buttons = {"yes": "Yes, the issue is fixed", "no": "No", "start_pair_programming": "Start Pair Programming"}
             user_feedback = await self.ask_question(
                 BH_IS_BUG_FIXED,
@@ -180,17 +183,19 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 buttons_only=True,
                 hint="Instructions for testing:\n\n" + test_instructions,
             )
-            self.next_state.current_iteration["bug_hunting_cycles"][-1]["fix_attempted"] = True
+            # self.next_state.current_iteration["bug_hunting_cycles"][-1]["fix_attempted"] = True
 
             if user_feedback.button == "yes":
                 self.next_state.complete_iteration()
+                return AgentResponse.done(self)
             elif user_feedback.button == "start_pair_programming":
                 self.next_state.current_iteration["status"] = IterationStatus.START_PAIR_PROGRAMMING
                 self.next_state.flag_iterations_as_modified()
+                return AgentResponse.done(self)
             else:
                 awaiting_bug_reproduction = True
 
-        if awaiting_bug_reproduction:
+        if awaiting_bug_reproduction and not user_feedback.text:
             buttons = {
                 "done": "Bug is fixed",
                 "continue": "Continue without feedback",  # DO NOT CHANGE THIS TEXT without changing it in the extension (it is hardcoded)
@@ -217,11 +222,11 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 self.next_state.flag_iterations_as_modified()
                 return AgentResponse.done(self)
 
-            # TODO select only the logs that are new (with PYTHAGORA_DEBUGGING_LOG)
-            self.next_state.current_iteration["bug_hunting_cycles"][-1]["backend_logs"] = None
-            self.next_state.current_iteration["bug_hunting_cycles"][-1]["frontend_logs"] = None
-            self.next_state.current_iteration["bug_hunting_cycles"][-1]["user_feedback"] = user_feedback.text
-            self.next_state.current_iteration["status"] = IterationStatus.HUNTING_FOR_BUG
+        # TODO select only the logs that are new (with PYTHAGORA_DEBUGGING_LOG)
+        self.next_state.current_iteration["bug_hunting_cycles"][-1]["backend_logs"] = None
+        self.next_state.current_iteration["bug_hunting_cycles"][-1]["frontend_logs"] = None
+        self.next_state.current_iteration["bug_hunting_cycles"][-1]["user_feedback"] = user_feedback.text
+        self.next_state.current_iteration["status"] = IterationStatus.HUNTING_FOR_BUG
 
         return AgentResponse.done(self)
 
