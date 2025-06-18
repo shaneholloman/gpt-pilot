@@ -151,14 +151,12 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
                 self.current_state.tasks.index(self.current_state.current_task) + 1
             )
 
-        await self.ui.stop_app()
         await self.async_task_finish()
 
         test_instructions = self.current_state.current_iteration["bug_reproduction_description"]
         await self.ui.send_message(
             "Start the app and test it by following these instructions:\n\n", source=pythagora_source
         )
-        await self.send_message("")
         await self.ui.send_test_instructions(test_instructions, project_state_id=str(self.current_state.id))
 
         if self.current_state.run_command:

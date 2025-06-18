@@ -78,8 +78,6 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
             await self.ui.send_project_stage({"stage": ProjectStage.TEST_APP})
             await self.ui.send_message("Test the app by following these steps:", source=pythagora_source)
 
-        await self.send_message("")
-        await self.ui.stop_app()
         await self.ui.send_test_instructions(user_instructions, project_state_id=str(self.current_state.id))
 
         # Developer sets iteration as "completed" when it generates the step breakdown, so we can't
@@ -287,8 +285,8 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
             buttons = {
                 "continue": "Everything works",
-                "change": "I want to make a change",
                 "bug": "There is an issue",
+                "change": "I want to make a change",
             }
             if not self.current_state.current_task.get("hardcoded", False):
                 buttons["redo"] = "Redo task"
