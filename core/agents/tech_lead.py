@@ -346,7 +346,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             self.next_state.tasks,
         )
 
-        self.update_epics_and_tasks()
+        await self.update_epics_and_tasks()
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
@@ -373,7 +373,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                         file_content = file_content.replace(line + "\n", "")
                 await self.state_manager.save_file(file.path, file_content)
 
-    def update_epics_and_tasks(self):
+    async def update_epics_and_tasks(self):
         if (
             self.current_state.current_epic
             and self.current_state.current_epic.get("source", "") == "app"
@@ -432,3 +432,26 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             ]
         self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()
+
+        await self.ui.send_project_stage(
+            {
+                "stage": ProjectStage.STARTING_TASK,
+                "task_index": 1,
+            }
+        )
+        await self.ui.send_front_logs_headers(
+            str(self.current_state.id),
+            ["E3 / T1", "Backend", "working"],
+            self.next_state.tasks[0]["description"],
+            self.next_state.tasks[0]["id"],
+        )
+
+        await self.ui.send_back_logs(
+            [
+                {
+                    "title": self.next_state.tasks[0]["description"],
+                    "project_state_id": str(self.next_state.id),
+                    "labels": ["E3 / T1", "working"],
+                }
+            ]
+        )
