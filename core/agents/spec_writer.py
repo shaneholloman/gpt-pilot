@@ -133,7 +133,7 @@ class SpecWriter(BaseAgent):
             initial_prompt=description,
         )
 
-        # await self.ui.start_important_stream()
+        # await self.ui.set_important_stream()
         llm_assisted_description = await llm(convo)
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
@@ -203,7 +203,7 @@ class SpecWriter(BaseAgent):
             if len(convo.messages) > 6:
                 convo.slice(1, 4)
 
-            # await self.ui.start_important_stream()
+            # await self.ui.set_important_stream()
             llm_assisted_description = await llm(convo)
 
             convo = convo.assistant(llm_assisted_description)
