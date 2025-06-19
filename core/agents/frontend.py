@@ -101,7 +101,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         self.next_state.action = FE_CONTINUE
         await self.ui.send_project_stage({"stage": ProjectStage.CONTINUE_FRONTEND})
-        await self.send_message("Continuing to build UI... This may take a couple of minutes")
+        await self.send_message("### Continuing to build UI... This may take a couple of minutes")
 
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self)
@@ -538,7 +538,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             return ""
         try:
             await self.send_message(
-                f"Auto-debugging the frontend #{self.next_state.epics[-1]['auto_debug_attempts']+1}"
+                f"### Auto-debugging the frontend #{self.next_state.epics[-1]['auto_debug_attempts']+1}"
             )
             self.next_state.epics[-1]["auto_debug_attempts"] = (
                 self.current_state.epics[-1].get("auto_debug_attempts", 0) + 1
@@ -567,12 +567,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.kill_app()
 
             if diff_stdout or diff_stderr:
-                await self.send_message(f"Auto-debugging found an error: \n{diff_stdout}\n{diff_stderr}")
+                await self.send_message(f"### Auto-debugging found an error: \n{diff_stdout}\n{diff_stderr}")
                 log.debug(f"Auto-debugging output:\n{diff_stdout}\n{diff_stderr}")
                 return f"I got an error. Here are the logs:\n{diff_stdout}\n{diff_stderr}"
         except Exception as e:
             capture_exception(e)
             log.error(f"Error during auto-debugging: {e}", exc_info=True)
 
-        await self.send_message("All good, no errors found.")
+        await self.send_message("### All good, no errors found.")
         return ""

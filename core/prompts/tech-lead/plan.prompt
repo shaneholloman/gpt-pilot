@@ -28,7 +28,7 @@ IMPORTANT!
 If there are multiple user roles that are needed for this app (eg. admin, user, etc.), make sure that the first epic covers setting up user roles, account with different roles, different views for different roles, and authentication.
 
 IMPORTANT!
-Frontend is already built and you don't need to create epics for it. You only need to create epics for backend implementation and connect it to existing frontend. Keep in mind that some backend functionality is already implemented.
+Frontend is already built and you don't need to create epics for it. You only need to create epics for backend implementation and connect it to existing frontend. Keep in mind that some backend functionality is already implemented. **ALL** tasks and epics need to be connected to the frontend - there shouldn't be a task that is not connected to the frontend (eg. by calling an API endpoint).
 
 Strictly follow these rules:
 
