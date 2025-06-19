@@ -861,6 +861,24 @@ class ProjectState(Base):
         return results.scalars().all()
 
     @staticmethod
+    def get_epic_task_number(state, current_task) -> (int, int):
+        epic_num = -1
+        task_num = -1
+
+        for task in state.tasks:
+            epic_n = task.get("sub_epic_id", 1) + 2
+            if epic_n != epic_num:
+                epic_num = epic_n
+                task_num = 1
+
+            if current_task["id"] == task["id"]:
+                return epic_num, task_num
+
+            task_num += 1
+
+        return epic_num, task_num
+
+    @staticmethod
     async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], dict, list["ProjectState"]):
         """
         For each FINISHED task in the branch, find all project states where the task status changes. Additionally, the last task that will be returned is the one that is currently being worked on.
@@ -870,8 +888,6 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
-        epic_num = -1
-        task_num = -1
         query = select(ProjectState).where(
             and_(
                 ProjectState.branch_id == branch_id,
@@ -916,13 +932,9 @@ class ProjectState(Base):
                     task_histories[task_id]["status"] = task.get("status")
                     task_histories[task_id]["end_id"] = state.id
 
-                epic_n = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
-
-                if epic_n != epic_num:
-                    epic_num = epic_n
-                    task_num = 1
+                epic_index, task_index = ProjectState.get_epic_task_number(state, task)
                 task_histories[task_id]["labels"] = [
-                    f"E{str(epic_n)} / T{task_num}",
+                    f"E{str(epic_index)} / T{task_index}",
                     "Backend",
                     "Working"
                     if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
@@ -930,7 +942,6 @@ class ProjectState(Base):
                     if task.get("status") == TaskStatus.SKIPPED
                     else "Done",
                 ]
-                task_num += 1
         log.debug(task_histories)
 
         last_task = {}
