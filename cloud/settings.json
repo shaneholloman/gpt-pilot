@@ -17,6 +17,9 @@
          "tab.activeBackground":   "#0B0912",
          "tab.inactiveBackground": "#0B0912",
          "tab.activeForeground":   "#F7F8F8",
-         "tab.inactiveForeground": "#F7F8F8"
+         "tab.inactiveForeground": "#F7F8F8",
+         "editorGroup.emptyBackground": "#0B0912",
+         "editor.background": "#0B0912",
+         "sideBar.background": "#0B0912"
     }
 }
