@@ -209,7 +209,6 @@ class SpecWriter(BaseAgent):
             convo = convo.assistant(llm_assisted_description)
 
         await self.ui.clear_main_logs()
-        await self.ui.send_front_logs_headers(str(self.next_state.id), ["E2 / T1", "working"], "Building frontend")
         await self.ui.send_back_logs(
             [
                 {
@@ -217,15 +216,6 @@ class SpecWriter(BaseAgent):
                     "project_state_id": self.current_state.id,
                     "labels": ["E1 / T1", "Specs", "done"],
                     "disallow_reload": True,
-                }
-            ]
-        )
-        await self.ui.send_back_logs(
-            [
-                {
-                    "title": "Building frontend",
-                    "project_state_id": str(self.next_state.id),
-                    "labels": ["E2 / T1", "Frontend", "working"],
                 }
             ]
         )

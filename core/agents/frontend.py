@@ -62,6 +62,17 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         Starts the frontend of the app.
         """
+        await self.ui.clear_main_logs()
+        await self.ui.send_front_logs_headers(str(self.next_state.id), ["E2 / T1", "working"], "Building frontend")
+        await self.ui.send_back_logs(
+            [
+                {
+                    "title": "Building frontend",
+                    "project_state_id": str(self.next_state.id),
+                    "labels": ["E2 / T1", "Frontend", "working"],
+                }
+            ]
+        )
         self.next_state.action = FE_START
         await self.send_message("## Building the frontend\n\nThis may take a couple of minutes.")
 
@@ -174,7 +185,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
                 if answer.button == "yes":
                     fe_states = await self.state_manager.get_fe_states()
-                    first_fe_state_id = fe_states[0].prev_state_id if fe_states else None
+                    first_fe_state_id = fe_states[0].id if fe_states else None
 
                     await self.ui.clear_main_logs()
                     await self.ui.send_front_logs_headers(
