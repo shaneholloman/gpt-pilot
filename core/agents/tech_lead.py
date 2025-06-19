@@ -181,7 +181,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
             response = await self.ask_question(
                 "What do you want to implement?",
-                buttons={"continue": "continue", "back": "Back"},
+                buttons={"back": "Back"},
                 allow_empty=False,
             )
 
@@ -300,29 +300,15 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         convo.remove_last_x_messages(1)
 
+        await self.send_message("Creating tasks ...")
         if epic.get("source") == "feature" or epic.get("complexity") == Complexity.SIMPLE:
-            await self.send_message(f"Epic 1: {epic['name']}")
             self.next_state.current_epic["sub_epics"] = [
                 {
                     "id": 1,
                     "description": epic["name"],
                 }
             ]
-            await self.send_message("Creating tasks for this epic ...")
-            self.next_state.tasks = self.next_state.tasks + [
-                {
-                    "id": uuid4().hex,
-                    "description": task.description,
-                    "instructions": None,
-                    "pre_breakdown_testing_instructions": None,
-                    "status": TaskStatus.TODO,
-                    "sub_epic_id": 1,
-                }
-                for task in response.plan
-            ]
         else:
-            await self.send_message("Creating tasks ...")
-
             self.next_state.current_epic["sub_epics"] = [
                 {
                     "id": sub_epic_number,
@@ -331,15 +317,15 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 for sub_epic_number, sub_epic in enumerate(response.plan, start=1)
             ]
 
-            # Create and gather all epic processing tasks
-            epic_tasks = []
-            for sub_epic_number, sub_epic in enumerate(response.plan, start=1):
-                epic_tasks.append(self.process_epic(sub_epic_number, sub_epic))
+        # Create and gather all epic processing tasks
+        epic_tasks = []
+        for sub_epic_number, sub_epic in enumerate(response.plan, start=1):
+            epic_tasks.append(self.process_epic(sub_epic_number, sub_epic))
 
-            all_tasks_results = await asyncio.gather(*epic_tasks)
+        all_tasks_results = await asyncio.gather(*epic_tasks)
 
-            for tasks_result in all_tasks_results:
-                self.next_state.tasks.append(tasks_result)
+        for tasks_result in all_tasks_results:
+            self.next_state.tasks.append(tasks_result)
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
