@@ -181,7 +181,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
             response = await self.ask_question(
                 "What do you want to implement?",
-                buttons={"continue": "continue", "back": "Back"},
+                buttons={"back": "Back"},
                 allow_empty=False,
             )
 
