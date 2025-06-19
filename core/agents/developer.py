@@ -261,15 +261,11 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         response: str = await llm(convo)
 
         convo.assistant(response)
-        last_open_tag_index = response.rfind("<code file")
+        last_open_tag_index = response.rfind("<pythagoracode file")
 
         while True:
             if has_correct_num_of_tags(response):
                 break
-
-            # start_index = response.find('"', last_open_tag_index) + 1
-            # end_index = response.find('"', start_index)
-            # file_name = response[start_index:end_index]
 
             # remove the last incomplete code block
             response = response[:last_open_tag_index]
@@ -279,7 +275,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             )
             continue_response: str = await llm(convo)
 
-            response = response + "\n</code>\n" + continue_response
+            response = response + "\n</pythagoracode>\n" + continue_response
 
         response = await self.chat_with_breakdown(convo, response)
 
