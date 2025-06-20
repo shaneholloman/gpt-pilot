@@ -85,7 +85,7 @@ def has_correct_num_of_tags(response: str) -> bool:
     """
     Checks if the response has the correct number of opening and closing tags.
     """
-    return response.count("</code>") == response.count("<code file")
+    return response.count("</pythagoracode>") == response.count("<pythagoracode file")
 
 
 class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
