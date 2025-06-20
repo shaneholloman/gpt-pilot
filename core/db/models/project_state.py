@@ -861,6 +861,24 @@ class ProjectState(Base):
         return results.scalars().all()
 
     @staticmethod
+    def get_epic_task_number(state, current_task) -> (int, int):
+        epic_num = -1
+        task_num = -1
+
+        for task in state.tasks:
+            epic_n = task.get("sub_epic_id", 1) + 2
+            if epic_n != epic_num:
+                epic_num = epic_n
+                task_num = 1
+
+            if current_task["id"] == task["id"]:
+                return epic_num, task_num
+
+            task_num += 1
+
+        return epic_num, task_num
+
+    @staticmethod
     async def get_be_back_logs(session: "AsyncSession", branch_id: UUID) -> (list[dict], dict, list["ProjectState"]):
         """
         For each FINISHED task in the branch, find all project states where the task status changes. Additionally, the last task that will be returned is the one that is currently being worked on.
@@ -870,8 +888,6 @@ class ProjectState(Base):
         :param branch_id: The UUID of the branch.
         :return: List of dicts with UI-friendly task conversation format.
         """
-        epic_num = -1
-        task_num = -1
         query = select(ProjectState).where(
             and_(
                 ProjectState.branch_id == branch_id,
@@ -888,7 +904,13 @@ class ProjectState(Base):
             result = await session.execute(query)
             states = result.scalars().all()
 
-        task_histories = {}
+        task_histories = []
+
+        def find_task_history(task_id):
+            for th in task_histories:
+                if th["task_id"] == task_id:
+                    return th
+            return None
 
         for state in states:
             for task in state.tasks or []:
@@ -896,33 +918,32 @@ class ProjectState(Base):
                 if not task_id:
                     continue
 
-                if task_id not in task_histories:
-                    task_histories[task_id] = {}
-                    task_histories[task_id]["task_id"] = task_id
-                    task_histories[task_id]["title"] = task.get("description")
-                    task_histories[task_id]["labels"] = []
-                    task_histories[task_id]["status"] = task["status"]
-                    task_histories[task_id]["start_id"] = state.id
-                    task_histories[task_id]["project_state_id"] = state.id
-                    task_histories[task_id]["end_id"] = state.id
+                th = find_task_history(task_id)
+                if not th:
+                    th = {
+                        "task_id": task_id,
+                        "title": task.get("description"),
+                        "labels": [],
+                        "status": task["status"],
+                        "start_id": state.id,
+                        "project_state_id": state.id,
+                        "end_id": state.id,
+                    }
+                    task_histories.append(th)
 
                 if task.get("status") == TaskStatus.TODO:
-                    task_histories[task_id]["status"] = TaskStatus.TODO
-                    task_histories[task_id]["start_id"] = state.id
-                    task_histories[task_id]["project_state_id"] = state.id
-                    task_histories[task_id]["end_id"] = state.id
+                    th["status"] = TaskStatus.TODO
+                    th["start_id"] = state.id
+                    th["project_state_id"] = state.id
+                    th["end_id"] = state.id
 
-                elif task.get("status") != task_histories[task_id]["status"]:
-                    task_histories[task_id]["status"] = task.get("status")
-                    task_histories[task_id]["end_id"] = state.id
+                elif task.get("status") != th["status"]:
+                    th["status"] = task.get("status")
+                    th["end_id"] = state.id
 
-                epic_n = task.get("sub_epic_id", 1) + 2  # +2 because we have spec_writer and frontend epics
-
-                if epic_n != epic_num:
-                    epic_num = epic_n
-                    task_num = 1
-                task_histories[task_id]["labels"] = [
-                    f"E{str(epic_n)} / T{task_num}",
+                epic_index, task_index = ProjectState.get_epic_task_number(state, task)
+                th["labels"] = [
+                    f"E{str(epic_index)} / T{task_index}",
                     "Backend",
                     "Working"
                     if task.get("status") in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
@@ -930,23 +951,27 @@ class ProjectState(Base):
                     if task.get("status") == TaskStatus.SKIPPED
                     else "Done",
                 ]
-                task_num += 1
         log.debug(task_histories)
 
         last_task = {}
-        # separate all elements from task_histories that have same start_id and end_id
+
+        # todo/in_progress can override done
+        # done can override todo/in_progress
+        # todo/in_progress can not override todo/in_progress
+
         for th in task_histories:
-            if task_histories[th].get("start_id") == task_histories[th].get("end_id") or task_histories[th][
-                "status"
-            ] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]:
-                last_task = task_histories[th]
-                break
+            if not last_task:
+                last_task = th
 
-        task_histories = {k: v for k, v in task_histories.items() if v.get("start_id") != v.get("end_id")}
+            # if we have multiple tasks being Worked on (todo state) in a row, then we take the first one
+            # if we see a Done task, we take that one
+            if not (
+                last_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+                and th["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
+            ):
+                last_task = th
 
-        if not last_task and len(task_histories.items()) == 1:
-            # If there is only one task in the history, use it as the last task
-            last_task = next(iter(task_histories.values()))
+        task_histories = task_histories[: task_histories.index(last_task) + 1]
 
         if last_task:
             project_states = await ProjectState.get_task_conversation_project_states(
@@ -956,4 +981,4 @@ class ProjectState(Base):
                 last_task["start_id"] = project_states[0].id
                 last_task["project_state_id"] = project_states[0].id
                 last_task["end_id"] = project_states[-1].id
-        return list(task_histories.values()), last_task
+        return task_histories, last_task
