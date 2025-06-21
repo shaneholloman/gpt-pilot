@@ -62,9 +62,21 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         Starts the frontend of the app.
         """
+        await self.ui.clear_main_logs()
+        await self.ui.send_front_logs_headers(str(self.next_state.id), ["E2 / T1", "working"], "Building frontend")
+        await self.ui.send_back_logs(
+            [
+                {
+                    "title": "Building frontend",
+                    "project_state_id": str(self.next_state.id),
+                    "labels": ["E2 / T1", "Frontend", "working"],
+                }
+            ]
+        )
         self.next_state.action = FE_START
         await self.send_message("## Building the frontend\n\nThis may take a couple of minutes.")
 
+        await self.ui.set_important_stream(False)
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self).template(
             "build_frontend",
@@ -101,7 +113,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         self.next_state.action = FE_CONTINUE
         await self.ui.send_project_stage({"stage": ProjectStage.CONTINUE_FRONTEND})
-        await self.send_message("Continuing to build UI... This may take a couple of minutes")
+        await self.send_message("### Continuing to build UI... This may take a couple of minutes")
 
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
         convo = AgentConvo(self)
@@ -174,7 +186,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
 
                 if answer.button == "yes":
                     fe_states = await self.state_manager.get_fe_states()
-                    first_fe_state_id = fe_states[0].prev_state_id if fe_states else None
+                    first_fe_state_id = fe_states[0].id if fe_states else None
 
                     await self.ui.clear_main_logs()
                     await self.ui.send_front_logs_headers(
@@ -538,7 +550,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             return ""
         try:
             await self.send_message(
-                f"Auto-debugging the frontend #{self.next_state.epics[-1]['auto_debug_attempts']+1}"
+                f"### Auto-debugging the frontend #{self.next_state.epics[-1]['auto_debug_attempts']+1}"
             )
             self.next_state.epics[-1]["auto_debug_attempts"] = (
                 self.current_state.epics[-1].get("auto_debug_attempts", 0) + 1
@@ -567,12 +579,12 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
             await self.kill_app()
 
             if diff_stdout or diff_stderr:
-                await self.send_message(f"Auto-debugging found an error: \n{diff_stdout}\n{diff_stderr}")
+                await self.send_message(f"### Auto-debugging found an error: \n{diff_stdout}\n{diff_stderr}")
                 log.debug(f"Auto-debugging output:\n{diff_stdout}\n{diff_stderr}")
                 return f"I got an error. Here are the logs:\n{diff_stdout}\n{diff_stderr}"
         except Exception as e:
             capture_exception(e)
             log.error(f"Error during auto-debugging: {e}", exc_info=True)
 
-        await self.send_message("All good, no errors found.")
+        await self.send_message("### All good, no errors found.")
         return ""
