@@ -227,6 +227,14 @@ class BugHunter(ChatWithBreakdownMixin, BaseAgent):
         self.next_state.current_iteration["bug_hunting_cycles"][-1]["frontend_logs"] = None
         self.next_state.current_iteration["bug_hunting_cycles"][-1]["user_feedback"] = user_feedback.text
         self.next_state.current_iteration["status"] = IterationStatus.HUNTING_FOR_BUG
+        self.next_state.current_iteration["attempts"] += 1
+        self.next_state.flag_iterations_as_modified()
+
+        await self.ui.send_project_stage(
+            {
+                "bug_fix_attempt": self.next_state.current_iteration["attempts"],
+            }
+        )
 
         return AgentResponse.done(self)
 

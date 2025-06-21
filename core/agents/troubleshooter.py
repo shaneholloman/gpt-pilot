@@ -331,6 +331,11 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 if user_description.button == "back":
                     continue
                 bug_report = user_description.text
+                await self.ui.send_project_stage(
+                    {
+                        "bug_fix_attempt": 1,
+                    }
+                )
                 await self.get_relevant_files_parallel(user_feedback=bug_report)
                 break
             elif user_response.text and isinstance(user_response.text, str):
