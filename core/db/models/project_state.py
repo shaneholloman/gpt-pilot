@@ -954,24 +954,15 @@ class ProjectState(Base):
         log.debug(task_histories)
 
         last_task = {}
-
-        # todo/in_progress can override done
-        # done can override todo/in_progress
-        # todo/in_progress can not override todo/in_progress
-
         for th in task_histories:
-            if not last_task:
+            if th.get("start_id") == th.get("end_id") or th["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]:
                 last_task = th
+                break
 
-            # if we have multiple tasks being Worked on (todo state) in a row, then we take the first one
-            # if we see a Done task, we take that one
-            if not (
-                last_task["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
-                and th["status"] in [TaskStatus.TODO, TaskStatus.IN_PROGRESS]
-            ):
-                last_task = th
+        task_histories = [th for th in task_histories if th.get("start_id") != th.get("end_id")]
 
-        task_histories = task_histories[: task_histories.index(last_task) + 1]
+        if not last_task and task_histories:
+            last_task = task_histories[-1]
 
         if last_task:
             project_states = await ProjectState.get_task_conversation_project_states(
