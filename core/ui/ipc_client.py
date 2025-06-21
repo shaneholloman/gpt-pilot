@@ -509,10 +509,10 @@ class IPCClientUI(UIBase):
             route="broadcast",
         )
 
-    async def start_important_stream(self):
+    async def set_important_stream(self, important_stream: bool = True):
         await self._send(
             MessageType.IMPORTANT_STREAM,
-            content={},
+            content={"status": important_stream},
         )
 
     async def start_breakdown_stream(self):

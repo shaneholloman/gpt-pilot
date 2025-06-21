@@ -375,7 +375,7 @@ class UIBase:
         """
         raise NotImplementedError()
 
-    async def start_important_stream(self, path: str):
+    async def set_important_stream(self, path: str):
         """
         Tell the extension that next stream should be visible and rendered as markdown
 

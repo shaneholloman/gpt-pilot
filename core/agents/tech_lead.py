@@ -255,19 +255,24 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         llm = self.get_llm(TECH_LEAD_EPIC_BREAKDOWN)
         epic_plan: EpicPlan = await llm(epic_convo, parser=JSONParser(EpicPlan))
 
-        tasks = [
-            {
-                "id": uuid4().hex,
-                "description": task.description,
-                "instructions": None,
-                "pre_breakdown_testing_instructions": task.testing_instructions,
-                "status": TaskStatus.TODO,
-                "sub_epic_id": sub_epic_number,
-                "related_api_endpoints": [rae.model_dump() for rae in (task.related_api_endpoints or [])],
-            }
-            for task in epic_plan.plan
-        ]
-        return tasks
+        task = {
+            "id": uuid4().hex,
+            "description": "",
+            "instructions": None,
+            "pre_breakdown_testing_instructions": "",
+            "status": TaskStatus.TODO,
+            "sub_epic_id": sub_epic_number,
+            "related_api_endpoints": [],
+        }
+
+        for epic_task in epic_plan.plan:
+            task["description"] += (
+                epic_task.description + " " if epic_task.description.endswith(".") else epic_task.description + ". "
+            )
+            task["related_api_endpoints"] += [rae.model_dump() for rae in (epic_task.related_api_endpoints or [])]
+            task["pre_breakdown_testing_instructions"] += f"{epic_task.description}\n{epic_task.testing_instructions}\n"
+
+        return task
 
     async def plan_epic(self, epic) -> AgentResponse:
         self.next_state.action = TL_CREATE_PLAN.format(epic["name"])
@@ -295,29 +300,15 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
         convo.remove_last_x_messages(1)
 
+        await self.send_message("Creating tasks ...")
         if epic.get("source") == "feature" or epic.get("complexity") == Complexity.SIMPLE:
-            await self.send_message(f"Epic 1: {epic['name']}")
             self.next_state.current_epic["sub_epics"] = [
                 {
                     "id": 1,
                     "description": epic["name"],
                 }
             ]
-            await self.send_message("Creating tasks for this epic ...")
-            self.next_state.tasks = self.next_state.tasks + [
-                {
-                    "id": uuid4().hex,
-                    "description": task.description,
-                    "instructions": None,
-                    "pre_breakdown_testing_instructions": None,
-                    "status": TaskStatus.TODO,
-                    "sub_epic_id": 1,
-                }
-                for task in response.plan
-            ]
         else:
-            await self.send_message("Creating tasks ...")
-
             self.next_state.current_epic["sub_epics"] = [
                 {
                     "id": sub_epic_number,
@@ -326,22 +317,22 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 for sub_epic_number, sub_epic in enumerate(response.plan, start=1)
             ]
 
-            # Create and gather all epic processing tasks
-            epic_tasks = []
-            for sub_epic_number, sub_epic in enumerate(response.plan, start=1):
-                epic_tasks.append(self.process_epic(sub_epic_number, sub_epic))
+        # Create and gather all epic processing tasks
+        epic_tasks = []
+        for sub_epic_number, sub_epic in enumerate(response.plan, start=1):
+            epic_tasks.append(self.process_epic(sub_epic_number, sub_epic))
 
-            all_tasks_results = await asyncio.gather(*epic_tasks)
+        all_tasks_results = await asyncio.gather(*epic_tasks)
 
-            for tasks_result in all_tasks_results:
-                self.next_state.tasks.extend(tasks_result)
+        for tasks_result in all_tasks_results:
+            self.next_state.tasks.append(tasks_result)
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
             self.next_state.tasks,
         )
 
-        self.update_epics_and_tasks()
+        await self.update_epics_and_tasks()
 
         await self.ui.send_epics_and_tasks(
             self.next_state.current_epic["sub_epics"],
@@ -368,7 +359,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                         file_content = file_content.replace(line + "\n", "")
                 await self.state_manager.save_file(file.path, file_content)
 
-    def update_epics_and_tasks(self):
+    async def update_epics_and_tasks(self):
         if (
             self.current_state.current_epic
             and self.current_state.current_epic.get("source", "") == "app"
@@ -427,3 +418,26 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             ]
         self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()
+
+        await self.ui.send_project_stage(
+            {
+                "stage": ProjectStage.STARTING_TASK,
+                "task_index": 1,
+            }
+        )
+        await self.ui.send_front_logs_headers(
+            str(self.current_state.id),
+            ["E3 / T1", "Backend", "working"],
+            self.next_state.tasks[0]["description"],
+            self.next_state.tasks[0]["id"],
+        )
+
+        await self.ui.send_back_logs(
+            [
+                {
+                    "title": self.next_state.tasks[0]["description"],
+                    "project_state_id": str(self.next_state.id),
+                    "labels": ["E3 / T1", "working"],
+                }
+            ]
+        )

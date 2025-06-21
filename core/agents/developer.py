@@ -81,6 +81,13 @@ class TaskSteps(BaseModel):
     steps: list[Step]
 
 
+def has_correct_num_of_tags(response: str) -> bool:
+    """
+    Checks if the response has the correct number of opening and closing tags.
+    """
+    return response.count("</code>") == response.count("<code file")
+
+
 class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
     agent_type = "developer"
     display_name = "Developer"
@@ -218,10 +225,10 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         current_task_index = self.current_state.tasks.index(current_task)
 
-        await self.send_message("Thinking about how to implement this task ...")
+        await self.send_message("### Thinking about how to implement this task ...")
 
         await self.ui.start_breakdown_stream()
-        await self.ui.start_important_stream()
+        await self.ui.set_important_stream()
         related_api_endpoints = current_task.get("related_api_endpoints", [])
         llm = self.get_llm(TASK_BREAKDOWN_AGENT_NAME, stream_output=True)
         # TODO: Temp fix for old projects
@@ -250,8 +257,25 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             related_api_endpoints=related_api_endpoints,
             redo_task_user_feedback=redo_task_user_feedback,
         )
+
         response: str = await llm(convo)
+
         convo.assistant(response)
+        last_open_tag_index = response.rfind("<pythagoracode file")
+
+        while True:
+            if has_correct_num_of_tags(response):
+                break
+
+            # remove the last incomplete code block
+            response = response[:last_open_tag_index]
+
+            convo.user(
+                "In the last response, you provided an unfinished breakdown of the tasks. Please continue with the breakdown of the tasks, making sure to include all necessary steps and details. DO NOT include previous code that was completed, just continue from where you left off."
+            )
+            continue_response: str = await llm(convo)
+
+            response = response + "\n</pythagoracode>\n" + continue_response
 
         response = await self.chat_with_breakdown(convo, response)
 
