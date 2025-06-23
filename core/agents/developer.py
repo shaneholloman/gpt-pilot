@@ -263,7 +263,10 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         convo.assistant(response)
         last_open_tag_index = response.rfind("<pythagoracode file")
 
-        while True:
+        max_retries = 2
+        retry_count = 0
+
+        while retry_count < max_retries:
             if has_correct_num_of_tags(response):
                 break
 
@@ -274,8 +277,8 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                 "In the last response, you provided an unfinished breakdown of the tasks. Please continue with the breakdown of the tasks, making sure to include all necessary steps and details. DO NOT include previous code that was completed, just continue from where you left off."
             )
             continue_response: str = await llm(convo)
-
             response = response + "\n</pythagoracode>\n" + continue_response
+            retry_count += 1
 
         response = await self.chat_with_breakdown(convo, response)
 
