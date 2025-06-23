@@ -218,6 +218,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
                 [
                     {
                         "project_state_id": "spec",
+                        "disallow_reload": True,
                         "labels": ["E1 / T1", "Spec", "working" if fe_states == [] else "done"],
                         "title": "Writing Specification",
                         "convo": [
