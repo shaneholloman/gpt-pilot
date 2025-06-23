@@ -893,7 +893,7 @@ async def load_project(
     branch_id: Optional[UUID] = None,
     step_index: Optional[int] = None,
     project_state_id: Optional[UUID] = None,
-) -> ProjectState | None:
+) -> Optional[ProjectState]:
     """
     Load a project from the database.
 
