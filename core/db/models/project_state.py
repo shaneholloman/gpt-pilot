@@ -971,7 +971,7 @@ class ProjectState(Base):
             ):
                 last_task = th
 
-        if task_histories:
+        if task_histories and last_task:
             task_histories = task_histories[: task_histories.index(last_task) + 1]
 
         if last_task:
