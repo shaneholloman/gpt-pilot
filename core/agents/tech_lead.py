@@ -171,8 +171,8 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 "Do you want to add a new feature or implement something quickly?",
                 buttons={
                     # "feature": "Feature",
-                    "task": "Quick implementation",
-                    "end": "No, I'm done",
+                    "task": "Implement new feature",
+                    # "end": "No, I'm done",
                 },
                 buttons_only=True,
             )
