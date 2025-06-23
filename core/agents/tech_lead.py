@@ -169,7 +169,11 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         while True:
             response = await self.ask_question(
                 "Do you want to add a new feature or implement something quickly?",
-                buttons={"feature": "Feature", "task": "Quick implementation", "end": "No, I'm done"},
+                buttons={
+                    # "feature": "Feature",
+                    "task": "Quick implementation",
+                    "end": "No, I'm done",
+                },
                 buttons_only=True,
             )
 
