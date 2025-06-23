@@ -972,7 +972,7 @@ class ProjectState(Base):
                 last_task = th
 
         if task_histories:
-            task_histories[: task_histories.index(last_task) + 1]
+            task_histories = task_histories[: task_histories.index(last_task) + 1]
 
         if last_task:
             project_states = await ProjectState.get_task_conversation_project_states(
