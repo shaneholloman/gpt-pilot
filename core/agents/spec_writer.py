@@ -232,6 +232,7 @@ class SpecWriter(BaseAgent):
             self.next_state.knowledge_base.user_options["auth"] = auth
             self.next_state.knowledge_base.user_options["jwt_secret"] = secrets.token_hex(32)
             self.next_state.knowledge_base.user_options["refresh_token_secret"] = secrets.token_hex(32)
+            self.next_state.flag_knowledge_base_as_modified()
 
         # if we reload the project from the 1st project state, state_manager.template will be None
         if self.state_manager.template:
