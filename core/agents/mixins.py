@@ -10,6 +10,7 @@ from core.cli.helpers import get_line_changes
 from core.config import GET_RELEVANT_FILES_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME, TROUBLESHOOTER_BUG_REPORT
 from core.config.actions import MIX_BREAKDOWN_CHAT_PROMPT
 from core.config.constants import CONVO_ITERATIONS_LIMIT
+from core.config.magic_words import ALWAYS_RELEVANT_FILES
 from core.llm.parser import JSONParser
 from core.log import get_logger
 from core.ui.base import ProjectStage
@@ -175,7 +176,16 @@ class RelevantFilesMixin:
         existing_files = {file.path for file in self.current_state.files}
         if not llm_response.relevant_files:
             return []
-        return [path for path in llm_response.relevant_files if path in existing_files]
+        paths_list = [path for path in llm_response.relevant_files if path in existing_files]
+
+        try:
+            for file_path in ALWAYS_RELEVANT_FILES:
+                if file_path not in paths_list and file_path in existing_files:
+                    paths_list.append(file_path)
+        except Exception as e:
+            log.error(f"Error while getting most important files: {e}")
+
+        return paths_list
 
 
 class FileDiffMixin:
