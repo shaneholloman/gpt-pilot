@@ -202,6 +202,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
     if args.project or args.branch or args.step or args.project_state_id:
         telemetry.set("is_continuation", True)
+        sm.fe_auto_debug = False
         project_state = await load_project(sm, args.project, args.branch, args.step, args.project_state_id)
         if not project_state:
             return False
@@ -294,6 +295,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             await print_convo(ui=ui, convo=convo, fake=False)
 
     else:
+        sm.fe_auto_debug = True
         success = await start_new_project(sm, ui, args)
         if not success:
             return False

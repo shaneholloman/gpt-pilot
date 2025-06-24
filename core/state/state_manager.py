@@ -72,6 +72,10 @@ class StateManager:
         self.async_tasks = None
         self.template = None
 
+        # Determines whether we enable auto-debugging for frontend agent.
+        # We want to avoid using auto-debugging only if user reloads on the iterate_frontend step
+        self.fe_auto_debug = True
+
     @asynccontextmanager
     async def db_blocker(self):
         while self.blockDb:

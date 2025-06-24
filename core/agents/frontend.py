@@ -62,6 +62,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         Starts the frontend of the app.
         """
+        self.state_manager.fe_auto_debug = True
         await self.ui.clear_main_logs()
         await self.ui.send_front_logs_headers(str(self.next_state.id), ["E2 / T1", "working"], "Building frontend")
         await self.ui.send_back_logs(
@@ -111,6 +112,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         """
         Continues building the frontend of the app after the initial user input.
         """
+        self.state_manager.fe_auto_debug = True
         self.next_state.action = FE_CONTINUE
         await self.ui.send_project_stage({"stage": ProjectStage.CONTINUE_FRONTEND})
         await self.send_message("### Continuing to build UI... This may take a couple of minutes")
@@ -545,9 +547,14 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 await self.process_manager.run_command("lsof -ti:3000 | xargs -r kill", show_output=False)
 
     async def try_auto_debug(self) -> str:
-        count = 3
-        if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3:
+        if not self.state_manager.fe_auto_debug:
+            self.state_manager.fe_auto_debug = True
             return ""
+        if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3 and self.state_manager.fe_auto_debug:
+            return ""
+
+        count = 3
+
         try:
             await self.send_message(
                 f"### Auto-debugging the frontend #{self.next_state.epics[-1]['auto_debug_attempts']+1}"
