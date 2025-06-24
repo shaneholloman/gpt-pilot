@@ -2,6 +2,8 @@ import asyncio
 import os.path
 import re
 import traceback
+import httpx
+from urllib.parse import urljoin
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
@@ -10,7 +12,8 @@ from sqlalchemy import Row, inspect, select
 from sqlalchemy.exc import PendingRollbackError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from core.config import FileSystemType, get_config
+from core.cli.helpers import capture_exception
+from core.config import FileSystemType, get_config, PYTHAGORA_API
 from core.db.models import (
     Branch,
     ChatConvo,
@@ -192,6 +195,45 @@ class StateManager:
         self.next_state = state
         self.project = project
         self.branch = branch
+
+        # Store new project in Pythagora database
+        error = None
+        database_object = {
+            "project_id": project.id,
+            "project_name": project.name,
+            "created_at": project.created_at,
+            "folder_name": project.folder_name
+        }
+        
+        for attempt in range(3):
+            try:
+                url = urljoin(PYTHAGORA_API, "projects")
+                async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
+                    resp = await client.post(
+                        url,
+                        json=database_object,
+                        headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
+                    )
+
+                    if resp.status_code in [200]:
+                        break
+                    elif resp.status_code in [401, 403]:
+                        access_token = await self.ui.send_token_expired()
+                        self.state_manager.update_access_token(access_token)
+                    else:
+                        try:
+                            error = resp.json()["error"]
+                        except Exception as e:
+                            error = e
+                        log.warning(f"Failed to upload new project: {error}")
+                        await self.send_message(
+                            f"Failed to upload new project. Retrying... \nError: {error}"
+                        )
+
+            except Exception as e:
+                error = e
+                capture_exception(e)
+                log.warning(f"Failed to upload new project: {e}", exc_info=True)
 
         return project
 
