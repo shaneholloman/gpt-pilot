@@ -85,7 +85,7 @@ def has_correct_num_of_tags(response: str) -> bool:
     """
     Checks if the response has the correct number of opening and closing tags.
     """
-    return response.count("</pythagoracode>") == response.count("<pythagoracode file")
+    return response.count("<pythagoracode file") == response.count("</pythagoracode>")
 
 
 class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
@@ -261,7 +261,6 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         response: str = await llm(convo)
 
         convo.assistant(response)
-        last_open_tag_index = response.rfind("<pythagoracode file")
 
         max_retries = 2
         retry_count = 0
@@ -270,14 +269,16 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             if has_correct_num_of_tags(response):
                 break
 
-            # remove the last incomplete code block
-            response = response[:last_open_tag_index]
-
             convo.user(
-                "In the last response, you provided an unfinished breakdown of the tasks. Please continue with the breakdown of the tasks, making sure to include all necessary steps and details. DO NOT include previous code that was completed, just continue from where you left off."
+                "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response finishes with an incomplete file, implement that file and any other that needs implementation. Finally, if your last response doesn't end by mentioning continuing and if there isn't an unfinished file implementation, respond only with `DONE` and with nothing else."
             )
             continue_response: str = await llm(convo)
-            response = response + "\n</pythagoracode>\n" + continue_response
+
+            last_open_tag_index = response.rfind("<pythagoracode file")
+            response = response[:last_open_tag_index] + continue_response
+
+            convo.assistant(response)
+
             retry_count += 1
 
         response = await self.chat_with_breakdown(convo, response)
