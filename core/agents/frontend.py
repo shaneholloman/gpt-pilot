@@ -550,7 +550,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if not self.state_manager.fe_auto_debug:
             self.state_manager.fe_auto_debug = True
             return ""
-        if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3 and self.state_manager.fe_auto_debug:
+        if self.next_state.epics[-1].get("auto_debug_attempts", 0) >= 3:
             return ""
 
         count = 3
