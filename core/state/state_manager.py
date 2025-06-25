@@ -12,7 +12,6 @@ from sqlalchemy import Row, inspect, select
 from sqlalchemy.exc import PendingRollbackError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from core.cli.helpers import capture_exception
 from core.config import FileSystemType, get_config, PYTHAGORA_API
 from core.db.models import (
     Branch,
@@ -232,7 +231,6 @@ class StateManager:
 
             except Exception as e:
                 error = e
-                capture_exception(e)
                 log.warning(f"Failed to upload new project: {e}", exc_info=True)
 
         return project
