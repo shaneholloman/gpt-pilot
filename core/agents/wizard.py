@@ -8,7 +8,7 @@ from sqlalchemy import inspect
 from core.agents.base import BaseAgent
 from core.agents.response import AgentResponse
 from core.cli.helpers import capture_exception
-from core.config import SWAGGER_EMBEDDINGS_API
+from core.config import PYTHAGORA_API
 from core.config.actions import FE_INIT
 from core.db.models import KnowledgeBase
 from core.log import get_logger
@@ -132,7 +132,7 @@ class Wizard(BaseAgent):
 
     async def upload_docs(self, docs: str) -> (bool, str, list):
         error = None
-        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/upload")
+        url = urljoin(PYTHAGORA_API, "rag/upload")
         for attempt in range(3):
             log.debug(f"Uploading docs to RAG service... attempt {attempt}")
             try:

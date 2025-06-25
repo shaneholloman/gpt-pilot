@@ -12,7 +12,7 @@ from core.agents.git import GitMixin
 from core.agents.mixins import FileDiffMixin
 from core.agents.response import AgentResponse
 from core.cli.helpers import capture_exception
-from core.config import FRONTEND_AGENT_NAME, IMPLEMENT_CHANGES_AGENT_NAME, SWAGGER_EMBEDDINGS_API
+from core.config import FRONTEND_AGENT_NAME, IMPLEMENT_CHANGES_AGENT_NAME, PYTHAGORA_API
 from core.config.actions import (
     FE_CHANGE_REQ,
     FE_CONTINUE,
@@ -236,7 +236,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 error = None
                 for attempt in range(3):
                     try:
-                        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
+                        url = urljoin(PYTHAGORA_API, "rag/search")
                         async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
                             resp = await client.post(
                                 url,
@@ -458,7 +458,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 error = None
                 for attempt in range(3):
                     try:
-                        url = urljoin(SWAGGER_EMBEDDINGS_API, "rag/search")
+                        url = urljoin(PYTHAGORA_API, "rag/search")
                         async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
                             resp = await client.post(
                                 url,
