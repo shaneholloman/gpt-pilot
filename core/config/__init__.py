@@ -220,7 +220,7 @@ class LogConfig(_StrictModel):
         description="Logging format",
     )
     output: Optional[str] = Field(
-        "pythagora.log",
+        "data/pythagora.log",
         description="Output file for logs (if not specified, logs are printed to stderr)",
     )
     max_lines: int = Field(
