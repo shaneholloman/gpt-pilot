@@ -202,9 +202,9 @@ class StateManager:
             "project_id": project.id,
             "project_name": project.name,
             "created_at": project.created_at,
-            "folder_name": project.folder_name
+            "folder_name": project.folder_name,
         }
-        
+
         for attempt in range(3):
             try:
                 url = urljoin(PYTHAGORA_API, "projects")
