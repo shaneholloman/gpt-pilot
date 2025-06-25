@@ -164,12 +164,12 @@ class SpecWriter(BaseAgent):
     async def change_spec(self) -> AgentResponse:
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME, stream_output=True, route="forwardToCenter")
 
-        llm_assisted_description = self.current_state.specification.description
         description = self.current_state.specification.original_description
 
+        current_description = self.current_state.specification.description
         convo = AgentConvo(self).template(
             "build_full_specification",
-            initial_prompt=llm_assisted_description.strip(),
+            initial_prompt=self.current_state.specification.description.strip(),
         )
 
         while True:
@@ -194,10 +194,14 @@ class SpecWriter(BaseAgent):
             else:
                 user_add_to_spec = user_done_with_description
 
-            await self.send_message(
-                "## Refining specification\n\nPythagora is refining the specs based on your input.",
-                # project_state_id="setup",
-            )
+            await self.send_message("## Refining specification\n\nPythagora is refining the specs based on your input.")
+            # if user edits the spec with extension, it will be commited to db immediately, so we have to check if the description has changed
+            if current_description != self.current_state.specification.description:
+                convo = AgentConvo(self).template(
+                    "build_full_specification",
+                    initial_prompt=self.current_state.specification.description.strip(),
+                )
+
             convo = convo.template("add_to_specification", user_message=user_add_to_spec.text.strip())
 
             if len(convo.messages) > 6:
@@ -206,6 +210,8 @@ class SpecWriter(BaseAgent):
             # await self.ui.set_important_stream()
             llm_assisted_description = await llm(convo)
 
+            # when llm generates a new spec - make it the new default spec, even if user edited it before - because it will be shown in the extension
+            self.current_state.specification.description = llm_assisted_description
             convo = convo.assistant(llm_assisted_description)
 
         await self.ui.clear_main_logs()
@@ -223,7 +229,7 @@ class SpecWriter(BaseAgent):
         llm = self.get_llm(SPEC_WRITER_AGENT_NAME)
         convo = AgentConvo(self).template(
             "need_auth",
-            description=llm_assisted_description,
+            description=self.current_state.specification.description,
         )
         llm_response: str = await llm(convo, temperature=0)
         auth = llm_response.strip().lower() == "yes"
@@ -236,25 +242,25 @@ class SpecWriter(BaseAgent):
 
         # if we reload the project from the 1st project state, state_manager.template will be None
         if self.state_manager.template:
-            self.state_manager.template["description"] = llm_assisted_description
+            self.state_manager.template["description"] = self.current_state.specification.description
         else:
             # if we do not set this and reload the project, we will load the "old" project description we entered before reload
-            self.next_state.epics[0]["description"] = llm_assisted_description
+            self.next_state.epics[0]["description"] = self.current_state.specification.description
 
         self.next_state.specification = self.current_state.specification.clone()
         self.next_state.specification.original_description = description
-        self.next_state.specification.description = llm_assisted_description
+        self.next_state.specification.description = self.current_state.specification.description
 
-        complexity = await self.check_prompt_complexity(llm_assisted_description)
+        complexity = await self.check_prompt_complexity(self.current_state.specification.description)
         self.next_state.specification.complexity = complexity
 
         telemetry.set("initial_prompt", description)
-        telemetry.set("updated_prompt", llm_assisted_description)
+        telemetry.set("updated_prompt", self.current_state.specification.description)
         telemetry.set("is_complex_app", complexity != Complexity.SIMPLE)
 
         await self.ui.send_project_description(
             {
-                "project_description": llm_assisted_description,
+                "project_description": self.current_state.specification.description,
                 "project_type": self.current_state.branch.project.project_type,
             }
         )
@@ -264,7 +270,7 @@ class SpecWriter(BaseAgent):
             {
                 "complexity": complexity,
                 "initial_prompt": description,
-                "llm_assisted_prompt": llm_assisted_description,
+                "llm_assisted_prompt": self.current_state.specification.description,
             },
         )
 
@@ -273,7 +279,7 @@ class SpecWriter(BaseAgent):
                 "id": self.current_state.epics[0]["id"],
                 "name": "Build frontend",
                 "source": "frontend",
-                "description": llm_assisted_description,
+                "description": self.current_state.specification.description,
                 "messages": [],
                 "summary": None,
                 "completed": False,
