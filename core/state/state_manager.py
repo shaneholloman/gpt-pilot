@@ -207,7 +207,7 @@ class StateManager:
 
         for attempt in range(3):
             try:
-                url = urljoin(PYTHAGORA_API, "projects")
+                url = urljoin(PYTHAGORA_API, "projects/project")
                 async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
                     resp = await client.post(
                         url,
