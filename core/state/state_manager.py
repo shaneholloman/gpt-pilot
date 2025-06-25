@@ -212,14 +212,14 @@ class StateManager:
                     resp = await client.post(
                         url,
                         json=database_object,
-                        headers={"Authorization": f"Bearer {self.state_manager.get_access_token()}"},
+                        headers={"Authorization": f"Bearer {self.get_access_token()}"},
                     )
 
                     if resp.status_code in [200]:
                         break
                     elif resp.status_code in [401, 403]:
                         access_token = await self.ui.send_token_expired()
-                        self.state_manager.update_access_token(access_token)
+                        self.update_access_token(access_token)
                     else:
                         try:
                             error = resp.json()["error"]
