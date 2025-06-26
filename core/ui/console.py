@@ -235,7 +235,7 @@ class PlainConsoleUI(UIBase):
     async def import_project(self, project_dir: str):
         pass
 
-    async def set_important_stream(self):
+    async def set_important_stream(self, important_stream: bool = True):
         pass
 
     async def start_breakdown_stream(self):

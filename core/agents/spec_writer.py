@@ -74,7 +74,7 @@ class SpecWriter(BaseAgent):
                 [
                     {
                         "title": "",
-                        "project_state_id": "first_state",
+                        "project_state_id": "spec",
                         "labels": [""],
                         "convo": [
                             {"role": "assistant", "content": "Please describe the app you want to build."},
@@ -113,7 +113,7 @@ class SpecWriter(BaseAgent):
             [
                 {
                     "title": "Writing Specification",
-                    "project_state_id": self.current_state.id,
+                    "project_state_id": "spec",
                     "labels": ["E1 / T1", "Specs", "working"],
                     "disallow_reload": True,
                 }
@@ -133,8 +133,7 @@ class SpecWriter(BaseAgent):
             initial_prompt=description,
         )
 
-        # await self.ui.set_important_stream()
-        llm_assisted_description = await llm(convo)
+        llm_assisted_description = "todo app"  # await llm(convo)
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
 
@@ -219,8 +218,18 @@ class SpecWriter(BaseAgent):
             [
                 {
                     "title": "Writing Specification",
-                    "project_state_id": self.current_state.id,
+                    "project_state_id": "spec",  # self.current_state.id,
                     "labels": ["E1 / T1", "Specs", "done"],
+                    "convo": [
+                        {
+                            "role": "assistant",
+                            "content": "What do you want to build?",
+                        },
+                        {
+                            "role": "user",
+                            "content": self.current_state.specification.original_description,
+                        },
+                    ],
                     "disallow_reload": True,
                 }
             ]
