@@ -133,7 +133,7 @@ class SpecWriter(BaseAgent):
             initial_prompt=description,
         )
 
-        llm_assisted_description = "todo app"  # await llm(convo)
+        llm_assisted_description = await llm(convo)
 
         await self.ui.send_project_stage({"stage": ProjectStage.PROJECT_NAME})
 
