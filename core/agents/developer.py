@@ -381,7 +381,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
                         "title": previous_task["description"],
                         "project_state_id": str(task_convo[0].id) if task_convo else "be_0",
                         "start_id": str(task_convo[0].id) if task_convo else "be_0",
-                        "end_id": str(task_convo[-1].id) if task_convo else "be_0",
+                        "end_id": str(task_convo[-1].prev_state_id) if task_convo else "be_0",
                         "labels": [f"E{e_i} / T{t_i}", "Backend", "done"],
                     }
                 ]
