@@ -189,6 +189,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                 if answer.button == "yes":
                     fe_states = await self.state_manager.get_fe_states()
                     first_fe_state_id = fe_states[0].id if fe_states else None
+                    last_fe_state_id = fe_states[-1].id if fe_states else None
 
                     await self.ui.clear_main_logs()
                     await self.ui.send_front_logs_headers(
@@ -201,6 +202,8 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                             {
                                 "title": "Building frontend",
                                 "project_state_id": str(first_fe_state_id) if first_fe_state_id else "fe_0",
+                                "start_id": str(first_fe_state_id) if first_fe_state_id else "fe_0",
+                                "end_id": str(last_fe_state_id) if last_fe_state_id else "fe_0",
                                 "labels": ["E2 / T1", "Frontend", "done"],
                             }
                         ]
@@ -209,12 +212,13 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                         [
                             {
                                 "title": "Setting up backend",
+                                "disallow_reload": True,
                                 "project_state_id": "be_0",
                                 "labels": ["E2 / T2", "Backend setup", "working"],
                             }
                         ]
                     )
-                    await self.ui.send_front_logs_headers("be_0", ["E2 / T2", "working"], "Setting up backend")
+                    await self.ui.send_front_logs_headers("", ["E2 / T2", "working"], "Setting up backend")
                     return True
                 else:
                     return False

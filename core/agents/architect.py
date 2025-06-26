@@ -114,6 +114,7 @@ class Architect(BaseAgent):
                 {
                     "title": "Setting up backend",
                     "project_state_id": "be_0",
+                    "disallow_reload": True,
                     "labels": ["E2 / T2", "Backend setup", "done"],
                 }
             ]

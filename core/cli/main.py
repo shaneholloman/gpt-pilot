@@ -135,7 +135,7 @@ async def start_new_project(sm: StateManager, ui: UIBase, args: Namespace = None
             [
                 {
                     "title": "",
-                    "project_state_id": "first_state",
+                    "project_state_id": "spec",
                     "labels": [""],
                     "convo": [{"role": "assistant", "content": "Please describe the app you want to build."}],
                 }
@@ -213,14 +213,17 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         if sm.current_state.specification and sm.current_state.specification.original_description:
             await ui.send_front_logs_headers(
-                "", ["E1 / T1", "Writing Specification", "working"], "Writing Specification", ""
+                "",
+                ["E1 / T1", "Writing Specification", "working" if fe_states == [] else "done"],
+                "Writing Specification",
+                "",
             )
             await ui.send_back_logs(
                 [
                     {
                         "project_state_id": "spec",
                         "disallow_reload": True,
-                        "labels": ["E1 / T1", "Spec", "working" if fe_states == [] else "done"],
+                        "labels": ["E1 / T1", "Specs", "working" if fe_states == [] else "done"],
                         "title": "Writing Specification",
                         "convo": [
                             {
@@ -247,7 +250,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
 
         if fe_states:
             status = "working" if fe_states[-1].action != FE_ITERATION_DONE else "done"
-            await ui.send_front_logs_headers("setup", ["E2 / T1", "Frontend", status], "Building Frontend", "")
+            await ui.send_front_logs_headers(fe_states[0].id, ["E2 / T1", "Frontend", status], "Building Frontend", "")
             await ui.send_back_logs(
                 [
                     {

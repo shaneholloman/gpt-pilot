@@ -172,7 +172,7 @@ class VirtualUI(UIBase):
     async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         pass
 
-    async def set_important_stream(self):
+    async def set_important_stream(self, important_stream: bool = True):
         pass
 
     async def start_breakdown_stream(self):

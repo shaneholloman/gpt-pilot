@@ -423,6 +423,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         self.next_state.flag_tasks_as_modified()
         self.next_state.flag_epics_as_modified()
 
+        await self.ui.clear_main_logs()
         await self.ui.send_project_stage(
             {
                 "stage": ProjectStage.STARTING_TASK,
