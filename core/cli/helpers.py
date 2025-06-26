@@ -973,7 +973,7 @@ def init() -> tuple[UIBase, SessionManager, Namespace]:
         ui = PlainConsoleUI()
 
     run_migrations(config.db)
-    db = SessionManager(config.db)
+    db = SessionManager(config.db, args)
 
     return (ui, db, args)
 
