@@ -76,6 +76,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         )
         self.next_state.action = FE_START
         await self.send_message("## Building the frontend\n\nThis may take a couple of minutes.")
+        await self.ui.send_project_stage({"stage": ProjectStage.FRONTEND_STARTED})
 
         await self.ui.set_important_stream(False)
         llm = self.get_llm(FRONTEND_AGENT_NAME, stream_output=True)
@@ -162,7 +163,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         # update the pages in the knowledge base
         await self.state_manager.update_implemented_pages_and_apis()
 
-        await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND})
+        await self.ui.send_project_stage({"stage": ProjectStage.ITERATE_FRONTEND, "iteration_index": 1})
 
         if user_input:
             await self.send_message("Errors detected, fixing...")
