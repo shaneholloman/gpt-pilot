@@ -3,7 +3,7 @@ from typing import Optional
 from prompt_toolkit.shortcuts import PromptSession
 
 from core.log import get_logger
-from core.ui.base import UIBase, UIClosedError, UISource, UserInput
+from core.ui.base import UIBase, UIClosedError, UISource, UserInput, UserInterruptError
 
 log = get_logger(__name__)
 
@@ -21,7 +21,12 @@ class PlainConsoleUI(UIBase):
         log.debug("Stopping console UI")
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if chunk is None:
             # end of stream
@@ -34,6 +39,7 @@ class PlainConsoleUI(UIBase):
         message: str,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
+        fake: Optional[bool] = False,
     ):
         if source:
             print(f"[{source}] {message}")
@@ -46,7 +52,8 @@ class PlainConsoleUI(UIBase):
         *,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
+        fake: Optional[bool] = False,
     ):
         if source:
             print(f"[{source}] {message}")
@@ -90,7 +97,7 @@ class PlainConsoleUI(UIBase):
         initial_text: Optional[str] = None,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
         placeholder: Optional[str] = None,
     ) -> UserInput:
         if source:
@@ -109,6 +116,8 @@ class PlainConsoleUI(UIBase):
             try:
                 choice = await session.prompt_async(default=initial_text or "")
                 choice = choice.strip()
+                if choice == "interrupt":
+                    raise UserInterruptError()
             except KeyboardInterrupt:
                 raise UIClosedError()
             if not choice and default:
@@ -171,23 +180,27 @@ class PlainConsoleUI(UIBase):
     async def send_app_link(self, app_link: str):
         pass
 
-    async def open_editor(self, file: str, line: Optional[int] = None):
+    async def open_editor(self, file: str, line: Optional[int] = None, wait_for_response: bool = False):
         pass
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         pass
 
     async def send_project_stats(self, stats: dict):
         pass
 
-    async def send_test_instructions(self, test_instructions: str, project_state_id: Optional[str] = None):
+    async def send_test_instructions(
+        self, test_instructions: str, project_state_id: Optional[str] = None, fake: Optional[bool] = False
+    ):
         await self.send_message(test_instructions)
 
     async def knowledge_base_update(self, knowledge_base: dict):
         pass
 
-    async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
-        await self.send_message(f"{file_path} : {file_status}", source=source)
+    async def send_file_status(
+        self, file_path: str, file_status: str, source: Optional[UISource] = None, fake: Optional[bool] = False
+    ):
+        await self.send_message(f"{file_path}: {file_status}")
 
     async def send_bug_hunter_status(self, status: str, num_cycles: int):
         pass
@@ -195,13 +208,14 @@ class PlainConsoleUI(UIBase):
     async def generate_diff(
         self,
         file_path: str,
-        file_old: str,
-        file_new: str,
+        old_content: str,
+        new_content: str,
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
-        pass
+        await self.send_message(f"{file_path}: ({n_new_lines},{n_del_lines})")
 
     async def stop_app(self):
         pass
@@ -221,10 +235,37 @@ class PlainConsoleUI(UIBase):
     async def import_project(self, project_dir: str):
         pass
 
-    async def start_important_stream(self):
+    async def set_important_stream(self, important_stream: bool = True):
         pass
 
     async def start_breakdown_stream(self):
+        pass
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        pass
+
+    async def send_fatal_error(
+        self,
+        message: str,
+        extra_info: Optional[dict] = None,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        pass
+
+    async def send_front_logs_headers(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+        task_id: Optional[str] = None,
+    ):
+        pass
+
+    async def clear_main_logs(self):
         pass
 
 

@@ -28,6 +28,7 @@ from core.agents.wizard import Wizard
 from core.db.models.project_state import IterationStatus, TaskStatus
 from core.log import get_logger
 from core.telemetry import telemetry
+from core.ui.base import UserInterruptError
 
 log = get_logger(__name__)
 
@@ -103,7 +104,6 @@ class Orchestrator(BaseAgent, GitMixin):
 
             await self.update_stats()
             agent = self.create_agent(response)
-
             # In case where agent is a list, run all agents in parallel.
             # Only one agent type can be run in parallel at a time (for now). See handle_parallel_responses().
             if isinstance(agent, list):
@@ -140,7 +140,11 @@ class Orchestrator(BaseAgent, GitMixin):
 
             else:
                 log.debug(f"Running agent {agent.__class__.__name__} (step {self.current_state.step_index})")
-                response = await agent.run()
+                try:
+                    response = await agent.run()
+                except UserInterruptError:
+                    log.debug("User interrupted the agent!")
+                    response = AgentResponse.done(self)
 
             if response.type == ResponseType.EXIT:
                 log.debug(f"Agent {agent.__class__.__name__} requested exit")
@@ -148,6 +152,15 @@ class Orchestrator(BaseAgent, GitMixin):
 
             if response.type == ResponseType.DONE:
                 response = await self.handle_done(agent, response)
+                log.debug(f"Agent {agent.__class__.__name__} returned")
+                if not isinstance(agent, list) and agent.agent_type == "spec-writer":
+                    project_details = self.state_manager.get_project_info()
+                    await self.ui.send_project_info(
+                        project_details["name"],
+                        project_details["id"],
+                        project_details["folderName"],
+                        project_details["createdAt"],
+                    )
                 continue
 
         # TODO: rollback changes to "next" so they aren't accidentally committed?
@@ -362,40 +375,45 @@ class Orchestrator(BaseAgent, GitMixin):
         import if needed.
         """
 
-        log.info("Checking for offline changes.")
-        modified_files = await self.state_manager.get_modified_files_with_content()
+        try:
+            log.info("Checking for offline changes.")
+            modified_files = await self.state_manager.get_modified_files_with_content()
 
-        if self.state_manager.workspace_is_empty():
-            # NOTE: this will currently get triggered on a new project, but will do
-            # nothing as there's no files in the database.
-            log.info("Detected empty workspace, restoring state from the database.")
-            await self.state_manager.restore_files()
-        elif modified_files:
-            await self.send_message(f"We found {len(modified_files)} new and/or modified files.")
-            await self.ui.send_modified_files(modified_files)
-            hint = "".join(
-                [
-                    "If you would like Pythagora to import those changes, click 'Yes'.\n",
-                    "Clicking 'No' means Pythagora will restore (overwrite) all files to the last stored state.\n",
-                ]
-            )
-            use_changes = await self.ask_question(
-                question="Would you like to keep your changes?",
-                buttons={
-                    "yes": "Yes, keep my changes",
-                    "no": "No, restore last Pythagora state",
-                },
-                buttons_only=True,
-                hint=hint,
-            )
-            if use_changes.button == "yes":
-                log.debug("Importing offline changes into Pythagora.")
-                await self.import_files()
-            else:
-                log.debug("Restoring last stored state.")
+            if self.state_manager.workspace_is_empty():
+                # NOTE: this will currently get triggered on a new project, but will do
+                # nothing as there's no files in the database.
+                log.info("Detected empty workspace, restoring state from the database.")
                 await self.state_manager.restore_files()
+            elif modified_files:
+                await self.send_message(f"We found {len(modified_files)} new and/or modified files.")
+                await self.ui.send_modified_files(modified_files)
+                hint = "".join(
+                    [
+                        "If you would like Pythagora to import those changes, click 'Yes'.\n",
+                        "Clicking 'No' means Pythagora will restore (overwrite) all files to the last stored state.\n",
+                    ]
+                )
+                use_changes = await self.ask_question(
+                    question="Would you like to keep your changes?",
+                    buttons={
+                        "yes": "Yes, keep my changes",
+                        "no": "No, restore last Pythagora state",
+                    },
+                    buttons_only=True,
+                    hint=hint,
+                )
+                if use_changes.button == "yes":
+                    log.debug("Importing offline changes into Pythagora.")
+                    await self.import_files()
+                else:
+                    log.debug("Restoring last stored state.")
+                    await self.state_manager.restore_files()
 
-        log.info("Offline changes check done.")
+            log.info("Offline changes check done.")
+        except UserInterruptError:
+            await self.state_manager.restore_files()
+            log.debug("User interrupted the offline changes check, restoring files.")
+            return
 
     async def handle_done(self, agent: BaseAgent, response: AgentResponse) -> AgentResponse:
         """
@@ -406,23 +424,25 @@ class Orchestrator(BaseAgent, GitMixin):
         will trigger the HumanInput agent to ask the user to provide the required input.
 
         """
-        n_epics = len(self.next_state.epics)
-        n_finished_epics = n_epics - len(self.next_state.unfinished_epics)
-        n_tasks = len(self.next_state.tasks)
-        n_finished_tasks = n_tasks - len(self.next_state.unfinished_tasks)
-        n_iterations = len(self.next_state.iterations)
-        n_finished_iterations = n_iterations - len(self.next_state.unfinished_iterations)
-        n_steps = len(self.next_state.steps)
-        n_finished_steps = n_steps - len(self.next_state.unfinished_steps)
+        if self.next_state and self.next_state.tasks:
+            n_epics = len(self.next_state.epics)
+            n_finished_epics = n_epics - len(self.next_state.unfinished_epics)
+            n_tasks = len(self.next_state.tasks)
+            n_finished_tasks = n_tasks - len(self.next_state.unfinished_tasks)
+            n_iterations = len(self.next_state.iterations)
+            n_finished_iterations = n_iterations - len(self.next_state.unfinished_iterations)
+            n_steps = len(self.next_state.steps)
+            n_finished_steps = n_steps - len(self.next_state.unfinished_steps)
 
-        log.debug(
-            f"Agent {agent.__class__.__name__} is done, "
-            f"committing state for step {self.current_state.step_index}: "
-            f"{n_finished_epics}/{n_epics} epics, "
-            f"{n_finished_tasks}/{n_tasks} tasks, "
-            f"{n_finished_iterations}/{n_iterations} iterations, "
-            f"{n_finished_steps}/{n_steps} dev steps."
-        )
+            log.debug(
+                f"Agent {agent.__class__.__name__} is done, "
+                f"committing state for step {self.current_state.step_index}: "
+                f"{n_finished_epics}/{n_epics} epics, "
+                f"{n_finished_tasks}/{n_tasks} tasks, "
+                f"{n_finished_iterations}/{n_iterations} iterations, "
+                f"{n_finished_steps}/{n_steps} dev steps."
+            )
+
         await self.state_manager.commit()
 
         # If there are any new or modified files changed outside Pythagora,
@@ -456,13 +476,13 @@ class Orchestrator(BaseAgent, GitMixin):
             if prev_response.type == ResponseType.EXTERNAL_DOCS_REQUIRED:
                 return ExternalDocumentation(self.state_manager, self.ui, prev_response=prev_response)
             if prev_response.type == ResponseType.UPDATE_SPECIFICATION:
-                return SpecWriter(self.state_manager, self.ui, prev_response=prev_response)
+                return SpecWriter(self.state_manager, self.ui, prev_response=prev_response, args=self.args)
 
         if not state.epics:
             return Wizard(self.state_manager, self.ui, process_manager=self.process_manager)
         elif state.epics and not state.epics[0].get("description"):
             # New project: ask the Spec Writer to refine and save the project specification
-            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager)
+            return SpecWriter(self.state_manager, self.ui, process_manager=self.process_manager, args=self.args)
         elif state.current_epic and state.current_epic.get("source") == "frontend":
             # Build frontend
             return Frontend(self.state_manager, self.ui, process_manager=self.process_manager)
@@ -526,7 +546,7 @@ class Orchestrator(BaseAgent, GitMixin):
                 return ProblemSolver(self.state_manager, self.ui)
             elif current_iteration_status == IterationStatus.NEW_FEATURE_REQUESTED:
                 # Call Spec Writer to add the "change" requested by the user to project specification
-                return SpecWriter(self.state_manager, self.ui)
+                return SpecWriter(self.state_manager, self.ui, args=self.args)
 
         # We have just finished the task, call Troubleshooter to ask the user to review
         return Troubleshooter(self.state_manager, self.ui)
@@ -578,7 +598,10 @@ class Orchestrator(BaseAgent, GitMixin):
         return None
 
     async def init_ui(self):
-        await self.ui.send_project_root(self.state_manager.get_full_project_root())
+        project_details = self.state_manager.get_project_info()
+        await self.ui.send_project_info(
+            project_details["name"], project_details["id"], project_details["folderName"], project_details["createdAt"]
+        )
         await self.ui.loading_finished()
 
         if self.current_state.epics:

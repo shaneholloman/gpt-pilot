@@ -1,14 +1,13 @@
 import asyncio
 import json
 from enum import Enum
-from os.path import basename
 from typing import Optional, Union
 
 from pydantic import BaseModel, ValidationError
 
 from core.config import LocalIPCConfig
 from core.log import get_logger
-from core.ui.base import UIBase, UIClosedError, UISource, UserInput
+from core.ui.base import UIBase, UIClosedError, UISource, UserInput, UserInterruptError
 
 VSCODE_EXTENSION_HOST = "localhost"
 VSCODE_EXTENSION_PORT = 8125
@@ -23,8 +22,6 @@ class MessageType(str, Enum):
     EXIT = "exit"
     STREAM = "stream"
     VERBOSE = "verbose"
-    BUTTONS = "button"
-    BUTTONS_ONLY = "buttons-only"
     RESPONSE = "response"
     USER_INPUT_REQUEST = "user_input_request"
     INFO = "info"
@@ -33,11 +30,8 @@ class MessageType(str, Enum):
     RUN_COMMAND = "run_command"
     APP_LINK = "appLink"
     OPEN_FILE = "openFile"
-    PROJECT_FOLDER_NAME = "project_folder_name"
     PROJECT_STATS = "projectStats"
-    HINT = "hint"
     KEY_EXPIRED = "keyExpired"
-    INPUT_PREFILL = "inputPrefill"
     LOADING_FINISHED = "loadingFinished"
     PROJECT_DESCRIPTION = "projectDescription"
     FEATURES_LIST = "featuresList"
@@ -49,6 +43,19 @@ class MessageType(str, Enum):
     FILE_STATUS = "fileStatus"
     BUG_HUNTER_STATUS = "bugHunterStatus"
     EPICS_AND_TASKS = "epicsAndTasks"
+    CHAT_MESSAGE = "chatMessage"
+    START_CHAT = "startChat"
+    GET_CHAT_HISTORY = "getChatHistory"
+    PROJECT_INFO = "projectInfo"
+    KNOWLEDGE_BASE = "getKnowledgeBase"
+    PROJECT_SPECS = "getProjectSpecs"
+    TASK_CONVO = "getTaskConvo"
+    EDIT_SPECS = "editSpecs"
+    FILE_DIFF = "getFileDiff"
+    TASK_CURRENT_STATUS = "getCurrentTaskStatus"
+    TASK_ADD_NEW = "addNewTask"
+    TASK_START_OTHER = "startOtherTask"
+    CHAT_MESSAGE_RESPONSE = "chatMessageResponse"
     MODIFIED_FILES = "modifiedFiles"
     IMPORTANT_STREAM = "importantStream"
     BREAKDOWN_STREAM = "breakdownStream"
@@ -57,6 +64,11 @@ class MessageType(str, Enum):
     STOP_APP = "stopApp"
     TOKEN_EXPIRED = "tokenExpired"
     USER_INPUT_HISTORY = "userInputHistory"
+    BACK_LOGS = "backLogs"
+    LOAD_FRONT_LOGS = "loadFrontLogs"
+    FRONT_LOGS_HEADERS = "frontLogsHeaders"
+    CLEAR_MAIN_LOGS = "clearMainLogs"
+    FATAL_ERROR = "fatalError"
 
 
 class Message(BaseModel):
@@ -70,16 +82,20 @@ class Message(BaseModel):
     * `extra_info`: Additional information (eg. "This is a hint"), optional
     * `placeholder`: Placeholder for user input, optional
     * `access_token`: Access token for user input, optional
+    * `request_id`: Unique identifier for request-response matching, optional
+    * `route`: Route information for message routing, optional
     """
 
     type: MessageType
     category: Optional[str] = None
     full_screen: Optional[bool] = False
     project_state_id: Optional[str] = None
-    extra_info: Optional[str] = None
+    extra_info: Optional[dict] = None
     content: Union[str, dict, None] = None
     placeholder: Optional[str] = None
     accessToken: Optional[str] = None
+    request_id: Optional[str] = None
+    route: Optional[str] = None
 
     def to_bytes(self) -> bytes:
         """
@@ -136,19 +152,23 @@ class IPCClientUI(UIBase):
             log.error(f"Can't connect to the Pythagora VSCode extension: {err}")
             return False
 
-    async def _send(self, type: MessageType, **kwargs):
+    async def _send(self, type: MessageType, fake: Optional[bool] = False, **kwargs):
         msg = Message(type=type, **kwargs)
-        data = msg.to_bytes()
-        if self.writer.is_closing():
-            log.error("IPC connection closed, can't send the message")
-            raise UIClosedError()
-        try:
-            self.writer.write(len(data).to_bytes(4, byteorder="big"))
-            self.writer.write(data)
-            await self.writer.drain()
-        except (ConnectionResetError, BrokenPipeError) as err:
-            log.error(f"Connection lost while sending the message: {err}")
-            raise UIClosedError()
+        if fake:
+            return msg
+        else:
+            data = msg.to_bytes()
+            if self.writer.is_closing():
+                log.error("IPC connection closed, can't send the message")
+                raise UIClosedError()
+            try:
+                self.writer.write(len(data).to_bytes(4, byteorder="big"))
+                self.writer.write(data)
+                await self.writer.drain()
+                return msg
+            except (ConnectionResetError, BrokenPipeError) as err:
+                log.error(f"Connection lost while sending the message: {err}")
+                raise UIClosedError()
 
     async def _receive(self) -> Message:
         data = b""
@@ -196,7 +216,12 @@ class IPCClientUI(UIBase):
         self.reader = None
 
     async def send_stream_chunk(
-        self, chunk: Optional[str], *, source: Optional[UISource] = None, project_state_id: Optional[str] = None
+        self,
+        chunk: Optional[str],
+        *,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+        route: Optional[str] = None,
     ):
         if not self.writer:
             return
@@ -209,6 +234,7 @@ class IPCClientUI(UIBase):
             content=chunk,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
+            route=route,
         )
 
     async def send_user_input_history(
@@ -216,9 +242,11 @@ class IPCClientUI(UIBase):
         message: str,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
+        fake: Optional[bool] = False,
     ):
-        await self._send(
+        return await self._send(
             MessageType.USER_INPUT_HISTORY,
+            fake,
             content=message,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
@@ -230,14 +258,16 @@ class IPCClientUI(UIBase):
         *,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
+        fake: Optional[bool] = False,
     ):
         if not self.writer:
-            return
+            return None
 
         log.debug(f"Sending message: [{message.strip()}] from {source.type_name if source else '(none)'}")
-        await self._send(
+        return await self._send(
             MessageType.VERBOSE,
+            fake,
             content=message,
             category=source.type_name if source else None,
             project_state_id=project_state_id,
@@ -296,7 +326,7 @@ class IPCClientUI(UIBase):
         initial_text: Optional[str] = None,
         source: Optional[UISource] = None,
         project_state_id: Optional[str] = None,
-        extra_info: Optional[str] = None,
+        extra_info: Optional[dict] = None,
         placeholder: Optional[str] = None,
     ) -> UserInput:
         if not self.writer:
@@ -304,23 +334,26 @@ class IPCClientUI(UIBase):
 
         category = source.type_name if source else None
 
+        if not extra_info:
+            extra_info = {}
+
         if hint:
-            await self._send(
-                MessageType.HINT,
-                content=hint,
-                category=category,
-                project_state_id=project_state_id,
-                extra_info=extra_info,
-            )
+            extra_info["hint"] = hint
         elif verbose:
-            await self._send(
-                MessageType.VERBOSE,
-                content=question,
-                category=category,
-                project_state_id=project_state_id,
-                # DO NOT SEND extra_info HERE! It is enough to send it with user_input_request
-                # extra_info=extra_info,
-            )
+            extra_info["verbose"] = question
+
+        if buttons:
+            buttons_str = "/".join(buttons.values())
+            extra_info["buttons"] = buttons_str
+            extra_info["buttons_only"] = False
+            if buttons_only:
+                extra_info["buttons_only"] = True
+
+        if initial_text:
+            extra_info["initial_text"] = initial_text
+
+        if full_screen:
+            extra_info["full_screen"] = True
 
         await self._send(
             MessageType.USER_INPUT_REQUEST,
@@ -330,35 +363,6 @@ class IPCClientUI(UIBase):
             extra_info=extra_info,
             placeholder=placeholder,
         )
-        if buttons:
-            buttons_str = "/".join(buttons.values())
-            if buttons_only:
-                await self._send(
-                    MessageType.BUTTONS_ONLY,
-                    content=buttons_str,
-                    category=category,
-                    project_state_id=project_state_id,
-                    full_screen=full_screen,
-                    extra_info=extra_info,
-                )
-            else:
-                await self._send(
-                    MessageType.BUTTONS,
-                    content=buttons_str,
-                    category=category,
-                    project_state_id=project_state_id,
-                    full_screen=full_screen,
-                    extra_info=extra_info,
-                )
-        if initial_text:
-            # FIXME: add this to base and console and document it after merging with hint PR
-            await self._send(
-                MessageType.INPUT_PREFILL,
-                content=initial_text,
-                category=category,
-                project_state_id=project_state_id,
-                extra_info=extra_info,
-            )
 
         response = await self._receive()
 
@@ -367,6 +371,8 @@ class IPCClientUI(UIBase):
         answer = response.content.strip()
         if answer == "exitPythagoraCore":
             raise KeyboardInterrupt()
+        if answer == "interrupt":
+            raise UserInterruptError()
 
         if not answer and default:
             answer = default
@@ -476,7 +482,7 @@ class IPCClientUI(UIBase):
             content=app_link,
         )
 
-    async def open_editor(self, file: str, line: Optional[int] = None):
+    async def open_editor(self, file: str, line: Optional[int] = None, wait_for_response: bool = False):
         if not line:
             pass
         await self._send(
@@ -485,18 +491,28 @@ class IPCClientUI(UIBase):
                 "path": file,  # we assume it's a full path, read the rant in HumanInput.input_required()
                 "line": line,
             },
+            wait_for_response=wait_for_response,
         )
+        if wait_for_response:
+            response = await self._receive()
+            return response
 
-    async def send_project_root(self, path: str):
+    async def send_project_info(self, name: str, project_id: str, folder_name: str, created_at: str):
         await self._send(
-            MessageType.PROJECT_FOLDER_NAME,
-            content=basename(path),
+            MessageType.PROJECT_INFO,
+            content={
+                "name": name,
+                "id": project_id,
+                "folderName": folder_name,
+                "createdAt": created_at,
+            },
+            route="broadcast",
         )
 
-    async def start_important_stream(self):
+    async def set_important_stream(self, important_stream: bool = True):
         await self._send(
             MessageType.IMPORTANT_STREAM,
-            content={},
+            content={"status": important_stream},
         )
 
     async def start_breakdown_stream(self):
@@ -516,6 +532,7 @@ class IPCClientUI(UIBase):
         test_instructions: str,
         project_state_id: Optional[str] = None,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
         try:
             log.debug("Sending test instructions")
@@ -524,8 +541,9 @@ class IPCClientUI(UIBase):
             # this is for backwards compatibility with the old format
             parsed_instructions = test_instructions
 
-        await self._send(
+        return await self._send(
             MessageType.TEST_INSTRUCTIONS,
+            fake,
             content={
                 "test_instructions": parsed_instructions,
             },
@@ -543,9 +561,12 @@ class IPCClientUI(UIBase):
             },
         )
 
-    async def send_file_status(self, file_path: str, file_status: str, source: Optional[UISource] = None):
-        await self._send(
+    async def send_file_status(
+        self, file_path: str, file_status: str, source: Optional[UISource] = None, fake: Optional[bool] = False
+    ):
+        return await self._send(
             MessageType.FILE_STATUS,
+            fake,
             category=source.type_name if source else None,
             content={
                 "file_path": file_path,
@@ -565,19 +586,21 @@ class IPCClientUI(UIBase):
     async def generate_diff(
         self,
         file_path: str,
-        file_old: str,
-        file_new: str,
+        old_content: str,
+        new_content: str,
         n_new_lines: int = 0,
         n_del_lines: int = 0,
         source: Optional[UISource] = None,
+        fake: Optional[bool] = False,
     ):
-        await self._send(
+        return await self._send(
             MessageType.GENERATE_DIFF,
+            fake,
             category=source.type_name if source else None,
             content={
                 "file_path": file_path,
-                "file_old": file_old,
-                "file_new": file_new,
+                "old_content": old_content,
+                "new_content": new_content,
                 "n_new_lines": n_new_lines,
                 "n_del_lines": n_del_lines,
             },
@@ -603,6 +626,64 @@ class IPCClientUI(UIBase):
 
     async def import_project(self, project_dir: str):
         await self._send(MessageType.IMPORT_PROJECT, content={"project_dir": project_dir})
+
+    async def send_back_logs(
+        self,
+        items: list[dict],
+    ):
+        # Add id field to each item
+        for item in items:
+            item["id"] = item.get("project_state_id")
+
+        await self._send(MessageType.BACK_LOGS, content={"items": items})
+
+    async def send_fatal_error(
+        self,
+        message: str,
+        extra_info: Optional[dict] = None,
+        source: Optional[UISource] = None,
+        project_state_id: Optional[str] = None,
+    ):
+        await self._send(
+            MessageType.FATAL_ERROR,
+            content=message,
+            category=source.type_name if source else None,
+            project_state_id=project_state_id,
+            extra_info=extra_info,
+        )
+
+    async def send_front_logs_headers(
+        self,
+        project_state_id: str,
+        labels: list[str],
+        title: str,
+        task_id: Optional[str] = None,
+    ):
+        await self._send(
+            MessageType.FRONT_LOGS_HEADERS,
+            content={
+                "project_state_id": project_state_id,
+                "labels": labels,
+                "title": title,
+                "task_id": task_id,
+            },
+        )
+
+    async def clear_main_logs(self):
+        await self._send(
+            MessageType.CLEAR_MAIN_LOGS,
+        )
+
+    async def load_front_logs(
+        self,
+        items: list[object],
+    ):
+        """
+        Load front conversation data to the UI.
+
+        :param items: Array of front logs.
+        """
+        await self._send(MessageType.LOAD_FRONT_LOGS, content={"items": items})
 
 
 __all__ = ["IPCClientUI"]

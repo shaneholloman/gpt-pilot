@@ -53,7 +53,7 @@ FRONTEND_AGENT_NAME = "Frontend"
 
 # Endpoint for the external documentation
 EXTERNAL_DOCUMENTATION_API = "http://docs-pythagora-io-439719575.us-east-1.elb.amazonaws.com"
-SWAGGER_EMBEDDINGS_API = "https://api.pythagora.io"
+PYTHAGORA_API = "https://api.pythagora.ai"
 
 
 class _StrictModel(BaseModel):
@@ -220,7 +220,7 @@ class LogConfig(_StrictModel):
         description="Logging format",
     )
     output: Optional[str] = Field(
-        "pythagora.log",
+        "data/pythagora.log",
         description="Output file for logs (if not specified, logs are printed to stderr)",
     )
     max_lines: int = Field(

@@ -1,7 +1,7 @@
 import json
 from enum import Enum
 from typing import Annotated, Literal, Union
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +9,7 @@ from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.mixins import ChatWithBreakdownMixin, RelevantFilesMixin
 from core.agents.response import AgentResponse
+from core.cli.helpers import get_epic_task_number
 from core.config import PARSE_TASK_AGENT_NAME, TASK_BREAKDOWN_AGENT_NAME
 from core.config.actions import (
     DEV_EXECUTE_TASK,
@@ -23,7 +24,7 @@ from core.db.models.specification import Complexity
 from core.llm.parser import JSONParser
 from core.log import get_logger
 from core.telemetry import telemetry
-from core.ui.base import ProjectStage
+from core.ui.base import ProjectStage, pythagora_source
 
 log = get_logger(__name__)
 
@@ -78,6 +79,13 @@ Step = Annotated[
 
 class TaskSteps(BaseModel):
     steps: list[Step]
+
+
+def has_correct_num_of_tags(response: str) -> bool:
+    """
+    Checks if the response has the correct number of opening and closing tags.
+    """
+    return response.count("<pythagoracode file") == response.count("</pythagoracode>")
 
 
 class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
@@ -217,9 +225,10 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
 
         current_task_index = self.current_state.tasks.index(current_task)
 
-        await self.send_message("Thinking about how to implement this task ...")
+        await self.send_message("### Thinking about how to implement this task ...")
 
         await self.ui.start_breakdown_stream()
+        await self.ui.set_important_stream()
         related_api_endpoints = current_task.get("related_api_endpoints", [])
         llm = self.get_llm(TASK_BREAKDOWN_AGENT_NAME, stream_output=True)
         # TODO: Temp fix for old projects
@@ -248,8 +257,29 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             related_api_endpoints=related_api_endpoints,
             redo_task_user_feedback=redo_task_user_feedback,
         )
+
         response: str = await llm(convo)
+
         convo.assistant(response)
+
+        max_retries = 2
+        retry_count = 0
+
+        while retry_count < max_retries:
+            if has_correct_num_of_tags(response):
+                break
+
+            convo.user(
+                "Ok, now think carefully about your previous response. If the response ends by mentioning something about continuing with the implementation, continue but don't implement any files that have already been implemented. If your last response finishes with an incomplete file, implement that file and any other that needs implementation. Finally, if your last response doesn't end by mentioning continuing and if there isn't an unfinished file implementation, respond only with `DONE` and with nothing else."
+            )
+            continue_response: str = await llm(convo)
+
+            last_open_tag_index = response.rfind("<pythagoracode file")
+            response = response[:last_open_tag_index] + continue_response
+
+            convo.assistant(response)
+
+            retry_count += 1
 
         response = await self.chat_with_breakdown(convo, response)
 
@@ -268,6 +298,7 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         # There might be state leftovers from previous tasks that we need to clean here
         self.next_state.modified_files = {}
         self.set_next_steps(response, source)
+        self.next_state.current_task["status"] = TaskStatus.IN_PROGRESS
         self.next_state.action = DEV_TASK_START.format(current_task_index + 1)
         await telemetry.trace_code_event(
             "task-start",
@@ -329,7 +360,8 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             buttons["skip"] = "Skip Task"
 
         description = self.current_state.current_task["description"]
-        task_index = self.current_state.tasks.index(self.current_state.current_task) + 1
+        epic_index, task_index = get_epic_task_number(self.current_state, self.current_state.current_task)
+
         await self.ui.send_project_stage(
             {
                 "stage": ProjectStage.STARTING_TASK,
@@ -337,7 +369,48 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
             }
         )
 
-        await self.send_message(f"Starting task #{task_index} with the description:\n\n{description}")
+        # find latest finished task, send back logs for it being finished
+        tasks_done = [task for task in self.current_state.tasks if task not in self.current_state.unfinished_tasks]
+        previous_task = tasks_done[-1] if tasks_done else None
+        if previous_task:
+            e_i, t_i = get_epic_task_number(self.current_state, previous_task)
+            task_convo = await self.state_manager.get_task_conversation_project_states(UUID(previous_task["id"]))
+            await self.ui.send_back_logs(
+                [
+                    {
+                        "title": previous_task["description"],
+                        "project_state_id": str(task_convo[0].id) if task_convo else "be_0",
+                        "start_id": str(task_convo[0].id) if task_convo else "be_0",
+                        "end_id": str(task_convo[-1].prev_state_id) if task_convo else "be_0",
+                        "labels": [f"E{e_i} / T{t_i}", "Backend", "done"],
+                    }
+                ]
+            )
+            await self.ui.send_front_logs_headers(
+                str(task_convo[0].id) if task_convo else "be_0",
+                [f"E{e_i} / T{t_i}", "Backend", "done"],
+                previous_task["description"],
+                self.current_state.current_task.get("id"),
+            )
+
+        await self.ui.send_front_logs_headers(
+            str(self.current_state.id),
+            [f"E{epic_index} / T{task_index}", "Backend", "working"],
+            description,
+            self.current_state.current_task.get("id"),
+        )
+
+        await self.ui.send_back_logs(
+            [
+                {
+                    "title": description,
+                    "project_state_id": str(self.current_state.id),
+                    "labels": [f"E{epic_index} / T{task_index}", "working"],
+                }
+            ]
+        )
+        await self.ui.clear_main_logs()
+        await self.send_message(f"Starting task #{task_index} with the description:\n\n## {description}")
         if self.current_state.run_command:
             await self.ui.send_run_command(self.current_state.run_command)
 
@@ -348,8 +421,17 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         if self.current_state.current_task.get("quick_implementation", False):
             return True
 
+        if self.current_state.current_task.get("user_added_subsequently", False):
+            return True
+
         if self.current_state.current_task.get("hardcoded", False):
             return True
+
+        if self.current_state.current_task and self.current_state.current_task.get("hardcoded", False):
+            await self.ui.send_message(
+                "Ok, great, you're now starting to build the backend and the first task is to test how the authentication works. You can now register and login. Your data will be saved into the database.",
+                source=pythagora_source,
+            )
 
         user_response = await self.ask_question(
             DEV_EXECUTE_TASK,

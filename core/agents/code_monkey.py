@@ -59,8 +59,8 @@ class FileDescription(BaseModel):
 
 
 def extract_code_blocks(content):
-    # Use regex to find all <code> blocks with file attribute and their content
-    code_blocks = re.findall(r'<code\s+file="(.*?)">(.*?)</code>', content, re.DOTALL)
+    # Use regex to find all <pythagoracode> blocks with file attribute and their content
+    code_blocks = re.findall(r'<pythagoracode\s+file="(.*?)">(.*?)</pythagoracode>', content, re.DOTALL)
     # Convert matches into a list of dictionaries
     return [{"file_name": file_name, "file_content": file_content} for file_name, file_content in code_blocks]
 

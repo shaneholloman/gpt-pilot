@@ -107,11 +107,12 @@
   "log": {
     "level": "DEBUG",
     "format": "%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    "output": "pythagora.log"
+    "output": "data/pythagora.log"
   },
   "db": {
     "url": "sqlite+aiosqlite:///data/database/pythagora.db",
-    "debug_sql": false
+    "debug_sql": false,
+    "save_llm_requests": false
   },
   "ui": {
     "type": "plain"

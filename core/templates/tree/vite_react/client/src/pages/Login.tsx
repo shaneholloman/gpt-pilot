@@ -43,6 +43,7 @@ export function Login() {
       })
       navigate("/")
     } catch (error) {
+      console.error("Login error:", error.message)
       toast({
         variant: "destructive",
         title: "Error",

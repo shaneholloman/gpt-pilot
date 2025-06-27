@@ -20,6 +20,7 @@ Use material design and nice icons for the design to be appealing and modern. Us
     4.    React Hook Form: For efficient form handling with minimal re-rendering, ensuring a smooth user experience in form-heavy applications.
     5.    Use Tailwind built-in animations to enhance the visual appeal of the app
     6.    Make the app look colorful and modern but also have the colors be subtle.
+    7.    Add logs around the code (not too many, just enough) to help with debugging.
 
 Choose a flat color palette and make sure that the text is readable and follow design best practices to make the text readable. Also, Implement these design features onto the page - gradient background, frosted glass effects, rounded corner, buttons need to be in the brand colors, and interactive feedback on hover and focus.
 

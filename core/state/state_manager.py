@@ -2,15 +2,29 @@ import asyncio
 import os.path
 import re
 import traceback
+import httpx
+from urllib.parse import urljoin
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Row, inspect, select
+from sqlalchemy.exc import PendingRollbackError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from core.config import FileSystemType, get_config
-from core.db.models import Branch, ExecLog, File, FileContent, LLMRequest, Project, ProjectState, UserInput
+from core.config import FileSystemType, get_config, PYTHAGORA_API
+from core.db.models import (
+    Branch,
+    ChatConvo,
+    ChatMessage,
+    ExecLog,
+    File,
+    FileContent,
+    LLMRequest,
+    Project,
+    ProjectState,
+    UserInput,
+)
 from core.db.models.specification import Complexity, Specification
 from core.db.session import SessionManager
 from core.disk.ignore import IgnoreMatcher
@@ -60,6 +74,10 @@ class StateManager:
         self.async_tasks = None
         self.template = None
 
+        # Determines whether we enable auto-debugging for frontend agent.
+        # We want to avoid using auto-debugging only if user reloads on the iterate_frontend step
+        self.fe_auto_debug = True
+
     @asynccontextmanager
     async def db_blocker(self):
         while self.blockDb:
@@ -99,23 +117,57 @@ class StateManager:
     async def get_project_state_for_redo_task(self, project_state: ProjectState) -> Optional[ProjectState]:
         return await ProjectState.get_state_for_redo_task(self.current_session, project_state)
 
+    async def get_project_state_by_id(self, state_id: UUID) -> Optional[ProjectState]:
+        return await ProjectState.get_by_id(self.current_session, state_id)
+
+    async def get_all_epics_and_tasks(self, branch_id: UUID) -> list:
+        return await ProjectState.get_all_epics_and_tasks(self.current_session, branch_id)
+
     async def find_user_input(self, project_state, branch_id) -> Optional[list["UserInput"]]:
         return await UserInput.find_user_inputs(self.current_session, project_state, branch_id)
 
     async def get_file_for_project(self, state_id: UUID, path: str):
         return await Project.get_file_for_project(self.current_session, state_id, path)
 
-    async def get_project_state_by_id(self, state_id: UUID) -> Optional[ProjectState]:
-        """
-        Get a project state by its ID.
+    async def get_chat_history(self, convo_id) -> Optional[list["ChatMessage"]]:
+        return await ChatConvo.get_chat_history(self.current_session, convo_id)
 
-        :param state_id: The ID of the project state.
-        :return: The ProjectState object if found, None otherwise.
+    async def get_project_state_for_convo_id(self, convo_id) -> Optional["ProjectState"]:
+        return await ChatConvo.get_project_state_for_convo_id(self.current_session, convo_id)
+
+    async def get_task_conversation_project_states(self, task_id: UUID) -> Optional[list[ProjectState]]:
         """
-        return await ProjectState.get_by_id(self.current_session, state_id)
+        Get all project states for a specific task conversation.
+        This retrieves all project states that are associated with a specific task
+        """
+        return await ProjectState.get_task_conversation_project_states(
+            self.current_session, self.current_state.branch_id, task_id
+        )
+
+    async def get_project_states_in_between(self, start_state_id: UUID, end_state_id: UUID) -> list[ProjectState]:
+        """
+        Get all project states in between two states.
+        This retrieves all project states that are associated with a specific branch
+        """
+        return await ProjectState.get_project_states_in_between(
+            self.current_session, self.current_state.branch_id, start_state_id, end_state_id
+        )
+
+    async def get_fe_states(self) -> Optional[ProjectState]:
+        return await ProjectState.get_fe_states(self.current_session, self.current_state.branch_id)
+
+    async def get_be_back_logs(self):
+        """
+        Get all project states for a specific branch.
+        This retrieves all project states that are associated with a specific branch
+        """
+        return await ProjectState.get_be_back_logs(self.current_session, self.current_state.branch_id)
 
     async def create_project(
-        self, name: str, project_type: Optional[str] = "node", folder_name: Optional[str] = None
+        self,
+        name: Optional[str] = "temp-project",
+        project_type: Optional[str] = "node",
+        folder_name: Optional[str] = "temp-project",
     ) -> Project:
         """
         Create a new project and set it as the current one.
@@ -125,6 +177,7 @@ class StateManager:
         """
         session = await self.session_manager.start()
         project = Project(name=name, project_type=project_type, folder_name=folder_name)
+        project.id = uuid4()
         branch = Branch(project=project)
         state = ProjectState.create_initial_state(branch)
         session.add(project)
@@ -132,8 +185,6 @@ class StateManager:
         # This is needed as we have some behavior that traverses the files
         # even for a new project, eg. offline changes check and stats updating
         await state.awaitable_attrs.files
-
-        await session.commit()
 
         log.info(
             f'Created new project "{name}" (id={project.id}) '
@@ -147,7 +198,45 @@ class StateManager:
         self.next_state = state
         self.project = project
         self.branch = branch
-        self.file_system = await self.init_file_system(load_existing=False)
+
+        # Store new project in Pythagora database
+        error = None
+        database_object = {
+            "project_id": project.id,
+            "project_name": project.name,
+            "created_at": project.created_at,
+            "folder_name": project.folder_name,
+        }
+
+        for attempt in range(3):
+            try:
+                url = urljoin(PYTHAGORA_API, "projects/project")
+                async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport()) as client:
+                    resp = await client.post(
+                        url,
+                        json=database_object,
+                        headers={"Authorization": f"Bearer {self.get_access_token()}"},
+                    )
+
+                    if resp.status_code in [200]:
+                        break
+                    elif resp.status_code in [401, 403]:
+                        access_token = await self.ui.send_token_expired()
+                        self.update_access_token(access_token)
+                    else:
+                        try:
+                            error = resp.json()["error"]
+                        except Exception as e:
+                            error = e
+                        log.warning(f"Failed to upload new project: {error}")
+                        await self.send_message(
+                            f"Failed to upload new project. Retrying... \nError: {error}"
+                        )
+
+            except Exception as e:
+                error = e
+                log.warning(f"Failed to upload new project: {e}", exc_info=True)
+
         return project
 
     async def delete_project(self, project_id: UUID) -> bool:
@@ -163,12 +252,24 @@ class StateManager:
             log.info(f"Deleted project {project_id}.")
         return bool(rows)
 
+    async def update_specification(self, specification: Specification) -> Optional[Specification]:
+        """
+        Update the specification in the database.
+
+        :param specification: The Specification object to update.
+        :return: The updated Specification object or None if not found.
+        """
+        if not self.current_session:
+            raise ValueError("No database session open.")
+        return await Specification.update_specification(self.current_session, specification)
+
     async def load_project(
         self,
         *,
         project_id: Optional[UUID] = None,
         branch_id: Optional[UUID] = None,
         step_index: Optional[int] = None,
+        project_state_id: Optional[UUID] = None,
     ) -> Optional[ProjectState]:
         """
         Load project state from the database.
@@ -179,6 +280,8 @@ class StateManager:
 
         If `step_index' is provided, load the state at the given step
         of the branch instead of the last one.
+
+        If `project_state_id` is provided, load the specific project state
 
         The returned ProjectState will have branch and branch.project
         relationships preloaded. All other relationships must be
@@ -195,33 +298,44 @@ class StateManager:
             log.info("Current session exists, rolling back changes.")
             await self.rollback()
 
+        branch = None
         state = None
         session = await self.session_manager.start()
 
         if branch_id is not None:
             branch = await Branch.get_by_id(session, branch_id)
-            if branch is not None:
-                if step_index:
-                    state = await branch.get_state_at_step(step_index)
-                else:
-                    state = await branch.get_last_state()
-
         elif project_id is not None:
             project = await Project.get_by_id(session, project_id)
             if project is not None:
                 branch = await project.get_branch()
-                if branch is not None:
-                    if step_index:
-                        state = await branch.get_state_at_step(step_index)
-                    else:
-                        state = await branch.get_last_state()
-        else:
-            raise ValueError("Project or branch ID must be provided.")
+
+        if branch is None:
+            await self.session_manager.close()
+            log.debug(f"Unable to find branch (project_id={project_id}, branch_id={branch_id})")
+            return None
+
+        # Load state based on the provided parameters
+        if step_index is not None:
+            state = await branch.get_state_at_step(step_index)
+        elif project_state_id is not None:
+            state = await ProjectState.get_by_id(session, project_state_id)
+            # Verify that the state belongs to the branch
+            if state and state.branch_id != branch.id:
+                log.warning(
+                    f"Project state {project_state_id} does not belong to branch {branch.id}, "
+                    "loading last state instead."
+                )
+                state = None
+
+        # If no specific state was requested or found, get the last state
+        if state is None:
+            state = await branch.get_last_state()
 
         if state is None:
             await self.session_manager.close()
             log.debug(
-                f"Unable to load project state (project_id={project_id}, branch_id={branch_id}, step_index={step_index})"
+                f"Unable to load project state (project_id={project_id}, branch_id={branch_id}, "
+                f"step_index={step_index}, project_state_id={project_state_id})"
             )
             return None
 
@@ -274,6 +388,14 @@ class StateManager:
     async def commit_with_retry(self):
         try:
             await self.current_session.commit()
+        except PendingRollbackError as e:
+            log.warning(f"Session in pending rollback state, rolling back and retrying: {str(e)}")
+            # When PendingRollbackError occurs, we need to rollback the session
+            # and re-add the next_state before retrying
+            await self.current_session.rollback()
+            if self.next_state:
+                self.current_session.add(self.next_state)
+            raise  # Re-raise to trigger retry
         except Exception as e:
             log.error(f"Commit failed: {str(e)}")
             raise
@@ -364,13 +486,7 @@ class StateManager:
 
         async with self.db_blocker():
             try:
-                telemetry.record_llm_request(
-                    request_log.prompt_tokens + request_log.completion_tokens,
-                    request_log.duration,
-                    request_log.status != LLMRequestStatus.SUCCESS,
-                )
                 LLMRequest.from_request_log(self.current_state, agent, request_log)
-
             except Exception as e:
                 if self.ui:
                     await self.ui.send_message(f"An error occurred: {e}")
@@ -512,7 +628,8 @@ class StateManager:
 
             try:
                 return LocalDiskVFS(root, allow_existing=load_existing, ignore_matcher=ignore_matcher)
-            except FileExistsError:
+            except FileExistsError as e:
+                log.debug(e)
                 self.project.folder_name = self.project.folder_name + "-" + uuid4().hex[:7]
                 log.warning(f"Directory {root} already exists, changing project folder to {self.project.folder_name}")
                 await self.current_session.commit()
@@ -525,9 +642,33 @@ class StateManager:
         """
         config = get_config()
 
+        if self.project is None or self.project.folder_name is None:
+            return os.path.join(config.fs.workspace_root, "")
+        return os.path.join(config.fs.workspace_root, self.project.folder_name)
+
+    def get_full_parent_project_root(self) -> str:
+        config = get_config()
+
         if self.project is None:
             raise ValueError("No project loaded")
-        return os.path.join(config.fs.workspace_root, self.project.folder_name)
+        return config.fs.workspace_root
+
+    def get_project_info(self) -> dict:
+        """
+        Get project info in the same format as _handle_project_info.
+
+        :return: Dictionary containing project info.
+        """
+        if self.project is None:
+            raise ValueError("No project loaded")
+
+        return {
+            "name": self.project.name,
+            "id": str(self.project.id),
+            "branchId": str(self.branch.id) if self.branch else None,
+            "folderName": self.project.folder_name,
+            "createdAt": self.project.created_at.isoformat() if self.project.created_at else None,
+        }
 
     async def import_files(self) -> tuple[list[File], list[File]]:
         """
@@ -550,7 +691,6 @@ class StateManager:
 
             if saved_file and saved_file.content.content == content:
                 continue
-
             # TODO: unify this with self.save_file() / refactor that whole bit
             hash = self.file_system.hash_string(content)
             log.debug(f"Importing file {path} (hash={hash}, size={len(content)} bytes)")
@@ -621,6 +761,8 @@ class StateManager:
         :return: List of dictionaries containing paths, old content,
                 and new content for new or modified files.
         """
+        if not self.file_system:
+            return []
 
         modified_files = []
         files_in_workspace = self.file_system.list()
@@ -638,8 +780,8 @@ class StateManager:
             modified_files.append(
                 {
                     "path": path,
-                    "file_old": saved_file_content,  # Serialized content
-                    "file_new": content,
+                    "old_content": saved_file_content,  # Serialized content
+                    "new_content": content,
                 }
             )
 
@@ -650,8 +792,8 @@ class StateManager:
                 modified_files.append(
                     {
                         "path": db_file.path,
-                        "file_old": db_file.content.content,  # Serialized content
-                        "file_new": "",  # Empty string as the file is removed
+                        "old_content": db_file.content.content,  # Serialized content
+                        "new_content": "",  # Empty string as the file is removed
                     }
                 )
 
@@ -661,6 +803,8 @@ class StateManager:
         """
         Returns whether the workspace has any files in them or is empty.
         """
+        if not self.file_system:
+            return False
         return not bool(self.file_system.list())
 
     def get_implemented_pages(self) -> list[str]:

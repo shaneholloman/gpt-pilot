@@ -90,7 +90,7 @@ class BaseProjectTemplate:
         state = self.state_manager.current_state
         project_name = state.branch.project.name
         project_folder = state.branch.project.folder_name
-        project_description = state.specification.description
+        project_description = self.state_manager.current_state.specification.description
 
         log.info(f"Applying project template {self.name} with options: {self.options_dict}")
 

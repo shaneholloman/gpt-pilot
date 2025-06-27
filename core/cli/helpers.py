@@ -34,8 +34,11 @@ from core.config.actions import (
 )
 from core.config.env_importer import import_from_dotenv
 from core.config.version import get_version
+from core.db.models import ProjectState
+from core.db.models.project_state import TaskStatus
 from core.db.session import SessionManager
 from core.db.setup import run_migrations
+from core.llm.parser import DescriptiveCodeBlockParser
 from core.log import get_logger, setup
 from core.state.state_manager import StateManager
 from core.ui.base import AgentSource, UIBase, UISource
@@ -110,6 +113,45 @@ def get_line_changes(old_content: str, new_content: str) -> tuple[int, int]:
     return added_lines, deleted_lines
 
 
+def calculate_pr_changes(convo_entries):
+    """
+    Calculate file changes between initial and final versions, similar to a Git pull request.
+
+    This function tracks the initial (first seen) and final (last seen) versions of each file,
+    and calculates the diff between those two versions, ignoring intermediate changes.
+
+    :param convo_entries: List of conversation entries containing file changes
+    :return: List of file changes with initial and final versions
+    """
+    file_changes = {}
+
+    for entry in convo_entries:
+        if not entry.get("files"):
+            continue
+
+        for file_data in entry.get("files", []):
+            path = file_data.get("path")
+            if not path:
+                continue
+
+            if path not in file_changes:
+                file_changes[path] = {
+                    "path": path,
+                    "old_content": file_data.get("old_content", ""),
+                    "new_content": file_data.get("new_content", ""),
+                }
+            else:
+                file_changes[path]["new_content"] = file_data.get("new_content", "")
+
+    for path, file_info in file_changes.items():
+        file_info["n_new_lines"], file_info["n_del_lines"] = get_line_changes(
+            old_content=file_info["old_content"], new_content=file_info["new_content"]
+        )
+
+    # Convert dict to list
+    return list(file_changes.values())
+
+
 def parse_llm_key(value: str) -> Optional[tuple[LLMProvider, str]]:
     """
     Parse --llm-key command-line option.
@@ -160,6 +202,7 @@ def parse_arguments() -> Namespace:
         --extension-version: Version of the VSCode extension, if used
         --use-git: Use Git for version control
         --access-token: Access token
+        --initial-prompt: Initial prompt to automatically start a new project with 'node' stack
     :return: Parsed arguments object.
     """
     version = get_version()
@@ -177,6 +220,9 @@ def parse_arguments() -> Namespace:
     parser.add_argument("--project", help="Load a specific project", type=UUID, required=False)
     parser.add_argument("--branch", help="Load a specific branch", type=UUID, required=False)
     parser.add_argument("--step", help="Load a specific step in a project/branch", type=int, required=False)
+    parser.add_argument(
+        "--project-state-id", help="Load a specific project state in a project/branch", type=UUID, required=False
+    )
     parser.add_argument("--delete", help="Delete a specific project", type=UUID, required=False)
     parser.add_argument(
         "--llm-endpoint",
@@ -208,6 +254,29 @@ def parse_arguments() -> Namespace:
         required=False,
     )
     parser.add_argument("--access-token", help="Access token", required=False)
+    parser.add_argument(
+        "--enable-api-server",
+        action="store_true",
+        default=True,
+        help="Enable IPC server for external clients",
+    )
+    parser.add_argument(
+        "--local-api-server-host",
+        type=str,
+        default="localhost",
+        help="Host for the IPC server (default: localhost)",
+    )
+    parser.add_argument(
+        "--local-api-server-port",
+        type=int,
+        default=8222,
+        help="Port for the IPC server (default: 8222)",
+    )
+    parser.add_argument(
+        "--initial-prompt",
+        help="Initial prompt to automatically start a new project with 'node' stack",
+        required=False,
+    )
     return parser.parse_args()
 
 
@@ -281,6 +350,47 @@ async def list_projects_json(db: SessionManager):
     print(json.dumps(projects_list, indent=2, default=str))
 
 
+def insert_new_task(tasks, new_task):
+    # Find the index of the first task with status "todo"
+    todo_index = -1
+    for i, task in enumerate(tasks):
+        if task.get("status") == TaskStatus.TODO:
+            todo_index = i
+            break
+
+    if todo_index != -1:
+        tasks.insert(todo_index, new_task)
+    else:
+        tasks.append(new_task)
+
+    return tasks
+
+
+def find_task_by_id(tasks, task_id):
+    """
+    Find a task by its ID from a list of tasks.
+
+    :param tasks: List of task objects
+    :param task_id: Task ID to search for
+    :return: Task object if found, None otherwise
+    """
+    for task in tasks:
+        if task.get("id") == task_id:
+            return task
+
+    return None
+
+
+def change_order_of_task(tasks, task_to_move, new_position):
+    # Remove the task from its current position
+    tasks.remove(task_to_move)
+
+    # Insert the task at the new position
+    tasks.insert(new_position, task_to_move)
+
+    return tasks
+
+
 def find_first_todo_task(tasks):
     """
     Find the first task with status 'todo' from a list of tasks.
@@ -296,6 +406,31 @@ def find_first_todo_task(tasks):
             return task
 
     return None
+
+
+def find_first_todo_task_index(tasks):
+    for i, task in enumerate(tasks):
+        if task["status"] == TaskStatus.TODO:
+            return i
+    return -1
+
+
+def get_epic_task_number(state, current_task) -> (int, int):
+    epic_num = -1
+    task_num = -1
+
+    for task in state.tasks:
+        epic_n = task.get("sub_epic_id", 1) + 2
+        if epic_n != epic_num:
+            epic_num = epic_n
+            task_num = 1
+
+        if current_task["id"] == task["id"]:
+            return epic_num, task_num
+
+        task_num += 1
+
+    return epic_num, task_num
 
 
 def trim_logs(logs: str) -> str:
@@ -347,6 +482,9 @@ def get_source_for_history(msg_type: Optional[str] = "", question: Optional[str]
     elif msg_type in ["bug_reproduction_instructions", "bug_description"]:
         return AgentSource("Troubleshooter", "troubleshooter")
 
+    elif msg_type in ["frontend"]:
+        return AgentSource("Frontend", "frontend")
+
     elif HUMAN_INTERVENTION_QUESTION in question:
         return AgentSource("Human Input", "human-input")
 
@@ -360,73 +498,122 @@ def get_source_for_history(msg_type: Optional[str] = "", question: Optional[str]
         return UISource("Pythagora", "pythagora")
 
 
-async def print_convo(
-    ui: UIBase,
-    convo: list,
-):
+"""
+Prints the conversation history to the UI.
+
+:param ui: UI instance to send messages to
+:param convo: List of conversation messages to print
+:param fake: If True, messages will NOT be sent to the extension.
+"""
+
+
+async def print_convo(ui: UIBase, convo: list, fake: Optional[bool] = True):
+    msgs = []
     for msg in convo:
+        if "frontend" in msg:
+            frontend_data = msg["frontend"]
+            if isinstance(frontend_data, list):
+                for frontend_msg in frontend_data:
+                    msgs.append(
+                        await ui.send_message(
+                            frontend_msg,
+                            source=get_source_for_history(msg_type="frontend"),
+                            project_state_id=msg["id"],
+                            fake=fake,
+                        )
+                    )
+            else:
+                msgs.append(
+                    await ui.send_message(
+                        frontend_data,
+                        source=get_source_for_history(msg_type="frontend"),
+                        project_state_id=msg["id"],
+                        fake=fake,
+                    )
+                )
+
         if "bh_breakdown" in msg:
-            await ui.send_message(
-                msg["bh_breakdown"],
-                source=get_source_for_history(msg_type="bh_breakdown"),
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_message(
+                    msg["bh_breakdown"],
+                    source=get_source_for_history(msg_type="bh_breakdown"),
+                    project_state_id=msg["id"],
+                    fake=fake,
+                )
             )
 
         if "task_description" in msg:
-            await ui.send_message(
-                msg["task_description"],
-                source=get_source_for_history(msg_type="task_description"),
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_message(
+                    msg["task_description"],
+                    source=get_source_for_history(msg_type="task_description"),
+                    project_state_id=msg["id"],
+                    fake=fake,
+                )
             )
 
         if "task_breakdown" in msg:
-            await ui.send_message(
-                msg["task_breakdown"],
-                source=get_source_for_history(msg_type="task_breakdown"),
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_message(
+                    msg["task_breakdown"],
+                    source=get_source_for_history(msg_type="task_breakdown"),
+                    project_state_id=msg["id"],
+                    fake=fake,
+                )
             )
 
         if "test_instructions" in msg:
-            await ui.send_test_instructions(
-                msg["test_instructions"],
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_test_instructions(msg["test_instructions"], project_state_id=msg["id"], fake=fake)
             )
 
         if "bh_testing_instructions" in msg:
-            await ui.send_test_instructions(
-                msg["bh_testing_instructions"],
-                project_state_id=msg["id"],
+            msgs.append(
+                await ui.send_test_instructions(msg["bh_testing_instructions"], project_state_id=msg["id"], fake=fake)
             )
 
         if "files" in msg:
             for f in msg["files"]:
-                await ui.send_file_status(f["path"], "done")
-                await ui.generate_diff(
-                    file_path=f["path"],
-                    file_old=f.get("old_content", ""),
-                    file_new=f.get("new_content", ""),
-                    n_new_lines=f["diff"][0],
-                    n_del_lines=f["diff"][1],
+                msgs.append(await ui.send_file_status(f["path"], "done", fake=fake))
+                msgs.append(
+                    await ui.generate_diff(
+                        file_path=f["path"],
+                        old_content=f.get("old_content", ""),
+                        new_content=f.get("new_content", ""),
+                        n_new_lines=f["diff"][0],
+                        n_del_lines=f["diff"][1],
+                        fake=fake,
+                    )
                 )
 
         if "user_inputs" in msg and msg["user_inputs"]:
             for input_item in msg["user_inputs"]:
                 if "question" in input_item:
-                    await ui.send_message(
-                        input_item["question"],
-                        source=get_source_for_history(question=input_item["question"]),
-                        project_state_id=msg["id"],
+                    msgs.append(
+                        await ui.send_message(
+                            input_item["question"],
+                            source=get_source_for_history(question=input_item["question"]),
+                            project_state_id=msg["id"],
+                            fake=fake,
+                        )
                     )
 
                 if "answer" in input_item:
                     if input_item["question"] != TL_EDIT_DEV_PLAN:
-                        await ui.send_user_input_history(input_item["answer"], project_state_id=msg["id"])
+                        msgs.append(
+                            await ui.send_user_input_history(
+                                input_item["answer"], project_state_id=msg["id"], fake=fake
+                            )
+                        )
+
+    return msgs
 
 
 async def load_convo(
     sm: StateManager,
     project_id: Optional[UUID] = None,
     branch_id: Optional[UUID] = None,
+    project_states: Optional[list] = None,
 ) -> list:
     """
     Loads the conversation from an existing project.
@@ -434,26 +621,23 @@ async def load_convo(
     """
     convo = []
 
-    if branch_id is None and project_id is not None:
-        branches = await sm.get_branches_for_project_id(project_id)
-        if not branches:
-            return convo
-        branch_id = branches[0].id
+    if not branch_id:
+        branch_id = sm.current_state.branch_id
 
-    project_states = await sm.get_project_states(project_id, branch_id)
+    if not project_states:
+        project_states = await sm.get_project_states(project_id, branch_id)
 
     task_counter = 1
+    fe_printed_msgs = []
+    fe_commands = []
 
     for i, state in enumerate(project_states):
-        prev_state = project_states[i - 1] if i > 0 else None
-
         convo_el = {}
-        convo_el["id"] = str(state.id)
+        convo_el["id"] = str(state.id) if state.step_index >= 3 else None
         user_inputs = await sm.find_user_input(state, branch_id)
 
-        todo_task = find_first_todo_task(state.tasks)
-        if todo_task:
-            task_counter = state.tasks.index(todo_task) + 1
+        if state.tasks and state.current_task:
+            task_counter = state.tasks.index(state.current_task) + 1
 
         if user_inputs:
             convo_el["user_inputs"] = []
@@ -473,9 +657,9 @@ async def load_convo(
                             next_state = project_states[i + 1] if i + 1 < len(project_states) else None
                             if next_state is not None:
                                 task = find_first_todo_task(next_state.tasks)
-                                if task.get("test_instructions", None) is not None:
+                                if task and task.get("test_instructions", None) is not None:
                                     convo_el["test_instructions"] = task["test_instructions"]
-                                if task.get("instructions", None) is not None:
+                                if task and task.get("instructions", None) is not None:
                                     convo_el["task_breakdown"] = task["instructions"]
                         # skip parsing that questions and its answers due to the fact that we do not keep states inside breakdown convo
                         break
@@ -506,6 +690,68 @@ async def load_convo(
                         answer = "I want to make a change"
                     convo_el["user_inputs"].append({"question": ui.question, "answer": answer})
 
+        if len(state.epics[-1].get("messages", [])) > 0:
+            if convo_el.get("user_inputs", None) is None:
+                convo_el["user_inputs"] = []
+            parser = DescriptiveCodeBlockParser()
+
+            for msg in state.epics[-1].get("messages", []):
+                if msg.get("role") == "assistant" and msg["content"] not in fe_printed_msgs:
+                    if "frontend" not in convo_el:
+                        convo_el["frontend"] = []
+                    convo_el["frontend"].append(msg["content"])
+                    fe_printed_msgs.append(msg["content"])
+
+                    blocks = parser(msg.get("content", ""))
+                    files_dict = {}
+                    for block in blocks.blocks:
+                        description = block.description.strip()
+                        content = block.content.strip()
+
+                        # Split description into lines and check the last line for file path
+                        description_lines = description.split("\n")
+                        last_line = description_lines[-1].strip()
+
+                        if "file:" in last_line:
+                            # Extract file path from the last line - get everything after "file:"
+                            file_path = last_line[last_line.index("file:") + 5 :].strip()
+                            file_path = file_path.strip("\"'`")
+                            # Skip empty file paths
+                            if file_path.strip() == "":
+                                continue
+                            new_content = content
+                            old_content = sm.current_state.get_file_content_by_path(file_path)
+
+                            diff = get_line_changes(
+                                old_content=old_content,
+                                new_content=new_content,
+                            )
+
+                            if diff != (0, 0):
+                                files_dict[file_path] = {
+                                    "path": file_path,
+                                    "old_content": old_content,
+                                    "new_content": new_content,
+                                    "diff": diff,
+                                }
+
+                        elif "command:" in last_line:
+                            commands = content.strip().split("\n")
+                            for command in commands:
+                                command = command.strip()
+                                if command and command not in fe_commands:
+                                    if "user_inputs" not in convo_el:
+                                        convo_el["user_inputs"] = []
+                                    convo_el["user_inputs"].append(
+                                        {
+                                            "question": f"{RUN_COMMAND} {command}",
+                                            "answer": "yes",
+                                        }
+                                    )
+                                    fe_commands.append(command)
+
+                    convo_el["files"] = list(files_dict.values())
+
         if state.action is not None:
             if state.action == DEV_TROUBLESHOOT.format(task_counter):
                 if state.iterations is not None and len(state.iterations) > 0:
@@ -517,12 +763,13 @@ async def load_convo(
                             convo_el["description"] = si["description"]
 
             elif state.action == DEV_TASK_BREAKDOWN.format(task_counter):
-                task = state.tasks[task_counter - 1]
-                if task.get("description", None) is not None:
-                    convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
+                if state.tasks and len(state.tasks) >= task_counter:
+                    task = state.current_task
+                    if task.get("description", None) is not None:
+                        convo_el["task_description"] = f"Task #{task_counter} - " + task["description"]
 
-                if task.get("instructions", None) is not None:
-                    convo_el["task_breakdown"] = task["instructions"]
+                    if task.get("instructions", None) is not None:
+                        convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == TC_TASK_DONE.format(task_counter):
                 if state.tasks:
@@ -530,36 +777,45 @@ async def load_convo(
                     if next_task is not None and next_task.get("description", None) is not None:
                         convo_el["task_description"] = f"Task #{task_counter} - " + next_task["description"]
 
-            elif state.action == DEV_TASK_START:
-                task = state.tasks[task_counter - 1]
-                if task.get("instructions", None) is not None:
-                    convo_el["task_breakdown"] = task["instructions"]
+            elif state.action == DEV_TASK_START.format(task_counter):
+                if state.tasks and len(state.tasks) >= task_counter:
+                    task = state.current_task
+                    if task.get("instructions", None) is not None:
+                        convo_el["task_breakdown"] = task["instructions"]
 
             elif state.action == CM_UPDATE_FILES:
-                files = []
+                files_dict = {}
                 for steps in state.steps:
-                    file = {}
                     if "save_file" in steps and "path" in steps["save_file"]:
                         path = steps["save_file"]["path"]
-                        file["path"] = path
 
                         current_file = await sm.get_file_for_project(state.id, path)
-                        prev_file = await sm.get_file_for_project(prev_state.id, path) if prev_state else None
+                        prev_file = (
+                            await sm.get_file_for_project(state.prev_state_id, path)
+                            if state.prev_state_id is not None
+                            else None
+                        )
 
                         old_content = prev_file.content.content if prev_file and prev_file.content else ""
                         new_content = current_file.content.content if current_file and current_file.content else ""
 
-                        file["diff"] = get_line_changes(
+                        diff = get_line_changes(
                             old_content=old_content,
                             new_content=new_content,
                         )
-                        file["old_content"] = old_content
-                        file["new_content"] = new_content
 
-                        if file["diff"] != (0, 0):
-                            files.append(file)
+                        # Only add file if it has changes
+                        if diff != (0, 0):
+                            files_dict[path] = {
+                                "path": path,
+                                "old_content": old_content,
+                                "new_content": new_content,
+                                "diff": diff,
+                                "bug_hunter": len(state.iterations) > 0
+                                and len(state.iterations[-1].get("bug_hunting_cycles", [])) > 0,
+                            }
 
-                convo_el["files"] = files
+                convo_el["files"] = list(files_dict.values())
 
             if state.iterations is not None and len(state.iterations) > 0:
                 si = state.iterations[-1]
@@ -636,7 +892,8 @@ async def load_project(
     project_id: Optional[UUID] = None,
     branch_id: Optional[UUID] = None,
     step_index: Optional[int] = None,
-) -> bool:
+    project_state_id: Optional[UUID] = None,
+) -> Optional[ProjectState]:
     """
     Load a project from the database.
 
@@ -649,22 +906,26 @@ async def load_project(
     step_txt = f" step {step_index}" if step_index else ""
 
     if branch_id:
-        project_state = await sm.load_project(branch_id=branch_id, step_index=step_index)
+        project_state = await sm.load_project(
+            branch_id=branch_id, step_index=step_index, project_state_id=project_state_id
+        )
         if project_state:
-            return True
+            return project_state
         else:
             print(f"Branch {branch_id}{step_txt} not found; use --list to list all projects", file=sys.stderr)
-            return False
+            return None
 
     elif project_id:
-        project_state = await sm.load_project(project_id=project_id, step_index=step_index)
+        project_state = await sm.load_project(
+            project_id=project_id, step_index=step_index, project_state_id=project_state_id
+        )
         if project_state:
-            return True
+            return project_state
         else:
             print(f"Project {project_id}{step_txt} not found; use --list to list all projects", file=sys.stderr)
-            return False
+            return None
 
-    return False
+    return None
 
 
 async def delete_project(db: SessionManager, project_id: UUID) -> bool:

@@ -44,6 +44,9 @@ def test_parse_arguments(mock_ArgumentParser):
         "--database",
         "--local-ipc-port",
         "--local-ipc-host",
+        "--enable-api-server",
+        "--local-api-server-host",
+        "--local-api-server-port",
         "--version",
         "--list",
         "--list-json",
@@ -51,6 +54,7 @@ def test_parse_arguments(mock_ArgumentParser):
         "--delete",
         "--branch",
         "--step",
+        "--project-state-id",
         "--llm-endpoint",
         "--llm-key",
         "--import-v0",
@@ -59,6 +63,7 @@ def test_parse_arguments(mock_ArgumentParser):
         "--use-git",
         "--access-token",
         "--no-auto-confirm-breakdown",
+        "--initial-prompt",
     }
 
     parser.parse_args.assert_called_once_with()
@@ -229,27 +234,36 @@ async def test_list_projects(mock_StateManager, capsys):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("args", "kwargs", "retval"),
+    ("args", "kwargs", "retval", "should_succeed"),
     [
-        (["abc", None, None], dict(project_id="abc", step_index=None), True),
-        (["abc", None, None], dict(project_id="abc", step_index=None), False),
-        (["abc", "def", None], dict(branch_id="def", step_index=None), True),
-        (["abc", "def", None], dict(branch_id="def", step_index=None), False),
-        (["abc", None, 123], dict(project_id="abc", step_index=123), True),
-        (["abc", "def", 123], dict(branch_id="def", step_index=123), False),
+        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), MagicMock(), True),
+        (["abc", None, None, None], dict(project_id="abc", step_index=None, project_state_id=None), None, False),
+        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), MagicMock(), True),
+        (["abc", "def", None, None], dict(branch_id="def", step_index=None, project_state_id=None), None, False),
+        (["abc", None, 123, None], dict(project_id="abc", step_index=123, project_state_id=None), MagicMock(), True),
+        (["abc", "def", 123, None], dict(branch_id="def", step_index=123, project_state_id=None), None, False),
+        (
+            ["abc", None, None, "xyz"],
+            dict(project_id="abc", step_index=None, project_state_id="xyz"),
+            MagicMock(),
+            True,
+        ),
+        (["abc", "def", None, "xyz"], dict(branch_id="def", step_index=None, project_state_id="xyz"), None, False),
     ],
 )
-async def test_load_project(args, kwargs, retval, capsys):
+async def test_load_project(args, kwargs, retval, should_succeed, capsys):
     sm = MagicMock(load_project=AsyncMock(return_value=retval))
 
-    success = await load_project(sm, *args)
+    result = await load_project(sm, *args)
 
-    assert success is retval
-    sm.load_project.assert_awaited_once_with(**kwargs)
-
-    if not success:
+    if should_succeed:
+        assert result is not None
+    else:
+        assert result is None
         data = capsys.readouterr().err
         assert "not found" in data
+
+    sm.load_project.assert_awaited_once_with(**kwargs)
 
 
 def test_init(tmp_path):
@@ -276,6 +290,7 @@ def test_init(tmp_path):
         (["--project", "ca7a0cc9-767f-472a-aefb-0c8d3377c9bc"], False, False),
         (["--branch", "ca7a0cc9-767f-472a-aefb-0c8d3377c9bc"], False, False),
         (["--step", "123"], False, False),
+        (["--project-state", "ca7a0cc9-767f-472a-aefb-0c8d3377c9bc"], False, False),
         ([], True, True),
     ],
 )
@@ -306,7 +321,7 @@ async def test_main(mock_Orchestrator, args, run_orchestrator, retval, tmp_path)
     assert success is retval
 
     if run_orchestrator:
-        assert ui.ask_question.call_count == 2
+        assert ui.ask_question.call_count == 1
         mock_Orchestrator.assert_called_once()
         mock_orca.run.assert_awaited_once_with()
 
@@ -327,7 +342,7 @@ async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     mock_response = MagicMock(text="test", cancelled=False)
     mock_response.button = "test_project_type"  # Set a string value for project_type
     ui.ask_question = AsyncMock(return_value=mock_response)
-    ui.send_message = AsyncMock()
+    ui.send_fatal_error = AsyncMock()
 
     mock_orca = mock_Orchestrator.return_value
     mock_orca.run = AsyncMock(side_effect=RuntimeError("test error"))
@@ -335,5 +350,5 @@ async def test_main_handles_crash(mock_Orchestrator, tmp_path):
     success = await async_main(ui, db, args)
 
     assert success is False
-    ui.send_message.assert_called_once()
-    assert "test error" in ui.send_message.call_args[0][0]
+    ui.send_fatal_error.assert_called_once()
+    assert "test error" in ui.send_fatal_error.call_args[0][0]

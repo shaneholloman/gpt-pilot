@@ -78,8 +78,6 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
             await self.ui.send_project_stage({"stage": ProjectStage.TEST_APP})
             await self.ui.send_message("Test the app by following these steps:", source=pythagora_source)
 
-        await self.send_message("")
-        await self.ui.stop_app()
         await self.ui.send_test_instructions(user_instructions, project_state_id=str(self.current_state.id))
 
         # Developer sets iteration as "completed" when it generates the step breakdown, so we can't
@@ -203,7 +201,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         return llm_response
 
     async def get_user_instructions(self) -> Optional[str]:
-        await self.send_message("Determining how to test the app ...")
+        await self.send_message("### Determining how to test the app ...")
 
         route_files = await self._get_route_files()
         current_task = self.current_state.current_task
@@ -273,7 +271,7 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
         is_loop = False
         should_iterate = True
         should_redo = False
-        extra_info = "restart_app" if not self.current_state.iterations else None
+        extra_info = {"restart_app": True} if not self.current_state.iterations else None
 
         while True:
             await self.ui.send_project_stage({"stage": ProjectStage.GET_USER_FEEDBACK})
@@ -287,8 +285,8 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
 
             buttons = {
                 "continue": "Everything works",
-                "change": "I want to make a change",
                 "bug": "There is an issue",
+                "change": "I want to make a change",
             }
             if not self.current_state.current_task.get("hardcoded", False):
                 buttons["redo"] = "Redo task"
@@ -327,12 +325,21 @@ class Troubleshooter(ChatWithBreakdownMixin, IterationPromptMixin, RelevantFiles
                 await self.ui.send_project_stage({"stage": ProjectStage.DESCRIBE_ISSUE})
                 user_description = await self.ask_question(
                     TS_DESCRIBE_ISSUE,
-                    extra_info="collect_logs",
+                    extra_info={"collect_logs": True},
                     buttons={"back": "Back"},
                 )
                 if user_description.button == "back":
                     continue
                 bug_report = user_description.text
+                await self.ui.send_project_stage(
+                    {
+                        "bug_fix_attempt": 1,
+                    }
+                )
+                await self.get_relevant_files_parallel(user_feedback=bug_report)
+                break
+            elif user_response.text and isinstance(user_response.text, str):
+                bug_report = user_response.text
                 await self.get_relevant_files_parallel(user_feedback=bug_report)
                 break
 
