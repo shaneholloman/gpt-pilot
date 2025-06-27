@@ -181,13 +181,14 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 await self.ui.send_message("Thank you for using Pythagora!", source=pythagora_source)
                 return AgentResponse.exit(self)
 
-            feature = response.button == "feature"
+            if not response.text:
+                feature = response.button == "feature"
 
-            response = await self.ask_question(
-                "What do you want to implement?",
-                buttons={"back": "Back"},
-                allow_empty=False,
-            )
+                response = await self.ask_question(
+                    "What do you want to implement?",
+                    buttons={"back": "Back"},
+                    allow_empty=False,
+                )
 
             if response.text:
                 user_desc = response.text
