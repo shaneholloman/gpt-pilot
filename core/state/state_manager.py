@@ -2,17 +2,17 @@ import asyncio
 import os.path
 import re
 import traceback
-import httpx
-from urllib.parse import urljoin
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
+from urllib.parse import urljoin
 from uuid import UUID, uuid4
 
+import httpx
 from sqlalchemy import Row, inspect, select
 from sqlalchemy.exc import PendingRollbackError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from core.config import FileSystemType, get_config, PYTHAGORA_API
+from core.config import PYTHAGORA_API, FileSystemType, get_config
 from core.db.models import (
     Branch,
     ChatConvo,
@@ -229,9 +229,7 @@ class StateManager:
                         except Exception as e:
                             error = e
                         log.warning(f"Failed to upload new project: {error}")
-                        await self.send_message(
-                            f"Failed to upload new project. Retrying... \nError: {error}"
-                        )
+                        await self.send_message(f"Failed to upload new project. Retrying... \nError: {error}")
 
             except Exception as e:
                 error = e
