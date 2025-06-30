@@ -624,6 +624,9 @@ async def load_convo(
     if not branch_id:
         branch_id = sm.current_state.branch_id
 
+    if project_states is not None and len(project_states) == 0:
+        return convo
+
     if not project_states:
         project_states = await sm.get_project_states(project_id, branch_id)
 
