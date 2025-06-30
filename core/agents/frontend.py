@@ -221,7 +221,7 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
                     )
                     await self.ui.send_front_logs_headers("", ["E2 / T2", "working"], "Setting up backend")
                     return True
-                else:
+                elif answer.button == "no":
                     return False
 
             if answer.text:
