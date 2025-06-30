@@ -191,9 +191,9 @@ class StateManager:
             f'Created new project "{name}" (id={project.id})\n'
             f'with default branch "{branch.name}" (id={branch.id})\n'
             f"and initial state id={state.id} (step_index={state.step_index})\n"
-            f"Core version {get_version() if not None else "unknown"}\n"
-            f"Git hash {get_git_commit() if not None else "unknown"}\n"
-            f"Git branch {get_git_branch() if not None else "unknown"}\n"
+            f"Core version {get_version() if not None else 'unknown'}\n"
+            f"Git hash {get_git_commit() if not None else 'unknown'}\n"
+            f"Git branch {get_git_branch() if not None else 'unknown'}\n"
         )
         await telemetry.trace_code_event("create-project", {"name": name})
 
@@ -355,9 +355,9 @@ class StateManager:
             f"Loaded project {self.project} ({self.project.id})\n"
             f"Branch {self.branch} ({self.branch.id}\n"
             f"Step {state.step_index} (state id={state.id})\n"
-            f"Core version {get_version() if not None else "unknown"}\n"
-            f"Git hash {get_git_commit() if not None else "unknown"}\n"
-            f"Git branch {get_git_branch() if not None else "unknown"}\n"
+            f"Core version {get_version() if not None else 'unknown'}\n"
+            f"Git hash {get_git_commit() if not None else 'unknown'}\n"
+            f"Git branch {get_git_branch() if not None else 'unknown'}\n"
         )
 
         if self.current_state.current_epic and self.current_state.current_task and self.ui:
