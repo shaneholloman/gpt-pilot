@@ -344,6 +344,7 @@ async def async_main(
         sentry_sdk.set_user({"email": args.email})
 
     if args.extension_version:
+        log.debug(f"Extension version: {args.extension_version}")
         telemetry.set("is_extension", True)
         telemetry.set("extension_version", args.extension_version)
 
