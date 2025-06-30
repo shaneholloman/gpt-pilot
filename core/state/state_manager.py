@@ -2,17 +2,18 @@ import asyncio
 import os.path
 import re
 import traceback
-import httpx
-from urllib.parse import urljoin
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Optional
+from urllib.parse import urljoin
 from uuid import UUID, uuid4
 
+import httpx
 from sqlalchemy import Row, inspect, select
 from sqlalchemy.exc import PendingRollbackError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from core.config import FileSystemType, get_config, PYTHAGORA_API
+from core.config import PYTHAGORA_API, FileSystemType, get_config
+from core.config.version import get_git_branch, get_git_commit, get_version
 from core.db.models import (
     Branch,
     ChatConvo,
@@ -187,9 +188,12 @@ class StateManager:
         await state.awaitable_attrs.files
 
         log.info(
-            f'Created new project "{name}" (id={project.id}) '
-            f'with default branch "{branch.name}" (id={branch.id}) '
-            f"and initial state id={state.id} (step_index={state.step_index})"
+            f'Created new project "{name}" (id={project.id})\n'
+            f'with default branch "{branch.name}" (id={branch.id})\n'
+            f"and initial state id={state.id} (step_index={state.step_index})\n"
+            f"Core version {get_version() if not None else "unknown"}\n"
+            f"Git hash {get_git_commit() if not None else "unknown"}\n"
+            f"Git branch {get_git_branch() if not None else "unknown"}\n"
         )
         await telemetry.trace_code_event("create-project", {"name": name})
 
@@ -229,9 +233,7 @@ class StateManager:
                         except Exception as e:
                             error = e
                         log.warning(f"Failed to upload new project: {error}")
-                        await self.send_message(
-                            f"Failed to upload new project. Retrying... \nError: {error}"
-                        )
+                        await self.send_message(f"Failed to upload new project. Retrying... \nError: {error}")
 
             except Exception as e:
                 error = e
@@ -350,9 +352,12 @@ class StateManager:
         self.next_state = await state.create_next_state()
         self.file_system = await self.init_file_system(load_existing=True)
         log.debug(
-            f"Loaded project {self.project} ({self.project.id}) "
-            f"branch {self.branch} ({self.branch.id}"
-            f"step {state.step_index} (state id={state.id})"
+            f"Loaded project {self.project} ({self.project.id})\n"
+            f"Branch {self.branch} ({self.branch.id}\n"
+            f"Step {state.step_index} (state id={state.id})\n"
+            f"Core version {get_version() if not None else "unknown"}\n"
+            f"Git hash {get_git_commit() if not None else "unknown"}\n"
+            f"Git branch {get_git_branch() if not None else "unknown"}\n"
         )
 
         if self.current_state.current_epic and self.current_state.current_task and self.ui:
