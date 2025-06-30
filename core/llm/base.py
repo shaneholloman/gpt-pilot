@@ -7,8 +7,10 @@ from time import time
 from typing import Any, Callable, Optional, Tuple
 
 import httpx
+import tiktoken
 from httpx import AsyncClient
 
+from core.cli.helpers import trim_logs
 from core.config import LLMConfig, LLMProvider
 from core.llm.convo import Convo
 from core.llm.request_log import LLMRequestLog, LLMRequestStatus
@@ -17,6 +19,7 @@ from core.state.state_manager import StateManager
 from core.ui.base import UIBase, pythagora_source
 
 log = get_logger(__name__)
+tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
 class LLMError(str, Enum):
@@ -161,10 +164,27 @@ class BaseLLMClient:
             prompts=convo.prompt_log,
         )
 
+        prompt_tokens = sum(3 + len(tokenizer.encode(msg["content"])) for msg in convo.messages)
+
+        index = -1
+        if prompt_tokens > 150_000:
+            for i, msg in enumerate(reversed(convo.messages)):
+                if "Here are the backend logs" in msg["content"] or "Here are the frontend logs" in msg["content"]:
+                    index = len(convo.messages) - 1 - i
+                    break
+
+            if index != -1:
+                for i, msg in enumerate(convo.messages):
+                    if i < index:
+                        convo.messages[i]["content"] = trim_logs(convo.messages[i]["content"])
+                    else:
+                        break
+
         prompt_length_kb = len(json.dumps(convo.messages).encode("utf-8")) / 1024
         log.debug(
-            f"Calling {self.provider.value} model {self.config.model} (temp={temperature}), prompt length: {prompt_length_kb:.1f} KB"
+            f"Calling {self.provider.value} model {self.config.model} (temp={temperature}), prompt length: {prompt_length_kb:.1f} KB, prompt tokens (approx.): {prompt_tokens:.1f}"
         )
+
         t0 = time()
 
         remaining_retries = max_retries
