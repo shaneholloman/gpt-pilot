@@ -181,13 +181,14 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 await self.ui.send_message("Thank you for using Pythagora!", source=pythagora_source)
                 return AgentResponse.exit(self)
 
-            feature = response.button == "feature"
+            if not response.text:
+                feature = response.button == "feature"
 
-            response = await self.ask_question(
-                "What do you want to implement?",
-                buttons={"back": "Back"},
-                allow_empty=False,
-            )
+                response = await self.ask_question(
+                    "What do you want to implement?",
+                    buttons={"back": "Back"},
+                    allow_empty=False,
+                )
 
             if response.text:
                 user_desc = response.text
@@ -427,7 +428,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
         await self.ui.send_project_stage(
             {
                 "stage": ProjectStage.STARTING_TASK,
-                "task_index": 1,
+                "task_index": 0,
             }
         )
         await self.ui.send_front_logs_headers(
@@ -442,7 +443,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 {
                     "title": self.next_state.tasks[0]["description"],
                     "project_state_id": str(self.next_state.id),
-                    "labels": ["E3 / T1", "working"],
+                    "labels": ["E3 / T1", "Backend", "working"],
                 }
             ]
         )

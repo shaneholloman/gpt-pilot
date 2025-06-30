@@ -25,6 +25,7 @@ class MessageType(str, Enum):
     RESPONSE = "response"
     USER_INPUT_REQUEST = "user_input_request"
     INFO = "info"
+    STAGE = "stage"
     PROGRESS = "progress"
     DEBUGGING_LOGS = "debugging_logs"
     RUN_COMMAND = "run_command"
@@ -393,7 +394,7 @@ class IPCClientUI(UIBase):
         return UserInput(cancelled=True, access_token=access_token)
 
     async def send_project_stage(self, data: dict):
-        await self._send(MessageType.INFO, content=json.dumps(data))
+        await self._send(MessageType.STAGE, content=json.dumps(data))
 
     async def send_epics_and_tasks(
         self,
