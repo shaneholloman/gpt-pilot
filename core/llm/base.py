@@ -164,7 +164,7 @@ class BaseLLMClient:
             prompts=convo.prompt_log,
         )
 
-        prompt_tokens = sum(3 + len(tokenizer.encode(msg.get("content", ""))) for msg in convo.messages)
+        prompt_tokens = sum(3 + len(tokenizer.encode(str(msg.get("content", "")))) for msg in convo.messages)
 
         index = -1
         if prompt_tokens > 150_000:
