@@ -346,6 +346,8 @@ class StateManager:
         await state.delete_after()
         await session.commit()
 
+        # TODO: this is a temporary fix to unblock users!
+        # TODO: REMOVE THIS AFTER 1 WEEK FROM THIS COMMIT
         # Process tasks before setting current state - trim logs from task descriptions before current task
         if state.tasks and state.current_task:
             try:
