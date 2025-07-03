@@ -249,6 +249,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             ]
 
             # Flag tasks as modified so SQLAlchemy knows to save the changes
+            self.next_state.flag_epics_as_modified()
             self.next_state.flag_tasks_as_modified()
 
             await self.ui.send_epics_and_tasks(
