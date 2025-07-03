@@ -183,6 +183,7 @@ class SpecWriter(BaseAgent):
             )
 
             if user_done_with_description.button == "yes":
+                await self.ui.send_project_stage({"stage": ProjectStage.SPECS_FINISHED})
                 break
             elif user_done_with_description.button == "no":
                 await self.send_message("## What would you like to add?")
