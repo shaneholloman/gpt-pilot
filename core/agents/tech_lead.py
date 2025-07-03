@@ -225,6 +225,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             # load the previous state, because in this state we have deleted tasks due to epic being completed!
             wanted_project_state = await self.state_manager.get_project_state_by_id(self.current_state.prev_state_id)
 
+            wanted_project_state.epics[-1]["completed"] = False
             self.next_state.epics = wanted_project_state.epics
 
             # Trim logs from existing tasks before adding the new task
