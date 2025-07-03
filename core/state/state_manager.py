@@ -36,6 +36,7 @@ from core.proc.exec_log import ExecLog as ExecLogData
 from core.telemetry import telemetry
 from core.ui.base import UIBase
 from core.ui.base import UserInput as UserInputData
+from core.utils.text import trim_logs
 
 if TYPE_CHECKING:
     from core.agents.base import BaseAgent
@@ -344,6 +345,27 @@ class StateManager:
         # TODO: in the future, we might want to create a new branch here?
         await state.delete_after()
         await session.commit()
+
+        # TODO: this is a temporary fix to unblock users!
+        # TODO: REMOVE THIS AFTER 1 WEEK FROM THIS COMMIT
+        # Process tasks before setting current state - trim logs from task descriptions before current task
+        if state.tasks and state.current_task:
+            try:
+                # Find the current task index
+                current_task_index = state.tasks.index(state.current_task)
+
+                # Trim logs from all tasks before the current task
+                for i in range(current_task_index):
+                    task = state.tasks[i]
+                    if task.get("description"):
+                        task["description"] = trim_logs(task["description"])
+
+                # Flag tasks as modified so SQLAlchemy knows to save the changes
+                state.flag_tasks_as_modified()
+            except Exception as e:
+                # Handle any error during log trimming gracefully
+                log.warning(f"Error during log trimming: {e}, skipping log trimming")
+                pass
 
         self.current_session = session
         self.current_state = state

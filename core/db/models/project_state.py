@@ -951,7 +951,6 @@ class ProjectState(Base):
                     if task.get("status") == TaskStatus.SKIPPED
                     else "Done",
                 ]
-        log.debug(task_histories)
 
         last_task = {}
 

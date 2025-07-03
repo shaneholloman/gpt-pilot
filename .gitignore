@@ -8,6 +8,7 @@ dist/
 workspace/
 pilot-env/
 venv/
+data/
 
 .coverage
 *.code-workspace

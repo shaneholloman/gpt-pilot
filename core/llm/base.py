@@ -10,13 +10,13 @@ import httpx
 import tiktoken
 from httpx import AsyncClient
 
-from core.cli.helpers import trim_logs
 from core.config import LLMConfig, LLMProvider
 from core.llm.convo import Convo
 from core.llm.request_log import LLMRequestLog, LLMRequestStatus
 from core.log import get_logger
 from core.state.state_manager import StateManager
 from core.ui.base import UIBase, pythagora_source
+from core.utils.text import trim_logs
 
 log = get_logger(__name__)
 tokenizer = tiktoken.get_encoding("cl100k_base")
