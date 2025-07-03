@@ -7,6 +7,7 @@ from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.mixins import RelevantFilesMixin
 from core.agents.response import AgentResponse
+from core.cli.helpers import trim_logs
 from core.config import TECH_LEAD_EPIC_BREAKDOWN, TECH_LEAD_PLANNING
 from core.config.actions import (
     TL_CREATE_INITIAL_EPIC,
@@ -226,6 +227,14 @@ class TechLead(RelevantFilesMixin, BaseAgent):
 
             self.next_state.epics = wanted_project_state.epics
 
+            # Trim logs from existing tasks before adding the new task
+            if wanted_project_state.tasks:
+                # Trim logs from all existing tasks
+                for task in wanted_project_state.tasks:
+                    if task.get("description"):
+                        task["description"] = trim_logs(task["description"])
+
+            # Create tasks list with new task (after trimming logs from existing tasks)
             self.next_state.tasks = wanted_project_state.tasks + [
                 {
                     "id": uuid4().hex,
@@ -237,6 +246,9 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                     "quick_implementation": True,
                 }
             ]
+
+            # Flag tasks as modified so SQLAlchemy knows to save the changes
+            self.next_state.flag_tasks_as_modified()
 
             await self.ui.send_epics_and_tasks(
                 self.next_state.current_epic.get("sub_epics", []),
