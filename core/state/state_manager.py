@@ -345,6 +345,27 @@ class StateManager:
         await state.delete_after()
         await session.commit()
 
+        # Process tasks before setting current state - trim logs from task descriptions before current task
+        if state.tasks and state.current_task:
+            try:
+                from core.cli.helpers import trim_logs
+
+                # Find the current task index
+                current_task_index = state.tasks.index(state.current_task)
+
+                # Trim logs from all tasks before the current task
+                for i in range(current_task_index):
+                    task = state.tasks[i]
+                    if task.get("description"):
+                        task["description"] = trim_logs(task["description"])
+
+                # Flag tasks as modified so SQLAlchemy knows to save the changes
+                state.flag_tasks_as_modified()
+            except ValueError:
+                # Current task not found in tasks list - this shouldn't happen but handle gracefully
+                log.warning("Current task not found in tasks list, skipping log trimming")
+                pass
+
         self.current_session = session
         self.current_state = state
         self.branch = state.branch
