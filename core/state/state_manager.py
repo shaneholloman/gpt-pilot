@@ -36,6 +36,7 @@ from core.proc.exec_log import ExecLog as ExecLogData
 from core.telemetry import telemetry
 from core.ui.base import UIBase
 from core.ui.base import UserInput as UserInputData
+from core.utils.text import trim_logs
 
 if TYPE_CHECKING:
     from core.agents.base import BaseAgent
@@ -348,9 +349,6 @@ class StateManager:
         # Process tasks before setting current state - trim logs from task descriptions before current task
         if state.tasks and state.current_task:
             try:
-                # import here to avoid circular import
-                from core.cli.helpers import trim_logs
-
                 # Find the current task index
                 current_task_index = state.tasks.index(state.current_task)
 

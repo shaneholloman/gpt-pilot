@@ -7,7 +7,6 @@ from core.agents.base import BaseAgent
 from core.agents.convo import AgentConvo
 from core.agents.mixins import RelevantFilesMixin
 from core.agents.response import AgentResponse
-from core.cli.helpers import trim_logs
 from core.config import TECH_LEAD_EPIC_BREAKDOWN, TECH_LEAD_PLANNING
 from core.config.actions import (
     TL_CREATE_INITIAL_EPIC,
@@ -22,6 +21,7 @@ from core.log import get_logger
 from core.telemetry import telemetry
 from core.templates.registry import PROJECT_TEMPLATES
 from core.ui.base import ProjectStage, pythagora_source, success_source
+from core.utils.text import trim_logs
 
 log = get_logger(__name__)
 
