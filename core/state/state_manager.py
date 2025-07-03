@@ -348,6 +348,7 @@ class StateManager:
         # Process tasks before setting current state - trim logs from task descriptions before current task
         if state.tasks and state.current_task:
             try:
+                # import here to avoid circular import
                 from core.cli.helpers import trim_logs
 
                 # Find the current task index
