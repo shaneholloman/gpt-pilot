@@ -251,7 +251,7 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             self.next_state.flag_tasks_as_modified()
 
             await self.ui.send_epics_and_tasks(
-                self.next_state.current_epic.get("sub_epics", []),
+                self.next_state.epics[-1].get("sub_epics", []),
                 self.next_state.tasks,
             )
 

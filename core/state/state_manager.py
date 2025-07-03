@@ -362,9 +362,9 @@ class StateManager:
 
                 # Flag tasks as modified so SQLAlchemy knows to save the changes
                 state.flag_tasks_as_modified()
-            except ValueError:
-                # Current task not found in tasks list - this shouldn't happen but handle gracefully
-                log.warning("Current task not found in tasks list, skipping log trimming")
+            except Exception as e:
+                # Handle any error during log trimming gracefully
+                log.warning(f"Error during log trimming: {e}, skipping log trimming")
                 pass
 
         self.current_session = session

@@ -13,21 +13,30 @@ def trim_logs(logs: str) -> str:
     :param logs: Log text to trim
     :return: Trimmed log text with the marker phrase removed
     """
-    if not logs:
-        return ""
+    try:
+        if not logs:
+            return ""
 
-    # Define marker phrases
-    markers = ["Here are the backend logs", "Here are the frontend logs"]
+        # Ensure we have a string
+        if not isinstance(logs, str):
+            logs = str(logs)
 
-    # Find the first occurrence of any marker
-    index = float("inf")
-    for marker in markers:
-        pos = logs.find(marker)
-        if pos != -1 and pos < index:
-            index = pos
+        # Define marker phrases
+        markers = ["Here are the backend logs", "Here are the frontend logs"]
 
-    # If a marker was found, trim the string
-    if index != float("inf"):
-        return logs[:index]
+        # Find the first occurrence of any marker
+        index = float("inf")
+        for marker in markers:
+            pos = logs.find(marker)
+            if pos != -1 and pos < index:
+                index = pos
 
-    return logs
+        # If a marker was found, trim the string
+        if index != float("inf"):
+            return logs[:index]
+
+        return logs
+
+    except Exception:
+        # If anything goes wrong, return the original input as string or empty string
+        return str(logs) if logs is not None else ""
