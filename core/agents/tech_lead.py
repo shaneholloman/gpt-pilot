@@ -21,6 +21,7 @@ from core.log import get_logger
 from core.telemetry import telemetry
 from core.templates.registry import PROJECT_TEMPLATES
 from core.ui.base import ProjectStage, pythagora_source, success_source
+from core.utils.text import trim_logs
 
 log = get_logger(__name__)
 
@@ -224,8 +225,17 @@ class TechLead(RelevantFilesMixin, BaseAgent):
             # load the previous state, because in this state we have deleted tasks due to epic being completed!
             wanted_project_state = await self.state_manager.get_project_state_by_id(self.current_state.prev_state_id)
 
+            wanted_project_state.epics[-1]["completed"] = False
             self.next_state.epics = wanted_project_state.epics
 
+            # Trim logs from existing tasks before adding the new task
+            if wanted_project_state.tasks:
+                # Trim logs from all existing tasks
+                for task in wanted_project_state.tasks:
+                    if task.get("description"):
+                        task["description"] = trim_logs(task["description"])
+
+            # Create tasks list with new task (after trimming logs from existing tasks)
             self.next_state.tasks = wanted_project_state.tasks + [
                 {
                     "id": uuid4().hex,
@@ -238,8 +248,12 @@ class TechLead(RelevantFilesMixin, BaseAgent):
                 }
             ]
 
+            # Flag tasks as modified so SQLAlchemy knows to save the changes
+            self.next_state.flag_epics_as_modified()
+            self.next_state.flag_tasks_as_modified()
+
             await self.ui.send_epics_and_tasks(
-                self.next_state.current_epic.get("sub_epics", []),
+                self.next_state.epics[-1].get("sub_epics", []),
                 self.next_state.tasks,
             )
 
