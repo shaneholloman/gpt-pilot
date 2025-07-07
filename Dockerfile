@@ -75,6 +75,13 @@ RUN chown -R devuser:devusergroup /usr/local/share/code-server && \
     cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon-dark-support.svg && \
     cp -f /favicon.svg /usr/local/lib/code-server/src/browser/media/favicon.svg
 
+# Configure PostHog analytics integration
+RUN sed -i "s|'sha256-/r7rqQ+yrxt57sxLuQ6AMYcy/lUpvAIzHjIJt/OeLWU=' ;|'sha256-/r7rqQ+yrxt57sxLuQ6AMYcy/lUpvAIzHjIJt/OeLWU=' https://us-assets.i.posthog.com ;|g" /usr/local/lib/code-server/lib/vscode/out/server-main.js
+
+COPY cloud/posthog.html /tmp/posthog.html
+RUN sed -i '/<head>/r /tmp/posthog.html' /usr/local/lib/code-server/lib/vscode/out/vs/code/browser/workbench/workbench.html && \
+    rm /tmp/posthog.html
+
 RUN chmod +x /entrypoint.sh && \
     chmod +x /var/init_data/on-event-extension-install.sh && \
     chown -R devuser:devusergroup /pythagora && \
