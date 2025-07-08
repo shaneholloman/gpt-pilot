@@ -148,13 +148,15 @@ class StateManager:
             self.current_session, self.current_state.branch_id, task_id, first_last_only, limit
         )
 
-    async def get_project_states_in_between(self, start_state_id: UUID, end_state_id: UUID) -> list[ProjectState]:
+    async def get_project_states_in_between(
+        self, start_state_id: UUID, end_state_id: UUID, limit: Optional[int] = 100
+    ) -> list[ProjectState]:
         """
         Get all project states in between two states.
         This retrieves all project states that are associated with a specific branch
         """
         return await ProjectState.get_project_states_in_between(
-            self.current_session, self.current_state.branch_id, start_state_id, end_state_id
+            self.current_session, self.current_state.branch_id, start_state_id, end_state_id, limit
         )
 
     async def get_fe_states(self) -> Optional[ProjectState]:

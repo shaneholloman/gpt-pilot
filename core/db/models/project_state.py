@@ -708,7 +708,9 @@ class ProjectState(Base):
         return epics_and_tasks
 
     @staticmethod
-    async def get_project_states_in_between(session: "AsyncSession", branch_id: UUID, start_id: UUID, end_id: UUID):
+    async def get_project_states_in_between(
+        session: "AsyncSession", branch_id: UUID, start_id: UUID, end_id: UUID, limit: Optional[int] = 100
+    ):
         query = select(ProjectState).where(
             and_(
                 ProjectState.branch_id == branch_id,
@@ -731,15 +733,26 @@ class ProjectState(Base):
             log.error(f"Could not find states with IDs {start_id} and {end_id} in branch {branch_id}")
             return []
 
-        query = select(ProjectState).where(
-            and_(
-                ProjectState.branch_id == branch_id,
-                ProjectState.step_index >= start_state.step_index,
-                ProjectState.step_index <= end_state.step_index,
+        query = (
+            select(ProjectState)
+            .where(
+                and_(
+                    ProjectState.branch_id == branch_id,
+                    ProjectState.step_index >= start_state.step_index,
+                    ProjectState.step_index <= end_state.step_index,
+                )
             )
+            .order_by(ProjectState.step_index.desc())
         )
+
+        if limit:
+            query = query.limit(limit)
+
         result = await session.execute(query)
-        return result.scalars().all()
+        states = result.scalars().all()
+
+        # Since we always order by step_index desc, we need to reverse to get chronological order
+        return list(reversed(states))
 
     @staticmethod
     async def get_task_conversation_project_states(
