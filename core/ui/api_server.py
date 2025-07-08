@@ -665,13 +665,14 @@ class IPCServer:
         :param message: Request message.
         :param writer: Stream writer to send response.
         """
-        log.debug("Got _handle_task_convo request with message: %s", message)
+        log.debug("Got _handle_task_convo request")
         try:
             task_id = message.content.get("task_id", "")
             if task_id:
                 task_id = uuid.UUID(task_id)
             start_project_id = uuid.UUID(message.content.get("start_id", ""))
             end_project_id = uuid.UUID(message.content.get("end_id", ""))
+            log.debug(f"task_id: {task_id}, start_project_id: {start_project_id}, end_project_id: {end_project_id}")
 
             if start_project_id and end_project_id:
                 project_states = await self.state_manager.get_project_states_in_between(
