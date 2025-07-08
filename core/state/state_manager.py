@@ -159,8 +159,8 @@ class StateManager:
             self.current_session, self.current_state.branch_id, start_state_id, end_state_id, limit
         )
 
-    async def get_fe_states(self) -> Optional[ProjectState]:
-        return await ProjectState.get_fe_states(self.current_session, self.current_state.branch_id)
+    async def get_fe_states(self, limit: Optional[int] = None) -> Optional[ProjectState]:
+        return await ProjectState.get_fe_states(self.current_session, self.current_state.branch_id, limit)
 
     async def get_be_back_logs(self):
         """

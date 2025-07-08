@@ -903,7 +903,9 @@ class ProjectState(Base):
             return results
 
     @staticmethod
-    async def get_fe_states(session: "AsyncSession", branch_id: UUID) -> Optional["ProjectState"]:
+    async def get_fe_states(
+        session: "AsyncSession", branch_id: UUID, limit: Optional[int] = None
+    ) -> Optional["ProjectState"]:
         query = select(ProjectState).where(
             and_(
                 ProjectState.branch_id == branch_id,
@@ -931,16 +933,26 @@ class ProjectState(Base):
         result = await session.execute(query)
         fe_end = result.scalars().one_or_none()
 
-        query = select(ProjectState).where(
-            and_(
-                ProjectState.branch_id == branch_id,
-                ProjectState.step_index >= fe_start.step_index,
-                ProjectState.step_index <= fe_end.step_index,
+        query = (
+            select(ProjectState)
+            .where(
+                and_(
+                    ProjectState.branch_id == branch_id,
+                    ProjectState.step_index >= fe_start.step_index,
+                    ProjectState.step_index <= fe_end.step_index,
+                )
             )
+            .order_by(ProjectState.step_index.desc())
         )
 
+        if limit:
+            query = query.limit(limit)
+
         results = await session.execute(query)
-        return results.scalars().all()
+        states = results.scalars().all()
+
+        # Since we ordered by step_index desc and limited, we need to reverse to get chronological order
+        return list(reversed(states))
 
     @staticmethod
     def get_epic_task_number(state, current_task) -> (int, int):

@@ -209,7 +209,7 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             return False
 
         # SPECIFICATION
-        fe_states = await sm.get_fe_states()
+        fe_states = await sm.get_fe_states(limit=10)
         be_back_logs, last_task_in_db = await sm.get_be_back_logs()
 
         if sm.current_state.specification and sm.current_state.specification.original_description:
