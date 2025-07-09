@@ -273,11 +273,14 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             # if no backend logs AND no task is currently active -> we are on frontend -> print frontend convo history
             convo = await load_convo(sm, project_states=fe_states)
             await print_convo(ui=ui, convo=convo, fake=False)
+            # Clear fe_states from memory after conversation is loaded
+            del fe_states
+            gc.collect()  # Force garbage collection to free memory immediately
+        elif last_task_in_db:
+            # Clear fe_states from memory as they're not needed for backend processing
+            del fe_states
+            gc.collect()  # Force garbage collection to free memory immediately
 
-        # Clear fe_states from memory after conversation is loaded
-        del fe_states
-        gc.collect()  # Force garbage collection to free memory immediately
-        if last_task_in_db:
             # if there is a task in the db (we are at backend stage), print backend convo history and add task back logs and front logs headers
             await ui.send_front_logs_headers(
                 last_task_in_db["start_id"],
@@ -300,10 +303,9 @@ async def run_pythagora_session(sm: StateManager, ui: UIBase, args: Namespace):
             be_states = await sm.get_project_states_in_between(last_task_in_db["start_id"], last_task_in_db["end_id"])
             convo = await load_convo(sm, project_states=be_states)
             await print_convo(ui=ui, convo=convo, fake=False)
-
-        # Clear be_states from memory after conversation is loaded
-        del be_states
-        gc.collect()  # Force garbage collection to free memory immediately
+            # Clear be_states from memory after conversation is loaded
+            del be_states
+            gc.collect()  # Force garbage collection to free memory immediately
 
     else:
         sm.fe_auto_debug = True
