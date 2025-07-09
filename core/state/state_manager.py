@@ -137,26 +137,30 @@ class StateManager:
     async def get_project_state_for_convo_id(self, convo_id) -> Optional["ProjectState"]:
         return await ChatConvo.get_project_state_for_convo_id(self.current_session, convo_id)
 
-    async def get_task_conversation_project_states(self, task_id: UUID) -> Optional[list[ProjectState]]:
+    async def get_task_conversation_project_states(
+        self, task_id: UUID, first_last_only: bool = False, limit: Optional[int] = 25
+    ) -> Optional[list[ProjectState]]:
         """
         Get all project states for a specific task conversation.
         This retrieves all project states that are associated with a specific task
         """
         return await ProjectState.get_task_conversation_project_states(
-            self.current_session, self.current_state.branch_id, task_id
+            self.current_session, self.current_state.branch_id, task_id, first_last_only, limit
         )
 
-    async def get_project_states_in_between(self, start_state_id: UUID, end_state_id: UUID) -> list[ProjectState]:
+    async def get_project_states_in_between(
+        self, start_state_id: UUID, end_state_id: UUID, limit: Optional[int] = 100
+    ) -> list[ProjectState]:
         """
         Get all project states in between two states.
         This retrieves all project states that are associated with a specific branch
         """
         return await ProjectState.get_project_states_in_between(
-            self.current_session, self.current_state.branch_id, start_state_id, end_state_id
+            self.current_session, self.current_state.branch_id, start_state_id, end_state_id, limit
         )
 
-    async def get_fe_states(self) -> Optional[ProjectState]:
-        return await ProjectState.get_fe_states(self.current_session, self.current_state.branch_id)
+    async def get_fe_states(self, limit: Optional[int] = None) -> Optional[ProjectState]:
+        return await ProjectState.get_fe_states(self.current_session, self.current_state.branch_id, limit)
 
     async def get_be_back_logs(self):
         """

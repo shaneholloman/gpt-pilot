@@ -374,7 +374,9 @@ class Developer(ChatWithBreakdownMixin, RelevantFilesMixin, BaseAgent):
         previous_task = tasks_done[-1] if tasks_done else None
         if previous_task:
             e_i, t_i = get_epic_task_number(self.current_state, previous_task)
-            task_convo = await self.state_manager.get_task_conversation_project_states(UUID(previous_task["id"]))
+            task_convo = await self.state_manager.get_task_conversation_project_states(
+                UUID(previous_task["id"]), first_last_only=True
+            )
             await self.ui.send_back_logs(
                 [
                     {
