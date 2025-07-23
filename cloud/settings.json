@@ -1,4 +1,5 @@
 {
+    "workbench.startupEditor": "none",
     "workbench.statusBar.visible": false,
     "workbench.editor.showTabs": "none",
     "chat.commandCenter.enabled": false,
