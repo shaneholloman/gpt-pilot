@@ -97,6 +97,11 @@
       "provider": "openai",
       "model": "claude-sonnet-4-20250514",
       "temperature": 0.0
+    },
+    "Troubleshooter.define_user_review_goal": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-20250514",
+      "temperature": 0.0
     }
   },
   "prompt": {
