@@ -45,6 +45,7 @@ PARSE_TASK_AGENT_NAME = "Developer.parse_task"
 TASK_BREAKDOWN_AGENT_NAME = "Developer.breakdown_current_task"
 TROUBLESHOOTER_BUG_REPORT = "Troubleshooter.generate_bug_report"
 TROUBLESHOOTER_GET_RUN_COMMAND = "Troubleshooter.get_run_command"
+TROUBLESHOOTER_DEFINE_USER_REVIEW_GOAL = "Troubleshooter.define_user_review_goal"
 TECH_LEAD_PLANNING = "TechLead.plan_epic"
 TECH_LEAD_EPIC_BREAKDOWN = "TechLead.epic_breakdown"
 SPEC_WRITER_AGENT_NAME = "SpecWriter"
@@ -402,6 +403,11 @@ class Config(_StrictModel):
                 temperature=0.5,
             ),
             TROUBLESHOOTER_GET_RUN_COMMAND: AgentLLMConfig(
+                provider=LLMProvider.OPENAI,
+                model="claude-sonnet-4-20250514",
+                temperature=0.0,
+            ),
+            TROUBLESHOOTER_DEFINE_USER_REVIEW_GOAL: AgentLLMConfig(
                 provider=LLMProvider.OPENAI,
                 model="claude-sonnet-4-20250514",
                 temperature=0.0,
