@@ -211,7 +211,7 @@ class StateManager:
         # Store new project in Pythagora database
         error = None
         database_object = {
-            "project_id": project.id,
+            "project_id": str(project.id),
             "project_name": project.name,
             "created_at": project.created_at,
             "folder_name": project.folder_name,
@@ -227,7 +227,7 @@ class StateManager:
                         headers={"Authorization": f"Bearer {self.get_access_token()}"},
                     )
 
-                    if resp.status_code in [200]:
+                    if resp.is_success:
                         break
                     elif resp.status_code in [401, 403]:
                         access_token = await self.ui.send_token_expired()
@@ -238,7 +238,7 @@ class StateManager:
                         except Exception as e:
                             error = e
                         log.warning(f"Failed to upload new project: {error}")
-                        await self.send_message(f"Failed to upload new project. Retrying... \nError: {error}")
+                        await self.ui.send_message(f"Failed to upload new project. Retrying... \nError: {error}")
 
             except Exception as e:
                 error = e
