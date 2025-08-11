@@ -213,7 +213,6 @@ class StateManager:
         database_object = {
             "project_id": str(project.id),
             "project_name": project.name,
-            "created_at": project.created_at,
             "folder_name": project.folder_name,
         }
 
