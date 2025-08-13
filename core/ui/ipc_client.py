@@ -228,7 +228,7 @@ class IPCClientUI(UIBase):
             return
 
         if chunk is None:
-            chunk = "\n"  # end of stream
+            chunk = "<__stream_end__>"  # end of stream
 
         await self._send(
             MessageType.STREAM,
