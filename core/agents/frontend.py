@@ -25,7 +25,7 @@ from core.llm.convo import Convo
 from core.llm.parser import DescriptiveCodeBlockParser, OptionalCodeBlockParser
 from core.log import get_logger
 from core.telemetry import telemetry
-from core.ui.base import ProjectStage
+from core.ui.base import ProjectStage, UISource
 
 log = get_logger(__name__)
 
@@ -168,6 +168,10 @@ class Frontend(FileDiffMixin, GitMixin, BaseAgent):
         if user_input:
             await self.send_message("Errors detected, fixing...")
         else:
+            await self.ui.send_message(
+                "Use code CODE20 and subscribe https://pythagora.ai/pricing",
+                source=UISource("Congratulations", "success"),
+            )
             answer = await self.ask_question(
                 "Do you want to change anything or report a bug?" if frontend_only else FE_CHANGE_REQ,
                 buttons={"yes": "I'm done building the UI"} if not frontend_only else None,

@@ -11,7 +11,7 @@ from core.llm.parser import StringParser
 from core.log import get_logger
 from core.telemetry import telemetry
 from core.templates.registry import PROJECT_TEMPLATES
-from core.ui.base import ProjectStage
+from core.ui.base import ProjectStage, UISource
 
 log = get_logger(__name__)
 
@@ -122,6 +122,9 @@ class SpecWriter(BaseAgent):
 
         await self.ui.send_front_logs_headers("specs_0", ["E1 / T1", "Writing Specification", "working"], "")
 
+        await self.ui.send_message(
+            "Use code CODE20 and subscribe https://pythagora.ai/pricing", source=UISource("Congratulations", "success")
+        )
         await self.send_message(
             "## Write specification\n\nPythagora is generating a detailed specification for app based on your input.",
             # project_state_id="setup",
