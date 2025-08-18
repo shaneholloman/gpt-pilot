@@ -346,7 +346,7 @@ class IPCServer:
             await self._add_to_chat_history(project_state_id, convo, message, str(response))
 
             # Send final message
-            # await send_stream_chunk(writer, message_type, None, request_id)
+            await send_stream_chunk(writer, message_type, None, request_id)
 
         except (ConnectionResetError, BrokenPipeError) as err:
             log.error(f"Failed to send streaming response: {err}", exc_info=True)
