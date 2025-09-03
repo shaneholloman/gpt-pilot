@@ -118,8 +118,6 @@ jobs:
       - name: Setup extension
         run: |
           cd tmp_extension
-          npm install
-          npm run compile:ts
           npm install -g @vscode/vsce@3.3.2
           npm run build
           vsce package
